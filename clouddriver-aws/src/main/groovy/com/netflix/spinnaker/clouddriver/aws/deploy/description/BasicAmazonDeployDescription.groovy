@@ -128,7 +128,7 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
   Capacity capacity = new Capacity()
   Source source = new Source()
   Map<String, String> tags
-  Map<String, String> blockDeviceTags
+  Map<String, String> blockDevicesTags
 
   @Override
   Collection<String> getApplications() {

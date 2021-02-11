@@ -99,7 +99,7 @@ class AutoScalingWorker {
   private List<String> availabilityZones
   private List<AmazonBlockDevice> blockDevices
   private Map<String, String> tags
-  private Map<String, String> blockDeviceTags
+  private Map<String, String> blockDevicesTags
   private List<AmazonAsgLifecycleHook> lifecycleHooks
 
   /** Launch Templates properties **/
@@ -171,7 +171,7 @@ class AutoScalingWorker {
       instanceMonitoring: instanceMonitoring,
       blockDevices: blockDevices,
       securityGroups: securityGroups,
-      blockDeviceTags: blockDeviceTags)
+      blockDevicesTags: blockDevicesTags)
 
     LaunchTemplateSpecification launchTemplateSpecification = null
     String launchConfigName = null

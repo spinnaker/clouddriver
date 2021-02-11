@@ -239,15 +239,10 @@ public class LaunchTemplateService {
       Boolean requireIMDSv2,
       Boolean associateIPv6Address,
       Boolean unlimitedCpuCredits) {
-    LaunchTemplateTagSpecificationRequest lter = new LaunchTemplateTagSpecificationRequest();
-    lter.setResourceType(ResourceType.Volume.toString());
+    LaunchTemplateTagSpecificationRequest tagSpecificationRequest =
+        new LaunchTemplateTagSpecificationRequest();
+    tagSpecificationRequest.setResourceType(ResourceType.Volume.toString());
 
-    Map<String, String> blockDeviceTags = settings.getBlockDeviceTags();
-    List<Tag> tags = new ArrayList<>();
-    for (Map.Entry<String, String> entry : blockDeviceTags.entrySet()) {
-      tags.add(new Tag().withKey(entry.getKey()).withValue(entry.getValue()));
-    }
-    lter.setTags(tags);
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
             .withImageId(settings.getAmi())
@@ -256,13 +251,22 @@ public class LaunchTemplateService {
             .withRamDiskId(settings.getRamdiskId())
             .withEbsOptimized(settings.getEbsOptimized())
             .withKeyName(settings.getKeyPair())
-            .withTagSpecifications(lter)
             .withIamInstanceProfile(
                 new LaunchTemplateIamInstanceProfileSpecificationRequest()
                     .withName(settings.getIamRole()))
             .withMonitoring(
                 new LaunchTemplatesMonitoringRequest()
                     .withEnabled(settings.getInstanceMonitoring()));
+
+    if (!settings.getBlockDevicesTags().isEmpty()) {
+      Map<String, String> blockDevicesTags = settings.getBlockDevicesTags();
+      List<Tag> tags = new ArrayList<>();
+      for (Map.Entry<String, String> entry : blockDevicesTags.entrySet()) {
+        tags.add(new Tag().withKey(entry.getKey()).withValue(entry.getValue()));
+      }
+      tagSpecificationRequest.setTags(tags);
+      request.withTagSpecifications(tagSpecificationRequest);
+    }
 
     setUserData(
         request,
