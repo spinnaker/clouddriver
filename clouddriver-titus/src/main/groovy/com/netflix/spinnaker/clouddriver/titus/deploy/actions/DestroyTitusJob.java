@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient;
-import com.netflix.spinnaker.clouddriver.titus.client.model.Job;
 import com.netflix.spinnaker.clouddriver.titus.client.model.TerminateJobRequest;
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.DestroyTitusJobDescription;
@@ -70,12 +69,11 @@ public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJ
         titusClientProvider.getTitusClient(
             (NetflixTitusCredentials) accountCredentials, command.description.getRegion());
 
-    Job job = fetchJob(titusClient, command.description.getJobId());
-    if (job != null) {
+    try {
       titusClient.terminateJob(
           (TerminateJobRequest)
               new TerminateJobRequest()
-                  .withJobId(job.getId())
+                  .withJobId(command.description.getJobId())
                   .withUser(command.description.getUser()));
 
       saga.log(
@@ -83,19 +81,15 @@ public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJ
           command.description.getAccount(),
           command.description.getRegion(),
           command.description.getJobId());
-    } else {
-      saga.log("No titus job found");
-    }
 
-    return new Result();
-  }
-
-  private Job fetchJob(TitusClient titusClient, String jobId) {
-    try {
-      return titusClient.getJobAndAllRunningAndCompletedTasks(jobId);
-    } catch (StatusRuntimeException e) {
-      if (e.getStatus().getCode() == Status.NOT_FOUND.getCode()) {
-        return null;
+      return new Result();
+    } catch (Exception e) {
+      if (e instanceof StatusRuntimeException) {
+        StatusRuntimeException statusRuntimeException = (StatusRuntimeException) e;
+        if (statusRuntimeException.getStatus().getCode() == Status.NOT_FOUND.getCode()) {
+          saga.log("No titus job found");
+          return new Result();
+        }
       }
 
       throw e;

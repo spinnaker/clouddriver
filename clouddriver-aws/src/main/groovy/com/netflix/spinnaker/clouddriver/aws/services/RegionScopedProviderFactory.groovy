@@ -17,6 +17,8 @@ package com.netflix.spinnaker.clouddriver.aws.services
 
 import com.amazonaws.services.autoscaling.AmazonAutoScaling
 import com.amazonaws.services.ec2.AmazonEC2
+import com.netflix.spinnaker.clouddriver.aws.deploy.AmazonResourceTagger
+import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProviderAggregator
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.clouddriver.aws.deploy.AWSServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.aws.deploy.AsgLifecycleHookWorker
@@ -24,7 +26,6 @@ import com.netflix.spinnaker.clouddriver.aws.deploy.AsgReferenceCopier
 import com.netflix.spinnaker.clouddriver.aws.deploy.DefaultLaunchConfigurationBuilder
 import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties
-import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetAnalyzer
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
@@ -41,7 +42,7 @@ class RegionScopedProviderFactory {
   AmazonClientProvider amazonClientProvider
 
   @Autowired
-  List<UserDataProvider> userDataProviders
+  UserDataProviderAggregator userDataProviderAggregator
 
   @Autowired
   LocalFileUserDataProperties localFileUserDataProperties
@@ -51,6 +52,9 @@ class RegionScopedProviderFactory {
 
   @Autowired
   List<ClusterProvider> clusterProviders
+
+  @Autowired(required = false)
+  Collection<AmazonResourceTagger> amazonResourceTaggers
 
   RegionScopedProvider forRegion(NetflixAmazonCredentials amazonCredentials, String region) {
     new RegionScopedProvider(amazonCredentials, region)
@@ -111,11 +115,13 @@ class RegionScopedProviderFactory {
     }
 
     LaunchConfigurationBuilder getLaunchConfigurationBuilder() {
-      new DefaultLaunchConfigurationBuilder(getAutoScaling(), getAsgService(), getSecurityGroupService(), userDataProviders, localFileUserDataProperties, deployDefaults)
+      new DefaultLaunchConfigurationBuilder(getAutoScaling(), getAsgService(), getSecurityGroupService(), userDataProviderAggregator, localFileUserDataProperties, deployDefaults)
     }
 
     LaunchTemplateService getLaunchTemplateService() {
-      return new LaunchTemplateService(amazonEC2, userDataProviders, localFileUserDataProperties)
+      return new LaunchTemplateService(
+        amazonEC2, userDataProviderAggregator, localFileUserDataProperties, amazonResourceTaggers
+      )
     }
 
     AwsConfiguration.DeployDefaults getDeploymentDefaults() {
