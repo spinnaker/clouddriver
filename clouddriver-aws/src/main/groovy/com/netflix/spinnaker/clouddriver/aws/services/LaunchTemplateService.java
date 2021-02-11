@@ -22,6 +22,7 @@ import static java.util.Comparator.comparing;
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.*;
+import com.netflix.spinnaker.clouddriver.aws.deploy.AmazonResourceTagger;
 import com.netflix.spinnaker.clouddriver.aws.deploy.AutoScalingWorker.AsgConfiguration;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyServerGroupLaunchTemplateDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties;
@@ -33,16 +34,20 @@ import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride;
 import com.netflix.spinnaker.kork.core.RetrySupport;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 
 @Slf4j
 public class LaunchTemplateService {
   private final AmazonEC2 ec2;
   private final UserDataProviderAggregator userDataProviderAggregator;
   private final LocalFileUserDataProperties localFileUserDataProperties;
+  private final Collection<AmazonResourceTagger> amazonResourceTaggers;
   private final RetrySupport retrySupport = new RetrySupport();
 
   /**
@@ -67,10 +72,12 @@ public class LaunchTemplateService {
   public LaunchTemplateService(
       AmazonEC2 ec2,
       UserDataProviderAggregator userDataProviderAggregator,
-      LocalFileUserDataProperties localFileUserDataProperties) {
+      LocalFileUserDataProperties localFileUserDataProperties,
+      Collection<AmazonResourceTagger> amazonResourceTaggers) {
     this.ec2 = ec2;
     this.userDataProviderAggregator = userDataProviderAggregator;
     this.localFileUserDataProperties = localFileUserDataProperties;
+    this.amazonResourceTaggers = amazonResourceTaggers;
   }
 
   public LaunchTemplateVersion modifyLaunchTemplate(
@@ -152,6 +159,12 @@ public class LaunchTemplateService {
             .withIamInstanceProfile(
                 new LaunchTemplateIamInstanceProfileSpecificationRequest()
                     .withName(description.getIamRole()));
+
+    Optional<LaunchTemplateTagSpecificationRequest> tagSpecification =
+        tagSpecification(amazonResourceTaggers, description.getAsgName());
+    if (tagSpecification.isPresent()) {
+      request = request.withTagSpecifications(tagSpecification.get());
+    }
 
     if (description.getEbsOptimized() != null) {
       request.setEbsOptimized(description.getEbsOptimized());
@@ -253,6 +266,12 @@ public class LaunchTemplateService {
                 new LaunchTemplatesMonitoringRequest()
                     .withEnabled(asgConfig.getInstanceMonitoring()));
 
+    Optional<LaunchTemplateTagSpecificationRequest> tagSpecification =
+        tagSpecification(amazonResourceTaggers, asgName);
+    if (tagSpecification.isPresent()) {
+      request = request.withTagSpecifications(tagSpecification.get());
+    }
+
     if (asgConfig.getPlacement() != null) {
       request =
           request.withPlacement(
@@ -332,7 +351,7 @@ public class LaunchTemplateService {
    */
   private void setSpotInstanceMarketOptions(
       RequestLaunchTemplateData request, String maxSpotPrice) {
-    if (maxSpotPrice != null) {
+    if (maxSpotPrice != null && StringUtils.isNotEmpty(maxSpotPrice.trim())) {
       request.setInstanceMarketOptions(
           new LaunchTemplateInstanceMarketOptionsRequest()
               .withMarketType("spot")
@@ -412,6 +431,31 @@ public class LaunchTemplateService {
     if (blockDevice.getEncrypted() != null) {
       blockDeviceRequest.setEncrypted(blockDevice.getEncrypted());
     }
+
+    if (blockDevice.getKmsKeyId() != null) {
+      blockDeviceRequest.setKmsKeyId(blockDevice.getKmsKeyId());
+    }
     return blockDeviceRequest;
+  }
+
+  @NotNull
+  private Optional<LaunchTemplateTagSpecificationRequest> tagSpecification(
+      Collection<AmazonResourceTagger> amazonResourceTaggers, @NotNull String serverGroupName) {
+    if (amazonResourceTaggers != null && !amazonResourceTaggers.isEmpty()) {
+      List<Tag> volumeTags =
+          amazonResourceTaggers.stream()
+              .flatMap(t -> t.volumeTags(serverGroupName).stream())
+              .map(t -> new Tag(t.getKey(), t.getValue()))
+              .collect(Collectors.toList());
+
+      if (!volumeTags.isEmpty()) {
+        return Optional.of(
+            new LaunchTemplateTagSpecificationRequest()
+                .withResourceType("volume")
+                .withTags(volumeTags));
+      }
+    }
+
+    return Optional.empty();
   }
 }
