@@ -30,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCach
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch.Op;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -181,6 +182,11 @@ public class KubernetesServiceHandler extends KubernetesHandler implements CanLo
   @Override
   @ParametersAreNonnullByDefault
   public void attach(KubernetesManifest loadBalancer, KubernetesManifest target) {
+    // avoid loops
+    if (KubernetesCoordinates.fromManifest(loadBalancer)
+        .equals(KubernetesCoordinates.fromManifest(target))) {
+      return;
+    }
     Map<String, String> labels = target.getSpecTemplateLabels().orElse(target.getLabels());
     ImmutableMap<String, String> selector = getSelector(loadBalancer);
     if (selector.isEmpty()) {
