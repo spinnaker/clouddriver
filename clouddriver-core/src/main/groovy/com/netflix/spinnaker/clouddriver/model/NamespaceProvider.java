@@ -26,8 +26,7 @@ public interface NamespaceProvider {
    * Looks up all of the namespaces for a particular account. Keyed on account name.
    *
    * @param account name
-   * @return set of clusters with load balancers and server groups populated, or an empty set if
-   *     none exist
+   * @return map of namespace-names to namespaces objects.
    */
   @Empty
   Map<String, Object> getNamespaces(String account);
