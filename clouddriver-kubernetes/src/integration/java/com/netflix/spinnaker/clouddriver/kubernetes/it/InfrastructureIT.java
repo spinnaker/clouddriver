@@ -28,22 +28,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 public class InfrastructureIT extends BaseTest {
-
-  private static String ns;
-  private static String deploymentName;
-  private static String serviceName;
-
-  @BeforeAll
-  public static void setUpAll() {
-    ns = kubeCluster.getAvailableNamespace();
-    deploymentName = "clusternginx";
-    serviceName = "lbnginx";
-  }
 
   @DisplayName(
       ".\n===\n"
@@ -51,12 +39,15 @@ public class InfrastructureIT extends BaseTest {
           + "When sending get clusters request\n"
           + "Then both deployments should be returned\n===")
   @Test
-  public void shouldGetClusters() throws InterruptedException, IOException {
+  public void shouldGetClusters() throws InterruptedException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, APP1_NAME, kubeCluster);
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, APP1_NAME);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -89,12 +80,15 @@ public class InfrastructureIT extends BaseTest {
           + "When sending get clusters request for one account\n"
           + "Then only the desired account deployment should be returned\n===")
   @Test
-  public void shouldGetClustersByAccount() throws InterruptedException, IOException {
+  public void shouldGetClustersByAccount() throws InterruptedException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, APP1_NAME, kubeCluster);
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, APP1_NAME);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -138,12 +132,15 @@ public class InfrastructureIT extends BaseTest {
           + "When sending get clusters request for the deployment name and account\n"
           + "Then only the desired deployment should be returned\n===")
   @Test
-  public void shouldGetClustersByAccountAndName() throws InterruptedException, IOException {
+  public void shouldGetClustersByAccountAndName() throws InterruptedException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP1_NAME, kubeCluster);
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP1_NAME);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -194,12 +191,15 @@ public class InfrastructureIT extends BaseTest {
           + "When sending get clusters request for the deployment name, account and type\n"
           + "Then only the desired deployment should be returned\n===")
   @Test
-  public void shouldGetClustersByAccountNameAndType() throws InterruptedException, IOException {
+  public void shouldGetClustersByAccountNameAndType() throws InterruptedException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP1_NAME, kubeCluster);
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP1_NAME);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -242,26 +242,27 @@ public class InfrastructureIT extends BaseTest {
           + "When sending get server groups request\n"
           + "Then two server groups should be returned\n===")
   @Test
-  public void shouldGetServerGroups() throws InterruptedException, IOException {
+  public void shouldGetServerGroups() throws InterruptedException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
         baseUrl(),
         ACCOUNT1_NAME,
         ns,
         "deployment",
         deploymentName,
         APP1_NAME,
-        "index.docker.io/library/nginx:1.14.0",
-        kubeCluster);
-    KubeTestUtils.deployIfMissing(
+        "index.docker.io/library/nginx:1.14.0");
+    KubeTestUtils.deployAndWaitStable(
         baseUrl(),
         ACCOUNT1_NAME,
         ns,
         "deployment",
         deploymentName,
         APP1_NAME,
-        "index.docker.io/library/nginx:1.15.0",
-        kubeCluster);
+        "index.docker.io/library/nginx:1.15.0");
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -296,12 +297,15 @@ public class InfrastructureIT extends BaseTest {
           + "When sending get server groups request by the two application\n"
           + "Then two server groups should be returned\n===")
   @Test
-  public void shouldGetServerGroupsForApplications() throws InterruptedException, IOException {
+  public void shouldGetServerGroupsForApplications() throws InterruptedException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP2_NAME, kubeCluster);
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP2_NAME);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -336,24 +340,25 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetServerGroupByMoniker() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
         baseUrl(),
         ACCOUNT1_NAME,
         ns,
         "deployment",
         deploymentName,
         APP1_NAME,
-        "index.docker.io/library/nginx:1.14.0",
-        kubeCluster);
-    KubeTestUtils.deployIfMissing(
+        "index.docker.io/library/nginx:1.14.0");
+    KubeTestUtils.deployAndWaitStable(
         baseUrl(),
         ACCOUNT1_NAME,
         ns,
         "deployment",
         deploymentName,
         APP1_NAME,
-        "index.docker.io/library/nginx:1.15.0",
-        kubeCluster);
+        "index.docker.io/library/nginx:1.15.0");
 
     List<String> rsNames =
         Splitter.on(" ")
@@ -403,24 +408,25 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetServerGroupByApplication() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
         baseUrl(),
         ACCOUNT1_NAME,
         ns,
         "deployment",
         deploymentName,
         APP1_NAME,
-        "index.docker.io/library/nginx:1.14.0",
-        kubeCluster);
-    KubeTestUtils.deployIfMissing(
+        "index.docker.io/library/nginx:1.14.0");
+    KubeTestUtils.deployAndWaitStable(
         baseUrl(),
         ACCOUNT1_NAME,
         ns,
         "deployment",
         deploymentName,
         APP1_NAME,
-        "index.docker.io/library/nginx:1.15.0",
-        kubeCluster);
+        "index.docker.io/library/nginx:1.15.0");
 
     List<String> rsNames =
         Splitter.on(" ")
@@ -472,6 +478,9 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetInstanceByAccountRegionId() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
             .withValue("metadata.name", deploymentName)
@@ -530,8 +539,11 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetInstanceLogs() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
 
     List<String> allPodNames =
         Splitter.on(" ")
@@ -582,12 +594,15 @@ public class InfrastructureIT extends BaseTest {
           + "When sending get load balancers request\n"
           + "Then both services should be returned\n===")
   @Test
-  public void shouldGetLoadBalancers() throws InterruptedException, IOException {
+  public void shouldGetLoadBalancers() throws InterruptedException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, APP1_NAME, kubeCluster);
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT2_NAME, "default", "service", serviceName, APP1_NAME, kubeCluster);
+    String ns = kubeCluster.getAvailableNamespace();
+    String serviceName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, APP1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT2_NAME, "default", "service", serviceName, APP1_NAME);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -636,10 +651,12 @@ public class InfrastructureIT extends BaseTest {
   public void shouldGetLoadBalancerByAccountRegionAndName()
       throws InterruptedException, IOException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, APP1_NAME, kubeCluster);
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "service", "other", APP1_NAME, kubeCluster);
+    String ns = kubeCluster.getAvailableNamespace();
+    String serviceName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, APP1_NAME);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), ACCOUNT1_NAME, ns, "service", "other", APP1_NAME);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -692,10 +709,13 @@ public class InfrastructureIT extends BaseTest {
           + "When sending get manifest by account, location and name request\n"
           + "Then only the desired manifest should be returned\n===")
   @Test
-  public void shouldGetManifestByAccountLocationName() throws InterruptedException, IOException {
+  public void shouldGetManifestByAccountLocationName() throws InterruptedException {
     // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "infranginx";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -741,6 +761,8 @@ public class InfrastructureIT extends BaseTest {
   //  @Test
   public void shouldGetRawResources() throws InterruptedException {
     // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    System.out.println("> Using namespace " + ns);
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
             .withValue("metadata.name", "myconfig")
