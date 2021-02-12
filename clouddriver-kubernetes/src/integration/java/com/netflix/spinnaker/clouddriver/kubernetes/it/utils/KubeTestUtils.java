@@ -204,6 +204,8 @@ public abstract class KubeTestUtils {
     System.out.println(
         "< Deploy task completed in " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
 
+    Arrays.sort(objectNames);
+    Collections.sort(deployedObjectNames);
     assertEquals(
         Arrays.asList(objectNames),
         deployedObjectNames,
