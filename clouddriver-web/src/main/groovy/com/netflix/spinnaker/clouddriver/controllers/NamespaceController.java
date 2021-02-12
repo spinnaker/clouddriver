@@ -32,8 +32,7 @@ public class NamespaceController {
 
   @Autowired List<NamespaceProvider> namespaceProviders;
 
-  @PreAuthorize(
-      "hasPermission(#application, 'APPLICATION', 'READ') && hasPermission(#account, 'ACCOUNT', 'READ')")
+  @PreAuthorize("hasPermission(#account, 'ACCOUNT', 'READ')")
   @RequestMapping(value = "/{provider}/{account}", method = RequestMethod.GET)
   public Map getNamespaces(String providerId, String account) {
     NamespaceProvider provider =
