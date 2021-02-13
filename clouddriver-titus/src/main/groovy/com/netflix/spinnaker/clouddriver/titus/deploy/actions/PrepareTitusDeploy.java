@@ -46,6 +46,7 @@ import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.Availabil
 import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.ContainerHealthProvider;
 import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.HourlyTimeWindow;
 import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.RatePercentagePerInterval;
+import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.SelfManaged;
 import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.TimeWindow;
 import com.netflix.spinnaker.clouddriver.titus.deploy.actions.SubmitTitusJob.SubmitTitusJobCommand;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
@@ -219,7 +220,8 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
       // "systemDefault" should be treated as "no migrationPolicy"
       if (description.getMigrationPolicy() == null
           || "systemDefault".equals(description.getMigrationPolicy().getType())) {
-        description.setDisruptionBudget(getDefaultDisruptionBudget(front50App));
+        description.setDisruptionBudget(
+            getDefaultDisruptionBudget(front50App, description.getJobType()));
       }
     }
   }
@@ -367,17 +369,23 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
   }
 
   @Nonnull
-  private DisruptionBudget getDefaultDisruptionBudget(LoadFront50App.Front50App front50App) {
+  private DisruptionBudget getDefaultDisruptionBudget(
+      LoadFront50App.Front50App front50App, String jobType) {
     DisruptionBudget budget = new DisruptionBudget();
-    budget.setAvailabilityPercentageLimit(new AvailabilityPercentageLimit(95));
-    budget.setRatePercentagePerInterval(new RatePercentagePerInterval(600_000, 5));
-    budget.setTimeWindows(Collections.singletonList(DEFAULT_SYSTEM_TIME_WINDOW));
+    if (JobType.BATCH.isEqual(jobType)) {
+      SelfManaged selfManaged = new SelfManaged();
+      selfManaged.setRelocationTimeMs(30000);
+      budget.setSelfManaged(selfManaged);
+    } else {
+      budget.setAvailabilityPercentageLimit(new AvailabilityPercentageLimit(95));
+      budget.setRatePercentagePerInterval(new RatePercentagePerInterval(600_000, 5));
+      budget.setTimeWindows(Collections.singletonList(DEFAULT_SYSTEM_TIME_WINDOW));
 
-    if (front50App != null && front50App.isPlatformHealthOnly()) {
-      budget.setContainerHealthProviders(
-          Collections.singletonList(new ContainerHealthProvider("eureka")));
+      if (front50App != null && front50App.isPlatformHealthOnly()) {
+        budget.setContainerHealthProviders(
+            Collections.singletonList(new ContainerHealthProvider("eureka")));
+      }
     }
-
     return budget;
   }
 
