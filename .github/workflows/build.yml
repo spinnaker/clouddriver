@@ -8,8 +8,6 @@ on:
 
 env:
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Xmx6g -Xms6g
-  TESTCONTAINERS_RYUK_DISABLED: true
-  TESTCONTAINERS_CHECKS_DISABLE: true
 
 jobs:
   branch-build:
