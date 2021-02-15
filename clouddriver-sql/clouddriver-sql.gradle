@@ -33,7 +33,7 @@ dependencies {
   testImplementation project(":clouddriver-core-tck")
 
   testImplementation "com.netflix.spinnaker.kork:kork-sql-test"
-  testImplementation "org.testcontainers:mysql:1.15.1"
+  testImplementation "org.testcontainers:mysql"
   testImplementation "mysql:mysql-connector-java"
 
   testImplementation "cglib:cglib-nodep"

@@ -60,7 +60,7 @@ dependencies {
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
-  testImplementation "org.testcontainers:mysql:1.15.1"
+  testImplementation "org.testcontainers:mysql"
   testImplementation "mysql:mysql-connector-java"
 }
 

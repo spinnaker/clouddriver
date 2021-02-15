@@ -59,6 +59,7 @@ subprojects {
 
     dependencies {
       implementation platform("com.netflix.spinnaker.kork:kork-bom:$korkVersion")
+      testImplementation platform("org.testcontainers:testcontainers-bom:1.15.1")
 
       annotationProcessor platform("com.netflix.spinnaker.kork:kork-bom:$korkVersion")
       annotationProcessor "org.projectlombok:lombok"
