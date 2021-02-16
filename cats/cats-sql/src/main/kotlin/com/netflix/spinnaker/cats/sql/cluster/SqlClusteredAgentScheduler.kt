@@ -175,6 +175,9 @@ class SqlClusteredAgentScheduler(
       .filterNot { disabledAgents.contains(it.key) }
       .toMutableMap()
 
+    log.debug("Agents running: {}, agents disabled: {}, remaining agents: {}",
+      activeAgents.size, disabledAgents.size, candidateAgentLocks.size)
+
     withPool(POOL_NAME) {
       val existingLocks = jooq.select(field("agent_name"), field("lock_expiry"))
         .from(table(lockTable))
@@ -207,10 +210,16 @@ class SqlClusteredAgentScheduler(
       }
     }
 
+    log.debug("Agents to run: {}, max agents to run: {}", candidateAgentLocks.size, availableAgents)
+
     val trimmedCandidates = mutableMapOf<String, AgentExecutionAction>()
     candidateAgentLocks
       .forEach { k, v ->
         if (trimmedCandidates.size >= availableAgents) {
+          log.warn(
+            "Dropping caching agents! Wanted to run {} agents, but a max of {} was configured and there are " +
+              "already {} currently running. Consider increasing sql.agent.max-concurrent-agents",
+          candidateAgentLocks.size, maxConcurrentAgents, skip)
           return@forEach
         }
         trimmedCandidates[k] = v

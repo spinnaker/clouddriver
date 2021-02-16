@@ -84,6 +84,8 @@ kubernetes:
       metrics: false
       kubeconfigFile: ${KUBECONFIGS_HOME}/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
 
+logging.level.com.netflix.spinnaker.cats.sql.cluster: DEBUG
+
 sql:
   enabled: true
   taskRepository:
