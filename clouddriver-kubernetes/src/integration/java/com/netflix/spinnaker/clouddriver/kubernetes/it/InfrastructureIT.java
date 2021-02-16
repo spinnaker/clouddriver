@@ -43,17 +43,18 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getclusters";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, appName);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, APP1_NAME);
+        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, appName);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
           System.out.println("> Sending get clusters request");
-          Response resp = get(baseUrl() + "/applications/" + APP1_NAME + "/clusters");
+          Response resp = get(baseUrl() + "/applications/" + appName + "/clusters");
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -70,7 +71,7 @@ public class InfrastructureIT extends BaseTest {
         "Waited 1 minute for 'deployment "
             + deploymentName
             + "' cluster to return from GET /applications/"
-            + APP1_NAME
+            + appName
             + "/clusters");
   }
 
@@ -84,18 +85,19 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getclustersbyaccount";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, appName);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, APP1_NAME);
+        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, appName);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
           System.out.println("> Sending get clusters request");
           Response resp =
-              get(baseUrl() + "/applications/" + APP1_NAME + "/clusters/" + ACCOUNT1_NAME);
+              get(baseUrl() + "/applications/" + appName + "/clusters/" + ACCOUNT1_NAME);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -121,7 +123,7 @@ public class InfrastructureIT extends BaseTest {
         "Waited 1 minute for 'deployment "
             + deploymentName
             + "' cluster to return from GET /applications/"
-            + APP1_NAME
+            + appName
             + "/clusters/"
             + ACCOUNT1_NAME);
   }
@@ -136,11 +138,11 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getclustersbyaccountandname";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
-    KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP1_NAME);
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, appName);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", appName);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -150,7 +152,7 @@ public class InfrastructureIT extends BaseTest {
               get(
                   baseUrl()
                       + "/applications/"
-                      + APP1_NAME
+                      + appName
                       + "/clusters/"
                       + ACCOUNT1_NAME
                       + "/deployment "
@@ -171,7 +173,7 @@ public class InfrastructureIT extends BaseTest {
                           + "' && it.name == 'deployment "
                           + deploymentName
                           + "' && it.application == '"
-                          + APP1_NAME
+                          + appName
                           + "'}");
           return map != null && !map.isEmpty() && resp.jsonPath().getList("$").size() == 1;
         },
@@ -180,7 +182,7 @@ public class InfrastructureIT extends BaseTest {
         "Waited 1 minute for 'deployment "
             + deploymentName
             + "' cluster to return from GET /applications/"
-            + APP1_NAME
+            + appName
             + "/clusters/"
             + ACCOUNT1_NAME);
   }
@@ -195,11 +197,11 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getclustersbyaccountnametype";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
-    KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP1_NAME);
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, appName);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", appName);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -209,7 +211,7 @@ public class InfrastructureIT extends BaseTest {
               get(
                   baseUrl()
                       + "/applications/"
-                      + APP1_NAME
+                      + appName
                       + "/clusters/"
                       + ACCOUNT1_NAME
                       + "/deployment "
@@ -224,14 +226,14 @@ public class InfrastructureIT extends BaseTest {
           resp.then().statusCode(200);
           return resp.jsonPath().getString("accountName").equals(ACCOUNT1_NAME)
               && resp.jsonPath().getString("name").equals("deployment " + deploymentName)
-              && resp.jsonPath().getString("application").equals(APP1_NAME);
+              && resp.jsonPath().getString("application").equals(appName);
         },
         1,
         TimeUnit.MINUTES,
         "Waited 1 minute for 'deployment "
             + deploymentName
             + "' cluster to return from GET /applications/"
-            + APP1_NAME
+            + appName
             + "/clusters/"
             + ACCOUNT1_NAME);
   }
@@ -246,6 +248,7 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getservergroups";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
         baseUrl(),
@@ -253,7 +256,7 @@ public class InfrastructureIT extends BaseTest {
         ns,
         "deployment",
         deploymentName,
-        APP1_NAME,
+        appName,
         "index.docker.io/library/alpine:3.11");
     KubeTestUtils.deployAndWaitStable(
         baseUrl(),
@@ -261,15 +264,14 @@ public class InfrastructureIT extends BaseTest {
         ns,
         "deployment",
         deploymentName,
-        APP1_NAME,
+        appName,
         "index.docker.io/library/alpine:3.12");
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
           System.out.println("> Sending get server groups request");
-          Response resp =
-              get(baseUrl() + "/applications/" + APP1_NAME + "/serverGroups?expand=true");
+          Response resp = get(baseUrl() + "/applications/" + appName + "/serverGroups?expand=true");
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -301,9 +303,10 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getservergroupsapp";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, appName);
     KubeTestUtils.deployAndWaitStable(
         baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP2_NAME);
 
@@ -312,7 +315,7 @@ public class InfrastructureIT extends BaseTest {
           // ------------------------- when --------------------------
           System.out.println("> Sending get server groups request");
           Response resp =
-              get(baseUrl() + "/serverGroups?applications=" + APP1_NAME + "," + APP2_NAME);
+              get(baseUrl() + "/serverGroups?applications=" + appName + "," + APP2_NAME);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -342,6 +345,7 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getservergroupsmoniker";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
         baseUrl(),
@@ -349,7 +353,7 @@ public class InfrastructureIT extends BaseTest {
         ns,
         "deployment",
         deploymentName,
-        APP1_NAME,
+        appName,
         "index.docker.io/library/alpine:3.11");
     KubeTestUtils.deployAndWaitStable(
         baseUrl(),
@@ -357,7 +361,7 @@ public class InfrastructureIT extends BaseTest {
         ns,
         "deployment",
         deploymentName,
-        APP1_NAME,
+        appName,
         "index.docker.io/library/alpine:3.12");
 
     List<String> rsNames =
@@ -410,6 +414,7 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getservergroupbyapp";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
         baseUrl(),
@@ -417,7 +422,7 @@ public class InfrastructureIT extends BaseTest {
         ns,
         "deployment",
         deploymentName,
-        APP1_NAME,
+        appName,
         "index.docker.io/library/alpine:3.11");
     KubeTestUtils.deployAndWaitStable(
         baseUrl(),
@@ -425,7 +430,7 @@ public class InfrastructureIT extends BaseTest {
         ns,
         "deployment",
         deploymentName,
-        APP1_NAME,
+        appName,
         "index.docker.io/library/alpine:3.12");
 
     List<String> rsNames =
@@ -445,7 +450,7 @@ public class InfrastructureIT extends BaseTest {
           String url =
               baseUrl()
                   + "/applications/"
-                  + APP1_NAME
+                  + appName
                   + "/serverGroups/"
                   + ACCOUNT1_NAME
                   + "/"
@@ -480,6 +485,7 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getinstancebyaccount";
     System.out.println("> Using namespace " + ns);
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
@@ -490,7 +496,7 @@ public class InfrastructureIT extends BaseTest {
     List<Map<String, Object>> body =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
             .withValue("deployManifest.account", ACCOUNT1_NAME)
-            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + deploymentName);
@@ -541,9 +547,10 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getinstancelogs";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, appName);
 
     List<String> allPodNames =
         Splitter.on(" ")
@@ -598,17 +605,18 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String serviceName = "inframyservice";
+    String appName = "getloadbalancers";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, APP1_NAME);
+        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, appName);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT2_NAME, "default", "service", serviceName, APP1_NAME);
+        baseUrl(), ACCOUNT2_NAME, "default", "service", serviceName, appName);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
           System.out.println("> Sending get load balancers request");
-          Response resp = get(baseUrl() + "/applications/" + APP1_NAME + "/loadBalancers");
+          Response resp = get(baseUrl() + "/applications/" + appName + "/loadBalancers");
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -633,12 +641,12 @@ public class InfrastructureIT extends BaseTest {
                           + "' && it.namespace == 'default'}");
           return lbAcc1 != null && !lbAcc1.isEmpty() && lbAcc2 != null && !lbAcc2.isEmpty();
         },
-        1,
+        2,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'service "
+        "Waited 2 minutes for 'service "
             + serviceName
             + "' to return from GET /applications/"
-            + APP1_NAME
+            + appName
             + "/loadBalancers");
   }
 
@@ -653,10 +661,11 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String serviceName = "inframyservice";
+    String appName = "getloadbalancersbyparams";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, APP1_NAME);
-    KubeTestUtils.deployAndWaitStable(baseUrl(), ACCOUNT1_NAME, ns, "service", "other", APP1_NAME);
+        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, appName);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), ACCOUNT1_NAME, ns, "service", "other", appName);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -688,13 +697,13 @@ public class InfrastructureIT extends BaseTest {
                           + "' && it.name == 'service "
                           + serviceName
                           + "' && it.moniker.app == '"
-                          + APP1_NAME
+                          + appName
                           + "'}");
           return list != null && !list.isEmpty();
         },
-        1,
+        2,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'service "
+        "Waited 2 minutes for 'service "
             + serviceName
             + "' to return from GET /kubernetes/loadBalancers/"
             + ACCOUNT1_NAME
@@ -713,9 +722,10 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     String deploymentName = "inframyapp";
+    String appName = "getmanifest";
     System.out.println("> Using namespace " + ns);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME);
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, appName);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -763,6 +773,7 @@ public class InfrastructureIT extends BaseTest {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     System.out.println("> Using namespace " + ns);
+    String appName = "getrawresources";
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
             .withValue("metadata.name", "myconfig")
@@ -771,7 +782,7 @@ public class InfrastructureIT extends BaseTest {
     List<Map<String, Object>> body =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
             .withValue("deployManifest.account", ACCOUNT1_NAME)
-            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "configMap myconfig-v000");
@@ -780,7 +791,7 @@ public class InfrastructureIT extends BaseTest {
         () -> {
           // ------------------------- when --------------------------
           System.out.println("> Sending get rawResources request");
-          Response resp = get(baseUrl() + "/applications/" + APP1_NAME + "/rawResources");
+          Response resp = get(baseUrl() + "/applications/" + appName + "/rawResources");
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -793,8 +804,6 @@ public class InfrastructureIT extends BaseTest {
         },
         1,
         TimeUnit.MINUTES,
-        "Waited 1 minute for GET /applications/"
-            + APP1_NAME
-            + "/rawResources to return valid data");
+        "Waited 1 minute for GET /applications/" + appName + "/rawResources to return valid data");
   }
 }
