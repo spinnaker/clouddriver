@@ -33,6 +33,8 @@ import org.junit.jupiter.api.Test;
 
 public class InfrastructureIT extends BaseTest {
 
+  private static final int CACHE_TIMEOUT_MIN = 5;
+
   @DisplayName(
       ".\n===\n"
           + "Given a kubernetes deployment made by spinnaker to two accounts\n"
@@ -66,9 +68,11 @@ public class InfrastructureIT extends BaseTest {
               && clustersAcc2 != null
               && clustersAcc2.contains("deployment " + deploymentName);
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'deployment "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
             + deploymentName
             + "' cluster to return from GET /applications/"
             + appName
@@ -118,9 +122,11 @@ public class InfrastructureIT extends BaseTest {
           return (account1Map != null && !account1Map.isEmpty())
               && (account2Map == null || account2Map.isEmpty());
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'deployment "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
             + deploymentName
             + "' cluster to return from GET /applications/"
             + appName
@@ -177,9 +183,11 @@ public class InfrastructureIT extends BaseTest {
                           + "'}");
           return map != null && !map.isEmpty() && resp.jsonPath().getList("$").size() == 1;
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'deployment "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
             + deploymentName
             + "' cluster to return from GET /applications/"
             + appName
@@ -228,9 +236,11 @@ public class InfrastructureIT extends BaseTest {
               && resp.jsonPath().getString("name").equals("deployment " + deploymentName)
               && resp.jsonPath().getString("application").equals(appName);
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'deployment "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
             + deploymentName
             + "' cluster to return from GET /applications/"
             + appName
@@ -288,9 +298,11 @@ public class InfrastructureIT extends BaseTest {
                           + "'}");
           return list != null && list.size() > 1;
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for at least two server groups to be returned from GET /applications/{app}/serverGroups");
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for at least two server groups to be returned from GET /applications/{app}/serverGroups");
   }
 
   @DisplayName(
@@ -330,9 +342,11 @@ public class InfrastructureIT extends BaseTest {
                           + "'}");
           return list != null && list.size() > 1;
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for at least two server groups to be returned from GET /serverGroups?applications");
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for at least two server groups to be returned from GET /serverGroups?applications");
   }
 
   @DisplayName(
@@ -397,9 +411,11 @@ public class InfrastructureIT extends BaseTest {
           resp.then().statusCode(200);
           return resp.jsonPath().getString("name").equals("replicaSet " + rsNames.get(0));
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'replicaSet "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'replicaSet "
             + rsNames.get(0)
             + "' to return from GET /serverGroups/{account}/{region}/{name}");
   }
@@ -468,9 +484,11 @@ public class InfrastructureIT extends BaseTest {
           resp.then().statusCode(200);
           return resp.jsonPath().getString("name").equals("replicaSet " + rsNames.get(0));
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'replicaSet "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'replicaSet "
             + rsNames.get(0)
             + "' to return from GET /applications/{application}/serverGroups/{account}/{region}/{name}/");
   }
@@ -530,9 +548,11 @@ public class InfrastructureIT extends BaseTest {
           resp.then().statusCode(200);
           return resp.jsonPath().getString("displayName").equals(podNames.get(0));
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'pod "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'pod "
             + podNames.get(0)
             + "' to return from GET /instances/{account}/{region}/{name}/");
   }
@@ -588,9 +608,11 @@ public class InfrastructureIT extends BaseTest {
           resp.then().statusCode(200);
           return resp.jsonPath().getString("output[0].output") != null;
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for logs of pod "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for logs of pod "
             + podNames.get(0)
             + " to return from GET /instances/{account}/{region}/{name}/console");
   }
@@ -641,9 +663,11 @@ public class InfrastructureIT extends BaseTest {
                           + "' && it.namespace == 'default'}");
           return lbAcc1 != null && !lbAcc1.isEmpty() && lbAcc2 != null && !lbAcc2.isEmpty();
         },
-        2,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 2 minutes for 'service "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'service "
             + serviceName
             + "' to return from GET /applications/"
             + appName
@@ -701,9 +725,11 @@ public class InfrastructureIT extends BaseTest {
                           + "'}");
           return list != null && !list.isEmpty();
         },
-        2,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 2 minutes for 'service "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'service "
             + serviceName
             + "' to return from GET /kubernetes/loadBalancers/"
             + ACCOUNT1_NAME
@@ -751,9 +777,11 @@ public class InfrastructureIT extends BaseTest {
               && resp.jsonPath().getString("location").equals(ns)
               && resp.jsonPath().getString("name").equals("deployment " + deploymentName);
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for GET /manifests/"
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /manifests/"
             + ACCOUNT1_NAME
             + "/"
             + ns
@@ -802,8 +830,12 @@ public class InfrastructureIT extends BaseTest {
           List<Object> result = resp.jsonPath().getList("$");
           return result != null && !result.isEmpty();
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for GET /applications/" + appName + "/rawResources to return valid data");
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /applications/"
+            + appName
+            + "/rawResources to return valid data");
   }
 }

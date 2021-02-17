@@ -175,7 +175,7 @@ class SqlClusteredAgentScheduler(
       .filterNot { disabledAgents.contains(it.key) }
       .toMutableMap()
 
-    log.debug("Agents running: {}, agents disabled: {}, remaining agents: {}",
+    log.debug("Agents running: {}, agents disabled: {}. Picking next agents to run from: {}",
       activeAgents.keys, disabledAgents, candidateAgentLocks.keys)
 
     withPool(POOL_NAME) {
@@ -205,14 +205,12 @@ class SqlClusteredAgentScheduler(
             candidateAgentLocks.remove(existingLocks.getString("agent_name"))
           }
         } else {
-          log.debug("Removing agent {} from agents to run, lock hasn't expired. lock_expiry: {}, now: {}",
-            existingLocks.getString("agent_name"), lockExpiry, now)
           candidateAgentLocks.remove(existingLocks.getString("agent_name"))
         }
       }
     }
 
-    log.debug("Agents to run: {}, max agents to run: {}", candidateAgentLocks.keys, availableAgents)
+    log.debug("Next agents to run: {}, max: {}", candidateAgentLocks.keys, availableAgents)
 
     val trimmedCandidates = mutableMapOf<String, AgentExecutionAction>()
     candidateAgentLocks
