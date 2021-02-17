@@ -176,7 +176,7 @@ class SqlClusteredAgentScheduler(
       .toMutableMap()
 
     log.debug("Agents running: {}, agents disabled: {}, remaining agents: {}",
-      activeAgents.size, disabledAgents.size, candidateAgentLocks.size)
+      activeAgents.keys, disabledAgents, candidateAgentLocks.keys)
 
     withPool(POOL_NAME) {
       val existingLocks = jooq.select(field("agent_name"), field("lock_expiry"))
@@ -205,12 +205,14 @@ class SqlClusteredAgentScheduler(
             candidateAgentLocks.remove(existingLocks.getString("agent_name"))
           }
         } else {
+          log.debug("Removing agent {} from agents to run, lock hasn't expired. lock_expiry: {}, now: {}",
+            existingLocks.getString("agent_name"), lockExpiry, now)
           candidateAgentLocks.remove(existingLocks.getString("agent_name"))
         }
       }
     }
 
-    log.debug("Agents to run: {}, max agents to run: {}", candidateAgentLocks.size, availableAgents)
+    log.debug("Agents to run: {}, max agents to run: {}", candidateAgentLocks.keys, availableAgents)
 
     val trimmedCandidates = mutableMapOf<String, AgentExecutionAction>()
     candidateAgentLocks
