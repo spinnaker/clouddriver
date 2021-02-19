@@ -21,9 +21,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigu
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
-import com.netflix.spinnaker.credentials.CredentialsLifecycleHandler;
-import com.netflix.spinnaker.credentials.CredentialsRepository;
-import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
+import com.netflix.spinnaker.credentials.*;
 import com.netflix.spinnaker.credentials.definition.AbstractCredentialsLoader;
 import com.netflix.spinnaker.credentials.definition.BasicCredentialsLoader;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinitionSource;
@@ -79,7 +77,8 @@ public class CloudFoundryProviderConfig {
                 a.getResultsPerPage(),
                 cacheRepository,
                 a.getPermissions().build(),
-                cloudFoundryThreadPool),
+                cloudFoundryThreadPool,
+                a.getSpaceFilter()),
         cloudFoundryCredentialsRepository);
   }
 

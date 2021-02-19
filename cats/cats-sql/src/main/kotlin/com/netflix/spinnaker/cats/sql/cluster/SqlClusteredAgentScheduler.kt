@@ -26,6 +26,7 @@ import com.netflix.spinnaker.cats.cluster.AgentIntervalProvider
 import com.netflix.spinnaker.cats.cluster.NodeIdentity
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider
 import com.netflix.spinnaker.cats.module.CatsModuleAware
+import com.netflix.spinnaker.cats.sql.SqlUtil
 import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.sql.routing.withPool
@@ -84,7 +85,7 @@ class SqlClusteredAgentScheduler(
   init {
     if (!tableNamespace.isNullOrBlank()) {
       withPool(POOL_NAME) {
-        jooq.execute("CREATE TABLE IF NOT EXISTS $lockTable LIKE $referenceTable")
+        SqlUtil.createTableLike(jooq, lockTable, referenceTable)
       }
     }
 
@@ -174,6 +175,9 @@ class SqlClusteredAgentScheduler(
       .filterNot { disabledAgents.contains(it.key) }
       .toMutableMap()
 
+    log.debug("Agents running: {}, agents disabled: {}. Picking next agents to run from: {}",
+      activeAgents.keys, disabledAgents, candidateAgentLocks.keys)
+
     withPool(POOL_NAME) {
       val existingLocks = jooq.select(field("agent_name"), field("lock_expiry"))
         .from(table(lockTable))
@@ -182,18 +186,19 @@ class SqlClusteredAgentScheduler(
 
       val now = System.currentTimeMillis()
       while (existingLocks.next()) {
-        if (now > existingLocks.getLong("lock_expiry")) {
+        val lockExpiry = existingLocks.getLong("lock_expiry")
+        if (now > lockExpiry) {
           try {
             jooq.deleteFrom(table(lockTable))
               .where(
                 field("agent_name").eq(existingLocks.getString("agent_name"))
-                  .and(field("lock_expiry").eq(existingLocks.getString("lock_expiry")))
+                  .and(field("lock_expiry").eq(lockExpiry))
               )
               .execute()
           } catch (e: SQLException) {
             log.error(
               "Failed deleting agent lock ${existingLocks.getString("agent_name")} with expiry " +
-                existingLocks.getString("lock_expiry"),
+                lockExpiry,
               e
             )
 
@@ -205,10 +210,16 @@ class SqlClusteredAgentScheduler(
       }
     }
 
+    log.debug("Next agents to run: {}, max: {}", candidateAgentLocks.keys, availableAgents)
+
     val trimmedCandidates = mutableMapOf<String, AgentExecutionAction>()
     candidateAgentLocks
       .forEach { k, v ->
         if (trimmedCandidates.size >= availableAgents) {
+          log.warn(
+            "Dropping caching agents! Wanted to run {} agents, but a max of {} was configured and there are " +
+              "already {} currently running. Consider increasing sql.agent.max-concurrent-agents",
+          candidateAgentLocks.size, maxConcurrentAgents, skip)
           return@forEach
         }
         trimmedCandidates[k] = v
