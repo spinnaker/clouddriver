@@ -51,6 +51,7 @@ class SqlClusteredAgentSchedulerTest : JUnit5Minutests {
       this.sqlClusteredAgentScheduler.run()
       this.sqlClusteredAgentScheduler.run()
       this.sqlClusteredAgentScheduler.run()
+      this.sqlClusteredAgentScheduler.run()
 
       verify(agentExec1, atLeastOnce()
         .description("Agent account1/KubernetesCoreCachingAgent[1/4] never ran")).executeAgent(any())
