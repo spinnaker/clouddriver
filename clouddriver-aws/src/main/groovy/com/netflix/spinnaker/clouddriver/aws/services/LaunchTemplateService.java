@@ -36,9 +36,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
@@ -270,8 +270,15 @@ public class LaunchTemplateService {
                 new LaunchTemplatesMonitoringRequest()
                     .withEnabled(asgConfig.getInstanceMonitoring()));
 
+    Stream<AmazonResourceTagger> tagsCombined =
+        Stream.concat(
+            amazonResourceTaggers == null ? Stream.empty() : amazonResourceTaggers.stream(),
+            asgConfig.getABlockDevicesTags() == null
+                ? Stream.empty()
+                : asgConfig.getABlockDevicesTags().stream());
+
     Optional<LaunchTemplateTagSpecificationRequest> tagSpecification =
-        tagSpecification(amazonResourceTaggers, asgName);
+        tagSpecification(tagsCombined.collect(Collectors.toList()), asgName);
     if (tagSpecification.isPresent()) {
       request = request.withTagSpecifications(tagSpecification.get());
     }
@@ -299,16 +306,6 @@ public class LaunchTemplateService {
                           new LaunchTemplateLicenseConfigurationRequest()
                               .withLicenseConfigurationArn(licenseSpecification.getArn()))
                   .collect(Collectors.toList()));
-    }
-
-    if (!asgConfig.getBlockDevicesTags().isEmpty()) {
-      Map<String, String> blockDevicesTags = asgConfig.getBlockDevicesTags();
-      List<Tag> tags = new ArrayList<>();
-      for (Map.Entry<String, String> entry : blockDevicesTags.entrySet()) {
-        tags.add(new Tag().withKey(entry.getKey()).withValue(entry.getValue()));
-      }
-      tagSpecificationRequest.setTags(tags);
-      request.withTagSpecifications(tagSpecificationRequest);
     }
 
     setUserData(

@@ -127,6 +127,11 @@ class AutoScalingWorker {
     Boolean unlimitedCpuCredits
     BasicAmazonDeployDescription.LaunchTemplatePlacement placement
     List<BasicAmazonDeployDescription.LaunchTemplateLicenseSpecification> licenseSpecifications
+
+    Collection<AmazonResourceTagger> getABlockDevicesTags(){
+      return Arrays.asList( new CustomAmazonResourceTagger(blockDevicesTags))
+    }
+
   }
 
   /**
