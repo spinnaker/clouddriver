@@ -24,13 +24,19 @@ import com.netflix.spinnaker.cats.cluster.NodeIdentity
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider
 import com.netflix.spinnaker.cats.sql.cluster.SqlClusteredAgentScheduler
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
-import com.nhaarman.mockito_kotlin.*
+import com.nhaarman.mockito_kotlin.any
+import com.nhaarman.mockito_kotlin.eq
+import com.nhaarman.mockito_kotlin.mock
+import com.nhaarman.mockito_kotlin.whenever
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import org.jooq.*
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.mockito.stubbing.Answer
 import java.sql.ResultSet
-import java.util.concurrent.*
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.FutureTask
+import java.util.concurrent.ScheduledExecutorService
 
 class SqlClusteredAgentSchedulerTest : JUnit5Minutests {
 
@@ -42,25 +48,35 @@ class SqlClusteredAgentSchedulerTest : JUnit5Minutests {
     test("should shuffle agents") {
       whenever(dynamicConfigService.getConfig(eq(Int::class.java), eq("sql.agent.max-concurrent-agents"),
         any())).thenReturn(2)
-      val agentExec1 = scheduleAgent("account1/KubernetesCoreCachingAgent[1/4]")
-      val agentExec2 = scheduleAgent("account1/KubernetesCoreCachingAgent[2/4]")
-      val agentExec3 = scheduleAgent("account1/KubernetesCoreCachingAgent[3/4]")
-      val agentExec4 = scheduleAgent("account1/KubernetesCoreCachingAgent[4/4]")
+      val invocations = mutableListOf<String>()
+      val agentExec = AgentExecution {
+        invocations.add(it.agentType)
+      }
+      scheduleAgent("account1/KubernetesCoreCachingAgent[1/4]", agentExec)
+      scheduleAgent("account1/KubernetesCoreCachingAgent[2/4]", agentExec)
+      scheduleAgent("account1/KubernetesCoreCachingAgent[3/4]", agentExec)
+      scheduleAgent("account1/KubernetesCoreCachingAgent[4/4]", agentExec)
 
       this.sqlClusteredAgentScheduler.run()
+      val actual1 = invocations.toList()
+      invocations.clear()
       this.sqlClusteredAgentScheduler.run()
+      val actual2 = invocations.toList()
+      invocations.clear()
       this.sqlClusteredAgentScheduler.run()
+      val actual3 = invocations.toList()
+      invocations.clear()
       this.sqlClusteredAgentScheduler.run()
-      this.sqlClusteredAgentScheduler.run()
+      val actual4 = invocations.toList()
+      invocations.clear()
 
-      verify(agentExec1, atLeastOnce()
-        .description("Agent account1/KubernetesCoreCachingAgent[1/4] never ran")).executeAgent(any())
-      verify(agentExec2, atLeastOnce()
-        .description("Agent account1/KubernetesCoreCachingAgent[2/4] never ran")).executeAgent(any())
-      verify(agentExec3, atLeastOnce()
-        .description("Agent account1/KubernetesCoreCachingAgent[3/4] never ran")).executeAgent(any())
-      verify(agentExec4, atLeastOnce()
-        .description("Agent account1/KubernetesCoreCachingAgent[4/4] never ran")).executeAgent(any())
+      println("Agent invocations:\n$actual1\n$actual2\n$actual3\n$actual4")
+      assertFalse(
+        actual1 == actual2 &&
+        actual2 == actual3 &&
+        actual3 == actual4,
+        "Expected variation in agent order of execution, " +
+          "but the same agents ran in the same order: " + actual1)
     }
   }
 
@@ -131,12 +147,10 @@ class SqlClusteredAgentSchedulerTest : JUnit5Minutests {
       })
     }
 
-    fun scheduleAgent(name: String): AgentExecution {
+    fun scheduleAgent(name: String, agentExec: AgentExecution) {
       val agent: Agent = mock()
-      val agentExecution: AgentExecution = mock()
       whenever(agent.agentType).thenReturn(name)
-      sqlClusteredAgentScheduler.schedule(agent, agentExecution, mock())
-      return agentExecution
+      sqlClusteredAgentScheduler.schedule(agent, agentExec, mock())
     }
   }
 }
