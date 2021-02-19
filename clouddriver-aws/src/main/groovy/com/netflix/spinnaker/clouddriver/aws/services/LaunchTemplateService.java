@@ -252,9 +252,6 @@ public class LaunchTemplateService {
   /** Build launch template data for new launch template creation */
   private RequestLaunchTemplateData buildLaunchTemplateData(
       AsgConfiguration asgConfig, String asgName, String launchTemplateName) {
-    LaunchTemplateTagSpecificationRequest tagSpecificationRequest =
-        new LaunchTemplateTagSpecificationRequest();
-    tagSpecificationRequest.setResourceType(ResourceType.Volume.toString());
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
             .withImageId(asgConfig.getAmi())
