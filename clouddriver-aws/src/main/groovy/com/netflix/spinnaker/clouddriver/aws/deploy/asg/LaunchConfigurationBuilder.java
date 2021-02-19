@@ -22,7 +22,6 @@ import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import java.util.List;
 import java.util.Map;
-
 import lombok.Builder;
 import lombok.Value;
 
