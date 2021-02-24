@@ -39,6 +39,10 @@ public class GitRepoFileSystem {
     this.cloneRetentionMin = cloneRetentionMin;
   }
 
+  public int getCloneRetentionMin() {
+    return cloneRetentionMin;
+  }
+
   public Path getLocalClonePath(String repoUrl, String branch) {
     return Paths.get(CLONES_HOME.toString(), hashCoordinates(repoUrl, branch));
   }
@@ -55,7 +59,7 @@ public class GitRepoFileSystem {
   @Scheduled(fixedDelay = 1000 * 60)
   private void deleteExpiredRepos() {
     try {
-      if (!CLONES_HOME.toFile().exists() || cloneRetentionMin < 1) {
+      if (!CLONES_HOME.toFile().exists() || cloneRetentionMin < 0) {
         return;
       }
       File[] repos = CLONES_HOME.toFile().listFiles();

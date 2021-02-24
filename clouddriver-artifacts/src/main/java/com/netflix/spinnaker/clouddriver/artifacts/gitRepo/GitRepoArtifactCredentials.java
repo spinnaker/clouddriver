@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import java.io.Closeable;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +31,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
+import org.jetbrains.annotations.NotNull;
 
 @NonnullByDefault
 @Slf4j
@@ -63,12 +66,29 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     String repoBasename = getRepoBasename(repoUrl);
     Path outputFile = Paths.get(stagingPath.toString(), repoBasename + ".tgz");
 
+    if (gitRepoFileSystem.getCloneRetentionMin() == 0) {
+      // delete temporary files before returning
+      try (Closeable ignored = () -> FileUtils.deleteDirectory(stagingPath.toFile())) {
+        return getInputStream(repoUrl, subPath, branch, stagingPath, repoBasename, outputFile);
+      }
+    } else {
+      // clones are deleted by gitRepoFileSystem depending on retention period
+      return getInputStream(repoUrl, subPath, branch, stagingPath, repoBasename, outputFile);
+    }
+  }
+
+  @NotNull
+  private FileInputStream getInputStream(
+      String repoUrl,
+      String subPath,
+      String branch,
+      Path stagingPath,
+      String repoBasename,
+      Path outputFile)
+      throws IOException {
     executor.cloneOrPull(repoUrl, branch, stagingPath, repoBasename);
-
     log.info("Creating archive for git/repo {}", repoUrl);
-
     executor.archive(Paths.get(stagingPath.toString(), repoBasename), branch, subPath, outputFile);
-
     return new FileInputStream(outputFile.toFile());
   }
 
