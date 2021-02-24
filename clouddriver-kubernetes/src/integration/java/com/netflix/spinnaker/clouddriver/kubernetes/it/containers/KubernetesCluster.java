@@ -52,7 +52,7 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
     super(DOCKER_IMAGE);
     this.accountName = accountName;
     for (int i = 0; i < STARTUP_NAMESPACES; i++) {
-      this.availableNamespaces.put("testns" + i, true);
+      this.availableNamespaces.put("testns" + String.format("%02d", i), true);
     }
 
     // arguments to docker run
@@ -75,10 +75,11 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
     return kubecfgPath;
   }
 
-  public String getAvailableNamespace() {
+  public String getAvailableNamespace() throws IOException, InterruptedException {
     for (Map.Entry<String, Boolean> entry : availableNamespaces.entrySet()) {
       if (entry.getValue()) {
         entry.setValue(false);
+        execKubectl("create ns " + entry.getKey());
         return entry.getKey();
       }
     }
@@ -97,11 +98,7 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
     List<String> cmd = new ArrayList<>();
     cmd.add("sh");
     cmd.add("-c");
-    cmd.add(
-        "${PROJECT_ROOT}/clouddriver-kubernetes/src/integration/resources/kubectl-wrapper.sh --kubeconfig="
-            + kubecfgPath
-            + " "
-            + args);
+    cmd.add("${KUBECTL_PATH} --kubeconfig=" + kubecfgPath + " " + args);
     builder.command(cmd);
     builder.redirectErrorStream(true);
     Process process = builder.start();
@@ -136,10 +133,7 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
     try {
       this.kubecfgPath = copyKubecfgFromCluster(containerName);
       fixKubeEndpoint(this.kubecfgPath);
-      for (String ns : availableNamespaces.keySet()) {
-        execKubectl("create ns " + ns);
-      }
-    } catch (IOException | InterruptedException e) {
+    } catch (IOException e) {
       throw new RuntimeException(
           "Unable to initialize kubectl or kubeconfig.yml files, or unable to create initial namespaces",
           e);
@@ -158,12 +152,7 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
 
   private Path copyKubecfgFromCluster(String containerName) throws IOException {
     Path myKubeconfig =
-        Paths.get(
-            System.getenv("PROJECT_ROOT"),
-            "clouddriver-kubernetes",
-            "build",
-            "kubeconfigs",
-            "kubecfg-" + containerName + ".yml");
+        Paths.get(System.getenv("KUBECONFIGS_HOME"), "kubecfg-" + containerName + ".yml");
     Files.createDirectories(myKubeconfig.getParent());
     copyFileFromContainer(KUBECFG_IN_CONTAINER, myKubeconfig.toAbsolutePath().toString());
     return myKubeconfig;

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
+import com.fasterxml.jackson.databind.Module
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation
@@ -40,7 +41,9 @@ import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfigurationBuilder
 import com.netflix.spinnaker.clouddriver.core.provider.CoreProvider
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
+import com.netflix.spinnaker.clouddriver.deploy.DefaultDescriptionAuthorizer
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionAuthorizer
+import com.netflix.spinnaker.clouddriver.deploy.DescriptionAuthorizerService
 import com.netflix.spinnaker.clouddriver.jackson.ClouddriverApiModule
 import com.netflix.spinnaker.clouddriver.model.ApplicationProvider
 import com.netflix.spinnaker.clouddriver.model.CloudMetricProvider
@@ -98,6 +101,7 @@ import com.netflix.spinnaker.kork.core.RetrySupport
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer
@@ -108,8 +112,11 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.PropertySource
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.core.env.Environment
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import org.springframework.web.client.RestTemplate
 
 import javax.inject.Provider
@@ -133,15 +140,19 @@ class CloudDriverConfig {
   }
 
   @Bean
-  Jackson2ObjectMapperBuilderCustomizer defaultObjectMapperCustomizer() {
+  Jackson2ObjectMapperBuilderCustomizer defaultObjectMapperCustomizer(List<Module> modules) {
     return new Jackson2ObjectMapperBuilderCustomizer() {
       @Override
       void customize(Jackson2ObjectMapperBuilder jacksonObjectMapperBuilder) {
+        modules.addAll(List.of(
+          new Jdk8Module(),
+          new JavaTimeModule(),
+          new KotlinModule(),
+          new ClouddriverApiModule()))
         jacksonObjectMapperBuilder.serializationInclusion(JsonInclude.Include.NON_NULL)
         jacksonObjectMapperBuilder.failOnEmptyBeans(false)
         jacksonObjectMapperBuilder.failOnUnknownProperties(false)
-        jacksonObjectMapperBuilder.modules(
-          new Jdk8Module(), new JavaTimeModule(), new KotlinModule(), new ClouddriverApiModule())
+        jacksonObjectMapperBuilder.modules(modules)
       }
     }
   }
@@ -366,14 +377,20 @@ class CloudDriverConfig {
   }
 
   @Bean
-  DescriptionAuthorizer descriptionAuthorizer(Registry registry,
-                                              Optional<FiatPermissionEvaluator> fiatPermissionEvaluator,
-                                              SecurityConfig.OperationsSecurityConfigurationProperties opsSecurityConfigProps) {
-    return new DescriptionAuthorizer(
+  DescriptionAuthorizerService descriptionAuthorizerService(Registry registry,
+                                                            Optional<FiatPermissionEvaluator> fiatPermissionEvaluator,
+                                                            SecurityConfig.OperationsSecurityConfigurationProperties opsSecurityConfigProps) {
+    return new DescriptionAuthorizerService(
       registry,
       fiatPermissionEvaluator,
       opsSecurityConfigProps
     )
+  }
+
+  @Bean
+  @Order(Ordered.LOWEST_PRECEDENCE)
+  DescriptionAuthorizer descriptionAuthorizer(DescriptionAuthorizerService descriptionAuthorizerService) {
+    return new DefaultDescriptionAuthorizer(descriptionAuthorizerService)
   }
 
   @Bean
@@ -382,5 +399,12 @@ class CloudDriverConfig {
     return new ExceptionClassifier(properties, dynamicConfigService)
   }
 
+  @Bean
+  ThreadPoolTaskScheduler threadPoolTaskScheduler(@Value('${scheduling-thread-pool-size:5}') int threadPoolSize) {
+    ThreadPoolTaskScheduler threadPoolTaskScheduler = new ThreadPoolTaskScheduler();
+    threadPoolTaskScheduler.setPoolSize(threadPoolSize);
+    threadPoolTaskScheduler.setThreadNamePrefix("ThreadPoolTaskScheduler");
+    return threadPoolTaskScheduler;
+  }
 
 }
