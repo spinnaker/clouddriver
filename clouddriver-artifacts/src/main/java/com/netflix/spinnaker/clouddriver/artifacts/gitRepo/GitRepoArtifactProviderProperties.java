@@ -26,5 +26,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("artifacts.git-repo")
 final class GitRepoArtifactProviderProperties implements ArtifactProvider<GitRepoArtifactAccount> {
   private boolean enabled;
+  private int cloneRetentionMin = 60 * 24 * 30; // 30 days
   private List<GitRepoArtifactAccount> accounts = new ArrayList<>();
 }

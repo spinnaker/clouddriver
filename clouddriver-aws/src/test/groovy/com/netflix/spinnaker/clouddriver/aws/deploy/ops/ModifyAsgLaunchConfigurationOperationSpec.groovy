@@ -25,14 +25,16 @@ import com.amazonaws.services.ec2.model.DescribeImagesRequest
 import com.amazonaws.services.ec2.model.DescribeImagesResult
 import com.amazonaws.services.ec2.model.DescribeVpcClassicLinkResult
 import com.amazonaws.services.ec2.model.Image
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.LaunchConfigurationBuilder
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.amazonaws.services.ec2.model.VpcClassicLink
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
-import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder
+
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyAsgLaunchConfigurationDescription
 import com.netflix.spinnaker.clouddriver.aws.services.AsgService
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
@@ -121,22 +123,22 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
     newLc = "$asgName-20150516".toString()
     existingAmi = 'ami-f000fee'
     iamRole = 'BaseIAMRole'
-    existing = new LaunchConfigurationBuilder.LaunchConfigurationSettings(
-      account: account,
-      environment: 'test',
-      accountType: 'test',
-      classicLinkVpcId: 'vpc-456',
-      region: region,
-      baseName: asgName,
-      suffix: suffix,
-      ami: existingAmi,
-      iamRole: iamRole,
-      instanceType: 'm3.xlarge',
-      keyPair: 'sekret',
-      associatePublicIpAddress: false,
-      ebsOptimized: true,
-      securityGroups: ['sg-12345', 'sg-34567']
-    )
+    existing = LaunchConfigurationBuilder.LaunchConfigurationSettings.builder()
+      .account(account)
+      .environment('test')
+      .accountType('test')
+      .classicLinkVpcId('vpc-456')
+      .region(region)
+      .baseName(asgName)
+      .suffix(suffix)
+      .ami(existingAmi)
+      .iamRole(iamRole)
+      .instanceType('m3.xlarge')
+      .keyPair('sekret')
+      .associatePublicIpAddress(false)
+      .ebsOptimized(true)
+      .securityGroups(['sg-12345', 'sg-34567'])
+      .build()
   }
 
   void 'should apply description fields over existing settings'() {
@@ -160,13 +162,15 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       existing
     }
 
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, userDataOverride ->
       assert appName == app
       assert subnetType == null
       assert settings.ami == newAmi
       assert settings.iamRole == existing.iamRole
       assert settings.suffix == null
       assert legacyUdf == null
+      assert userDataOverride.isEnabled() == false
+      assert userDataOverride.getTokenizerName() == "default"
 
       return newLc
     }
@@ -186,21 +190,21 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
     existingLc = "$asgName-$suffix".toString()
     newLc = "$asgName-20150516".toString()
     newAmi = 'ami-f000fee'
-    existing = new LaunchConfigurationBuilder.LaunchConfigurationSettings(
-      account: account,
-      environment: 'test',
-      accountType: 'test',
-      region: region,
-      baseName: asgName,
-      suffix: suffix,
-      ami: 'ami-f111f333',
-      iamRole: 'BaseIAMRole',
-      instanceType: 'm3.xlarge',
-      keyPair: 'sekret',
-      associatePublicIpAddress: false,
-      ebsOptimized: true,
-      securityGroups: ['sg-12345', 'sg-34567']
-    )
+    existing = LaunchConfigurationBuilder.LaunchConfigurationSettings.builder()
+      .account(account)
+      .environment('test')
+      .accountType('test')
+      .region(region)
+      .baseName(asgName)
+      .suffix(suffix)
+      .ami('ami-f111f333')
+      .iamRole('BaseIAMRole')
+      .instanceType('m3.xlarge')
+      .keyPair('sekret')
+      .associatePublicIpAddress(false)
+      .ebsOptimized(true)
+      .securityGroups(['sg-12345', 'sg-34567'])
+      .build()
   }
 
   void 'should disable monitoring if instance monitoring goes from enabled to disabled'() {
@@ -223,12 +227,14 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
 
       existing
     }
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, userDataOverride ->
       assert appName == app
       assert subnetType == null
       assert settings.suffix == null
       assert settings.instanceMonitoring == false
       assert legacyUdf == null
+      assert userDataOverride.isEnabled() == false
+      assert userDataOverride.getTokenizerName() == "default"
 
       return newLc
     }
@@ -250,15 +256,15 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
     newLc = "$asgName-20150516".toString()
     existingAmi = 'ami-f000fee'
     iamRole = 'BaseIAMRole'
-    existing = new LaunchConfigurationBuilder.LaunchConfigurationSettings(
-      account: account,
-      environment: 'test',
-      accountType: 'test',
-      region: region,
-      baseName: asgName,
-      suffix: suffix,
-      instanceMonitoring: true,
-    )
+    existing = LaunchConfigurationBuilder.LaunchConfigurationSettings.builder()
+      .account(account)
+      .environment('test')
+      .accountType('test')
+      .region(region)
+      .baseName(asgName)
+      .suffix(suffix)
+      .instanceMonitoring(true)
+      .build()
   }
 
   void 'should attach classic linked VPC'() {
@@ -281,12 +287,14 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
 
       existing
     }
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, userDataOverride ->
       assert appName == app
       assert subnetType == null
       assert settings.suffix == null
       assert settings.classicLinkVpcId == "vpc-456"
       assert legacyUdf == null
+      assert userDataOverride.isEnabled() == false
+      assert userDataOverride.getTokenizerName() == "default"
 
       return newLc
     }
@@ -301,15 +309,15 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
     newLc = "$asgName-20150516".toString()
     existingAmi = 'ami-f000fee'
     iamRole = 'BaseIAMRole'
-    existing = new LaunchConfigurationBuilder.LaunchConfigurationSettings(
-      account: account,
-      environment: 'test',
-      accountType: 'test',
-      region: region,
-      baseName: asgName,
-      suffix: suffix,
-      instanceMonitoring: true,
-    )
+    existing = LaunchConfigurationBuilder.LaunchConfigurationSettings.builder()
+      .account(account)
+      .environment('test')
+      .accountType('test')
+      .region(region)
+      .baseName(asgName)
+      .suffix(suffix)
+      .instanceMonitoring(true)
+      .build()
   }
 
   void 'should append security groups if flag is set'() {
@@ -333,8 +341,10 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
 
       existing
     }
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, userDataOverride ->
       assert settings.securityGroups == ['sg-1', 'sg-2', 'sg-3']
+      assert userDataOverride.isEnabled() == false
+      assert userDataOverride.getTokenizerName() == "default"
       return newLc
     }
 
@@ -348,16 +358,16 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
     newLc = "$asgName-20150516".toString()
     existingAmi = 'ami-f000fee'
     iamRole = 'BaseIAMRole'
-    existing = new LaunchConfigurationBuilder.LaunchConfigurationSettings(
-      account: account,
-      environment: 'test',
-      accountType: 'test',
-      region: region,
-      baseName: asgName,
-      suffix: suffix,
-      instanceMonitoring: true,
-      securityGroups: ['sg-1', 'sg-2']
-    )
+    existing = LaunchConfigurationBuilder.LaunchConfigurationSettings.builder()
+      .account(account)
+      .environment('test')
+      .accountType('test')
+      .region(region)
+      .baseName(asgName)
+      .suffix(suffix)
+      .instanceMonitoring(true)
+      .securityGroups(['sg-1', 'sg-2'])
+      .build()
   }
 
   void 'should reset non customized block devices when changing instance type'() {
@@ -381,7 +391,7 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       existing
     }
 
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, userDataOverride ->
       assert appName == app
       assert subnetType == null
       assert settings.iamRole == existing.iamRole
@@ -389,6 +399,8 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       assert legacyUdf == null
       assert settings.instanceType == 'm4.xlarge'
       assert settings.blockDevices == blockDeviceConfig.getBlockDevicesForInstanceType('m4.xlarge')
+      assert userDataOverride.isEnabled() == false
+      assert userDataOverride.getTokenizerName() == "default"
 
       return newLc
     }
@@ -407,22 +419,22 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
     suffix = '20150515'
     existingLc = "$asgName-$suffix".toString()
     newLc = "$asgName-20150516".toString()
-    existing = new LaunchConfigurationBuilder.LaunchConfigurationSettings(
-        account: account,
-        environment: 'test',
-        accountType: 'test',
-        region: region,
-        baseName: asgName,
-        suffix: suffix,
-        ami: 'ami-f111f333',
-        iamRole: 'BaseIAMRole',
-        instanceType: 'm3.xlarge',
-        blockDevices: blockDeviceConfig.getBlockDevicesForInstanceType('m3.xlarge'),
-        keyPair: 'sekret',
-        associatePublicIpAddress: false,
-        ebsOptimized: true,
-        securityGroups: ['sg-12345', 'sg-34567']
-    )
+    existing = LaunchConfigurationBuilder.LaunchConfigurationSettings.builder()
+        .account(account)
+        .environment('test')
+        .accountType('test')
+        .region(region)
+        .baseName(asgName)
+        .suffix(suffix)
+        .ami('ami-f111f333')
+        .iamRole('BaseIAMRole')
+        .instanceType('m3.xlarge')
+        .blockDevices(blockDeviceConfig.getBlockDevicesForInstanceType('m3.xlarge'))
+        .keyPair('sekret')
+        .associatePublicIpAddress(false)
+        .ebsOptimized(true)
+        .securityGroups(['sg-12345', 'sg-34567'])
+        .build()
   }
 
   void 'should not reset custom block devices when changing instance type'() {
@@ -446,7 +458,7 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       existing
     }
 
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, userDataOverride ->
       assert appName == app
       assert subnetType == null
       assert settings.iamRole == existing.iamRole
@@ -454,6 +466,8 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       assert legacyUdf == null
       assert settings.instanceType == 'm4.xlarge'
       assert settings.blockDevices == blockDevices
+      assert userDataOverride.isEnabled() == false
+      assert userDataOverride.getTokenizerName() == "default"
 
       return newLc
     }
@@ -473,22 +487,22 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
     existingLc = "$asgName-$suffix".toString()
     newLc = "$asgName-20150516".toString()
     blockDevices = [new AmazonBlockDevice(deviceName: '/dev/sdb', size: 500)]
-    existing = new LaunchConfigurationBuilder.LaunchConfigurationSettings(
-        account: account,
-        environment: 'test',
-        accountType: 'test',
-        region: region,
-        baseName: asgName,
-        suffix: suffix,
-        ami: 'ami-f111f333',
-        iamRole: 'BaseIAMRole',
-        instanceType: 'm3.xlarge',
-        blockDevices: blockDevices,
-        keyPair: 'sekret',
-        associatePublicIpAddress: false,
-        ebsOptimized: true,
-        securityGroups: ['sg-12345', 'sg-34567']
-    )
+    existing = LaunchConfigurationBuilder.LaunchConfigurationSettings.builder()
+        .account(account)
+        .environment('test')
+        .accountType('test')
+        .region(region)
+        .baseName(asgName)
+        .suffix(suffix)
+        .ami('ami-f111f333')
+        .iamRole('BaseIAMRole')
+        .instanceType('m3.xlarge')
+        .blockDevices(blockDevices)
+        .keyPair('sekret')
+        .associatePublicIpAddress(false)
+        .ebsOptimized(true)
+        .securityGroups(['sg-12345', 'sg-34567'])
+        .build()
   }
 
   void 'should reset custom block devices when changing instance type if explicitly requested'() {
@@ -513,7 +527,7 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       existing
     }
 
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, userDataOverride ->
       assert appName == app
       assert subnetType == null
       assert settings.iamRole == existing.iamRole
@@ -521,6 +535,8 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       assert legacyUdf == null
       assert settings.instanceType == 'm4.xlarge'
       assert settings.blockDevices == blockDeviceConfig.getBlockDevicesForInstanceType('m4.xlarge')
+      assert userDataOverride.isEnabled() == false
+      assert userDataOverride.getTokenizerName() == "default"
 
       return newLc
     }
@@ -540,22 +556,22 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
     existingLc = "$asgName-$suffix".toString()
     newLc = "$asgName-20150516".toString()
     blockDevices = [new AmazonBlockDevice(deviceName: '/dev/sdb', size: 500)]
-    existing = new LaunchConfigurationBuilder.LaunchConfigurationSettings(
-        account: account,
-        environment: 'test',
-        accountType: 'test',
-        region: region,
-        baseName: asgName,
-        suffix: suffix,
-        ami: 'ami-f111f333',
-        iamRole: 'BaseIAMRole',
-        instanceType: 'm3.xlarge',
-        blockDevices: blockDevices,
-        keyPair: 'sekret',
-        associatePublicIpAddress: false,
-        ebsOptimized: true,
-        securityGroups: ['sg-12345', 'sg-34567']
-    )
+    existing = LaunchConfigurationBuilder.LaunchConfigurationSettings.builder()
+        .account(account)
+        .environment('test')
+        .accountType('test')
+        .region(region)
+        .baseName(asgName)
+        .suffix(suffix)
+        .ami('ami-f111f333')
+        .iamRole('BaseIAMRole')
+        .instanceType('m3.xlarge')
+        .blockDevices(blockDevices)
+        .keyPair('sekret')
+        .associatePublicIpAddress(false)
+        .ebsOptimized(true)
+        .securityGroups(['sg-12345', 'sg-34567'])
+        .build()
   }
 
 
