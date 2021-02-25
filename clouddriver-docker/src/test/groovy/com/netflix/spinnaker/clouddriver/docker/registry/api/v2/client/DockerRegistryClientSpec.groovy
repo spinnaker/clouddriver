@@ -53,54 +53,54 @@ class DockerRegistryClientSpec extends Specification {
     Response catalogResponse = new Response("/v2/_catalog/",200, "nothing", Collections.EMPTY_LIST, catalogTypedInput)
     getCatalog(_,_,_) >> catalogResponse
 
-    String schemaJson = "{\n" +
-      "   \"schemaVersion\": 2,\n" +
-      "   \"mediaType\": \"application/vnd.docker.distribution.manifest.v2+json\",\n" +
-      "   \"config\": {\n" +
-      "      \"mediaType\": \"application/vnd.docker.container.image.v1+json\",\n" +
-      "      \"size\": 4405,\n" +
-      "      \"digest\": \"sha256:fa8d22f4899110fdecf7ae344a8129fb6175ed5294ffe9ca3fb09dfca5252c93\"\n" +
-      "   },\n" +
-      "   \"layers\": [\n" +
-      "      {\n" +
-      "         \"mediaType\": \"application/vnd.docker.image.rootfs.diff.tar.gzip\",\n" +
-      "         \"size\": 3310095,\n" +
-      "         \"digest\": \"sha256:1ace22715a341b6ad81b784da18f2efbcea18ff7b4b4edf4f467f193b7de3750\"\n" +
-      "      }\n" +
-      "   ]\n" +
-      "}"
+    String schemaJson = '''{
+         "schemaVersion": 2,
+         "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+         "config": {
+            "mediaType": "application/vnd.docker.container.image.v1+json",
+            "size": 4405,
+            "digest": "sha256:fa8d22f4899110fdecf7ae344a8129fb6175ed5294ffe9ca3fb09dfca5252c93"
+         },
+         "layers": [
+            {
+               "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+               "size": 3310095,
+               "digest": "sha256:1ace22715a341b6ad81b784da18f2efbcea18ff7b4b4edf4f467f193b7de3750"
+            }
+         ]
+      }'''
     TypedInput schemaV2Input = new TypedByteArray("application/json", schemaJson.getBytes())
     Response schemaV2Response = new Response("/v2/{name}/manifests/{reference}",200, "nothing", Collections.EMPTY_LIST, schemaV2Input)
     getSchemaV2Manifest(_,_,_,_) >> schemaV2Response
 
-    String configDigestContentJson = "{ \n" +
-      "  \"architecture\": \"amd64\",\n" +
-      "  \"config\": {\n" +
-      "    \"Hostname\": \"\",\n" +
-      "    \"Env\": [\n" +
-      "      \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\n" +
-      "    ],\n" +
-      "    \"Cmd\": [\n" +
-      "      \"/opt/app/server\"\n" +
-      "    ],\n" +
-      "    \"Image\": \"sha256:3862e8f6f860c732be3fe0c0545330f9573a09cf906a78b06a329e09f9dc7191\",\n" +
-      "    \"Volumes\": null,\n" +
-      "    \"WorkingDir\": \"\",\n" +
-      "    \"Entrypoint\": null,\n" +
-      "    \"OnBuild\": null,\n" +
-      "    \"Labels\": {\n" +
-      "      \"branch\": \"main\",\n" +
-      "      \"buildNumber\": \"1\",\n" +
-      "      \"commitId\": \"b48e2cf960de545597411c99ec969e47a7635ba3\",\n" +
-      "      \"jobName\": \"test\"\n" +
-      "    }\n" +
-      "  },\n" +
-      "  \"container\": \"fc1607ce29cfa58cc6cad846b911ec0c4de76d426de2b528a126e715615286bc\",\n" +
-      "  \"created\": \"2021-02-16T19:18:50.176616541Z\",\n" +
-      "  \"docker_version\": \"19.03.6-ce\",\n" +
-      "  \"os\": \"linux\",\n" +
-      "  \"rootfs\": {}\n" +
-      "}"
+    String configDigestContentJson = '''{
+        "architecture": "amd64",
+        "config": {
+          "Hostname": "",
+          "Env": [
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          ],
+          "Cmd": [
+            "/opt/app/server"
+          ],
+          "Image": "sha256:3862e8f6f860c732be3fe0c0545330f9573a09cf906a78b06a329e09f9dc7191",
+          "Volumes": null,
+          "WorkingDir": "",
+          "Entrypoint": null,
+          "OnBuild": null,
+          "Labels": {
+            "branch": "main",
+            "buildNumber": "1",
+            "commitId": "b48e2cf960de545597411c99ec969e47a7635ba3",
+            "jobName": "test"
+          }
+        },
+        "container": "fc1607ce29cfa58cc6cad846b911ec0c4de76d426de2b528a126e715615286bc",
+        "created": "2021-02-16T19:18:50.176616541Z",
+        "docker_version": "19.03.6-ce",
+        "os": "linux",
+        "rootfs": {}
+      }'''
     TypedInput configDigestContentInput = new TypedByteArray("application/json", configDigestContentJson.getBytes())
     Response contentDigestResponse = new Response("/v2/{repository}/blobs/{digest}",200, "nothing", Collections.EMPTY_LIST, configDigestContentInput)
     getDigestContent(_,_,_,_) >> contentDigestResponse

@@ -167,7 +167,6 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
             digestContent = credentials.client.getDigestContent(repository, digest)
           } catch (Exception e) {
             log.warn("Error retrieving config digest for $tagKey; digest and tag will not be cached: $e.message")
-            return
           }
         }
 
