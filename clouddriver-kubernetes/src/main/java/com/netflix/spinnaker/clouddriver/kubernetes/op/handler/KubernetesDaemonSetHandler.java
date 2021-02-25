@@ -29,9 +29,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Status;
+import io.kubernetes.client.openapi.models.V1DaemonSet;
+import io.kubernetes.client.openapi.models.V1DaemonSetStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
-import io.kubernetes.client.openapi.models.V1beta2DaemonSet;
-import io.kubernetes.client.openapi.models.V1beta2DaemonSetStatus;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -91,9 +91,8 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    V1beta2DaemonSet v1beta2DaemonSet =
-        KubernetesCacheDataConverter.getResource(manifest, V1beta2DaemonSet.class);
-    return status(v1beta2DaemonSet);
+    V1DaemonSet v1DaemonSet = KubernetesCacheDataConverter.getResource(manifest, V1DaemonSet.class);
+    return status(v1DaemonSet);
   }
 
   @Override
@@ -104,8 +103,8 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler
     return result;
   }
 
-  private Status status(V1beta2DaemonSet daemonSet) {
-    V1beta2DaemonSetStatus status = daemonSet.getStatus();
+  private Status status(V1DaemonSet daemonSet) {
+    V1DaemonSetStatus status = daemonSet.getStatus();
     if (status == null) {
       return Status.noneReported();
     }
@@ -148,7 +147,7 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler
     return Status.defaultStatus();
   }
 
-  private boolean generationMatches(V1beta2DaemonSet daemonSet, V1beta2DaemonSetStatus status) {
+  private boolean generationMatches(V1DaemonSet daemonSet, V1DaemonSetStatus status) {
     Optional<Long> metadataGeneration =
         Optional.ofNullable(daemonSet.getMetadata()).map(V1ObjectMeta::getGeneration);
     Optional<Long> statusGeneration = Optional.ofNullable(status.getObservedGeneration());

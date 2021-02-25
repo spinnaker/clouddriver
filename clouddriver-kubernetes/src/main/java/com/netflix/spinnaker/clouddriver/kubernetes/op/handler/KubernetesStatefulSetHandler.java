@@ -31,9 +31,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Status;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
-import io.kubernetes.client.openapi.models.V1beta2RollingUpdateStatefulSetStrategy;
-import io.kubernetes.client.openapi.models.V1beta2StatefulSet;
-import io.kubernetes.client.openapi.models.V1beta2StatefulSetStatus;
+import io.kubernetes.client.openapi.models.V1RollingUpdateStatefulSetStrategy;
+import io.kubernetes.client.openapi.models.V1StatefulSet;
+import io.kubernetes.client.openapi.models.V1StatefulSetStatus;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -97,9 +97,9 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    V1beta2StatefulSet v1beta2StatefulSet =
-        KubernetesCacheDataConverter.getResource(manifest, V1beta2StatefulSet.class);
-    return status(v1beta2StatefulSet);
+    V1StatefulSet v1StatefulSet =
+        KubernetesCacheDataConverter.getResource(manifest, V1StatefulSet.class);
+    return status(v1StatefulSet);
   }
 
   public static String serviceName(KubernetesManifest manifest) {
@@ -116,12 +116,12 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
     return result;
   }
 
-  private Status status(V1beta2StatefulSet statefulSet) {
+  private Status status(V1StatefulSet statefulSet) {
     if (statefulSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("ondelete")) {
       return Status.defaultStatus();
     }
 
-    V1beta2StatefulSetStatus status = statefulSet.getStatus();
+    V1StatefulSetStatus status = statefulSet.getStatus();
     if (status == null) {
       return Status.noneReported();
     }
@@ -143,7 +143,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
     }
 
     String updateType = statefulSet.getSpec().getUpdateStrategy().getType();
-    V1beta2RollingUpdateStatefulSetStrategy rollingUpdate =
+    V1RollingUpdateStatefulSetStrategy rollingUpdate =
         statefulSet.getSpec().getUpdateStrategy().getRollingUpdate();
 
     Integer updated = status.getUpdatedReplicas();
@@ -170,8 +170,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
     return Status.defaultStatus();
   }
 
-  private boolean generationMatches(
-      V1beta2StatefulSet statefulSet, V1beta2StatefulSetStatus status) {
+  private boolean generationMatches(V1StatefulSet statefulSet, V1StatefulSetStatus status) {
     Optional<Long> metadataGeneration =
         Optional.ofNullable(statefulSet.getMetadata()).map(V1ObjectMeta::getGeneration);
     Optional<Long> statusGeneration = Optional.ofNullable(status.getObservedGeneration());
