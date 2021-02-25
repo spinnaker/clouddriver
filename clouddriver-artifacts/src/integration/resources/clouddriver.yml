@@ -2,6 +2,7 @@ artifacts:
   git-repo:
     enabled: true
     git-executable: ${GIT_WRAPPER}
+    clone-retention-min: 60
     accounts:
       - name: basic-auth
         username: test

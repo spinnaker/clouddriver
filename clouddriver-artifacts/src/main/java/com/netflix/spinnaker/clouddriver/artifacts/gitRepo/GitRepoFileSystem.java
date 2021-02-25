@@ -56,7 +56,11 @@ public class GitRepoFileSystem {
     return Hashing.sha256().hashString(coordinates, Charset.defaultCharset()).toString();
   }
 
-  @Scheduled(fixedDelay = 1000 * 60)
+  @Scheduled(
+      fixedDelayString =
+          "${artifacts.git-repo.clone-retention-check-ms:"
+              + GitRepoArtifactProviderProperties.DEFAULT_CLONE_RETENTION_CHECK_MS
+              + "}")
   private void deleteExpiredRepos() {
     try {
       if (!CLONES_HOME.toFile().exists() || cloneRetentionMin < 0) {

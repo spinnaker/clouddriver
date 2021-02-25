@@ -28,7 +28,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -78,28 +77,43 @@ public class GitJobExecutor {
 
   public void cloneOrPull(String repoUrl, String branch, Path localPath, String repoBasename)
       throws IOException {
-    if (!Files.exists(localPath)
-        || localPath.toFile().listFiles() == null
-        || localPath.toFile().listFiles().length == 0) {
+    File localPathFile = localPath.toFile();
+    if (!localPathFile.exists()) {
       clone(repoUrl, branch, localPath);
       return;
     }
-    if (!Files.isDirectory(localPath)) {
+    // localPath exists
+
+    if (!localPathFile.isDirectory()) {
       throw new IllegalArgumentException(
           "Local path " + localPath.toString() + " is not a directory");
     }
-    Path clonePath = Paths.get(localPath.toString(), repoBasename);
-    File[] files = clonePath.toFile().listFiles();
-    if (files == null
-        || files.length == 0
-        || Arrays.stream(files).noneMatch(f -> f.getName().equals(".git"))) {
+    // localPath exists and is a directory
+
+    File[] localPathFiles = localPathFile.listFiles();
+    if (localPathFiles == null || localPathFiles.length == 0) {
       clone(repoUrl, branch, localPath);
       return;
     }
-    pull(repoUrl, clonePath);
+    // localPath exists, is a directory and has files in it
+
+    Path dotGitPath = Paths.get(localPath.toString(), repoBasename, ".git");
+    if (!dotGitPath.toFile().exists()) {
+      log.warn(
+          "Directory {} for git/repo {}, branch {} has files or directories but {} was not found. The directory will be recreated to start with a new clone.",
+          localPath.toString(),
+          repoUrl,
+          branch,
+          dotGitPath.toString());
+      clone(repoUrl, branch, localPath);
+      return;
+    }
+    // localPath has "<repo>/.git" directory
+
+    pull(repoUrl, dotGitPath.getParent());
   }
 
-  public void clone(String repoUrl, String branch, Path destination) throws IOException {
+  private void clone(String repoUrl, String branch, Path destination) throws IOException {
     if (!isValidReference(repoUrl)) {
       throw new IllegalArgumentException(
           "Git reference \""
@@ -134,7 +148,7 @@ public class GitJobExecutor {
     }
   }
 
-  public void pull(String repoUrl, Path localPath) throws IOException {
+  private void pull(String repoUrl, Path localPath) throws IOException {
     log.info("Pulling git/repo {} into {}", repoUrl, localPath.toString());
 
     String cloneCommand = gitExecutable + " pull";
