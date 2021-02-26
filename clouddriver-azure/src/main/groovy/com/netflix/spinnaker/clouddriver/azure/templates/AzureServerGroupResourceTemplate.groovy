@@ -394,9 +394,11 @@ class AzureServerGroupResourceTemplate {
   static class VirtualMachineScaleSetProperty {
     Map<String, String> upgradePolicy = [:]
     ScaleSetVMProfile virtualMachineProfile
+    Boolean doNotRunExtensionsOnOverprovisionedVMs
 
     VirtualMachineScaleSetProperty(AzureServerGroupDescription description) {
       upgradePolicy["mode"] = description.upgradePolicy.toString()
+      doNotRunExtensionsOnOverprovisionedVMs = description.doNotRunExtensionsOnOverprovisionedVMs
 
       if (description.customScriptsSettings?.commandToExecute) {
         Collection<String> uriTemp = description.customScriptsSettings.fileUris

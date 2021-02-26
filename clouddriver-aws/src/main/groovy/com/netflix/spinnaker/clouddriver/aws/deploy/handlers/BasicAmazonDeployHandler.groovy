@@ -28,7 +28,7 @@ import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.aws.deploy.AmiIdResolver
-import com.netflix.spinnaker.clouddriver.aws.deploy.AutoScalingWorker
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AutoScalingWorker
 import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils
 import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig
 import com.netflix.spinnaker.clouddriver.aws.deploy.ResolvedAmiResult
@@ -254,7 +254,10 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
           desired: description.capacity.desired ?: 0
       )
 
-      def autoScalingWorker = new AutoScalingWorker(
+      def autoScalingWorker = new AutoScalingWorker(regionScopedProvider, dynamicConfigService)
+
+      // build AsgWorker configuration and then call deploy
+      def asgConfig = new AutoScalingWorker.AsgConfiguration(
         application: description.application,
         region: region,
         credentials: description.credentials,
@@ -285,14 +288,13 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         healthCheckGracePeriod: description.healthCheckGracePeriod,
         healthCheckType: description.healthCheckType,
         terminationPolicies: description.terminationPolicies,
-        spotPrice: description.spotPrice,
+        spotMaxPrice: description.spotPrice,
         suspendedProcesses: description.suspendedProcesses,
         kernelId: description.kernelId,
         ramdiskId: description.ramdiskId,
         instanceMonitoring: description.instanceMonitoring,
         ebsOptimized: description.ebsOptimized == null ? InstanceTypeUtils.getDefaultEbsOptimizedFlag(description.instanceType) : description.ebsOptimized,
-        regionScopedProvider: regionScopedProvider,
-        base64UserData: description.base64UserData,
+        base64UserData: description.base64UserData?.trim(),
         legacyUdf: description.legacyUdf,
         userDataOverride: description.userDataOverride,
         tags: applyAppStackDetailTags(deployDefaults, description).tags,
@@ -300,11 +302,12 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         setLaunchTemplate: description.setLaunchTemplate,
         requireIMDSv2: description.requireIMDSv2,
         associateIPv6Address: description.associateIPv6Address,
-        dynamicConfigService: dynamicConfigService,
-        unlimitedCpuCredits: getUnlimitedCpuCredits(description.unlimitedCpuCredits, description.instanceType)
+        unlimitedCpuCredits: getUnlimitedCpuCredits(description.unlimitedCpuCredits, description.instanceType),
+        placement: description.placement,
+        licenseSpecifications: description.licenseSpecifications
       )
 
-      def asgName = autoScalingWorker.deploy()
+      def asgName = autoScalingWorker.deploy(asgConfig)
 
       deploymentResult.serverGroupNames << "${region}:${asgName}".toString()
       deploymentResult.serverGroupNameByRegion[region] = asgName
