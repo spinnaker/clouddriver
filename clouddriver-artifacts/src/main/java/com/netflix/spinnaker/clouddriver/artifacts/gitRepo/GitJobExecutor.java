@@ -171,7 +171,7 @@ public class GitJobExecutor {
               + result.getOutput());
     }
 
-    if (localPath.getParent().toFile().setLastModified(System.currentTimeMillis())) {
+    if (!localPath.getParent().toFile().setLastModified(System.currentTimeMillis())) {
       log.warn("Unable to set last modified time on {}", localPath.getParent().toString());
     }
   }

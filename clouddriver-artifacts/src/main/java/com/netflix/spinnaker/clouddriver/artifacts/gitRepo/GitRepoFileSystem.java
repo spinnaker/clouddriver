@@ -23,7 +23,12 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,6 +39,7 @@ public class GitRepoFileSystem {
       Paths.get(System.getProperty("java.io.tmpdir"), "gitrepos");
 
   private final int cloneRetentionMin;
+  private final Map<String, Lock> pathLocks = new ConcurrentHashMap<>();
 
   public GitRepoFileSystem(int cloneRetentionMin) {
     this.cloneRetentionMin = cloneRetentionMin;
@@ -45,6 +51,30 @@ public class GitRepoFileSystem {
 
   public Path getLocalClonePath(String repoUrl, String branch) {
     return Paths.get(CLONES_HOME.toString(), hashCoordinates(repoUrl, branch));
+  }
+
+  public boolean tryLock(String repoUrl, String branch, long time, TimeUnit unit)
+      throws InterruptedException {
+    String hash = hashCoordinates(repoUrl, branch);
+    Lock lock = pathLocks.computeIfAbsent(hash, k -> new ReentrantLock());
+    return lock.tryLock(time, unit);
+  }
+
+  public boolean tryLock(String cloneHashDir) {
+    Lock lock = pathLocks.computeIfAbsent(cloneHashDir, k -> new ReentrantLock());
+    return lock.tryLock();
+  }
+
+  public void unlock(String repoUrl, String branch) {
+    unlock(hashCoordinates(repoUrl, branch));
+  }
+
+  public void unlock(String cloneHashDir) {
+    if (!pathLocks.containsKey(cloneHashDir)) {
+      return;
+    }
+    Lock lock = pathLocks.remove(cloneHashDir);
+    lock.unlock();
   }
 
   private String hashCoordinates(String repoUrl, String branch) {
@@ -72,9 +102,18 @@ public class GitRepoFileSystem {
       }
       for (File r : repos) {
         long ageMin = ((System.currentTimeMillis() - r.lastModified()) / 1000) / 60;
-        if (ageMin > cloneRetentionMin) {
+        if (ageMin < cloneRetentionMin) {
+          continue;
+        }
+        if (!tryLock(r.getName())) {
+          // move on if the directory is locked by another thread, just wait for the next cycle
+          continue;
+        }
+        try {
           log.info("Deleting expired git clone {}", r.getName());
           FileUtils.forceDelete(r);
+        } finally {
+          unlock(r.getName());
         }
       }
     } catch (IOException e) {

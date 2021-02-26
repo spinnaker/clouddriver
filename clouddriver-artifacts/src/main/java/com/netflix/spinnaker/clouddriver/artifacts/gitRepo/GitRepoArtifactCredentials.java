@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.Getter;
@@ -39,6 +40,7 @@ import org.jetbrains.annotations.NotNull;
 public class GitRepoArtifactCredentials implements ArtifactCredentials {
   public static final String CREDENTIALS_TYPE = "git/repo";
   private static final Pattern GENERIC_URL_PATTERN = Pattern.compile("^.*/(.*)$");
+  private static final long MAX_WAIT_LOCK_SEC = 10;
 
   @Getter private final ImmutableList<String> types = ImmutableList.of("git/repo");
   @Getter private final String name;
@@ -86,10 +88,36 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
       String repoBasename,
       Path outputFile)
       throws IOException {
-    executor.cloneOrPull(repoUrl, branch, stagingPath, repoBasename);
-    log.info("Creating archive for git/repo {}", repoUrl);
-    executor.archive(Paths.get(stagingPath.toString(), repoBasename), branch, subPath, outputFile);
-    return new FileInputStream(outputFile.toFile());
+    try {
+      if (gitRepoFileSystem.tryLock(repoUrl, branch, MAX_WAIT_LOCK_SEC, TimeUnit.SECONDS)) {
+        try {
+          executor.cloneOrPull(repoUrl, branch, stagingPath, repoBasename);
+          log.info("Creating archive for git/repo {}", repoUrl);
+          executor.archive(
+              Paths.get(stagingPath.toString(), repoBasename), branch, subPath, outputFile);
+          return new FileInputStream(outputFile.toFile());
+        } finally {
+          gitRepoFileSystem.unlock(repoUrl, branch);
+        }
+      } else {
+        throw new IllegalStateException(
+            "Timeout of "
+                + MAX_WAIT_LOCK_SEC
+                + " seconds waiting to acquire file system lock for "
+                + repoUrl
+                + " (branch "
+                + branch
+                + ").");
+      }
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(
+          "Interrupted while waiting to acquire file system lock for "
+              + repoUrl
+              + " (branch "
+              + branch
+              + ").",
+          e);
+    }
   }
 
   private String getRepoBasename(String url) {
