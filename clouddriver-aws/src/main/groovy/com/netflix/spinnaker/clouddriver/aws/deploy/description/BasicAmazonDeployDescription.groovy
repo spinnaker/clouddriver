@@ -70,7 +70,7 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
    * Associate an IPv6 address
    * This is a Launch Template only feature
    */
-  Boolean associateIPv6Address = false
+  Boolean associateIPv6Address
 
   /**
    * Applicable only for burstable performance instance types like t2/t3.
@@ -131,6 +131,16 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
   Source source = new Source()
   Map<String, String> tags
 
+  /**
+   * Launch template placement details, see {@link com.amazonaws.services.ec2.model.LaunchTemplatePlacementRequest}.
+   */
+  LaunchTemplatePlacement placement
+
+  /**
+   * Launch template license specifications, see {@link com.amazonaws.services.ec2.model.LaunchTemplateLicenseConfigurationRequest}.
+   */
+  List<LaunchTemplateLicenseSpecification> licenseSpecifications
+
   @Override
   Collection<String> getApplications() {
     return [application]
@@ -149,5 +159,22 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
     String region
     String asgName
     Boolean useSourceCapacity
+  }
+
+  @Canonical
+  static class LaunchTemplatePlacement {
+    String affinity
+    String availabilityZone
+    String groupName
+    String hostId
+    String tenancy
+    String spreadDomain
+    String hostResourceGroupArn
+    Integer partitionNumber
+  }
+
+  @Canonical
+  static class LaunchTemplateLicenseSpecification {
+    String arn
   }
 }
