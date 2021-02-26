@@ -4,12 +4,68 @@ spring:
 
 kubernetes:
   kubectl:
-    executable: ${PROJECT_ROOT}/clouddriver-kubernetes/src/integration/resources/kubectl-wrapper.sh  # Using a wrapper around the kubectl binary provided by the k3s docker container
+    executable: ${KUBECTL_PATH} # Using a wrapper around the kubectl binary provided by the k3s docker container
   enabled: true
   primaryAccount: account1
   accounts:
     - name: account1
       cacheIntervalSeconds: 10
+      requiredGroupMembership: []
+      providerVersion: V2
+      permissions: {}
+      dockerRegistries: []
+      configureImagePullSecrets: true
+      cacheThreads: 3
+      namespaces:
+        - testns00
+        - testns01
+        - testns02
+        - testns03
+        - testns04
+        - testns05
+        - testns06
+        - testns07
+        - testns08
+        - testns09
+        - testns10
+        - testns11
+        - testns12
+        - testns13
+        - testns14
+        - testns15
+        - testns16
+        - testns17
+        - testns18
+        - testns19
+        - testns20
+        - testns21
+        - testns22
+        - testns23
+        - testns24
+        - testns25
+        - testns26
+        - testns27
+        - testns28
+        - testns29
+        - testns30
+      omitNamespaces: []
+      kinds:
+        - pod
+        - replicaset
+        - deployment
+        - service
+        - configmap
+        - secret
+      omitKinds: []
+      customResources: []
+      cachingPolicies: []
+      oauthScopes: []
+      oAuthScopes: []
+      onlySpinnakerManaged: true
+      metrics: false
+      kubeconfigFile: ${KUBECONFIGS_HOME}/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
+    - name: account2
+      cacheIntervalSeconds: 30
       requiredGroupMembership: []
       providerVersion: V2
       permissions: {}
@@ -26,27 +82,9 @@ kubernetes:
       oAuthScopes: []
       onlySpinnakerManaged: true
       metrics: false
-      kubeconfigFile: ${PROJECT_ROOT}/clouddriver-kubernetes/build/kubeconfigs/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
-    - name: account2
-      cacheIntervalSeconds: 30
-      requiredGroupMembership: []
-      providerVersion: V2
-      permissions: {}
-      dockerRegistries: []
-      configureImagePullSecrets: true
-      cacheThreads: 1
-      namespaces:
-      - default
-      omitNamespaces: []
-      kinds: []
-      omitKinds: []
-      customResources: []
-      cachingPolicies: []
-      oauthScopes: []
-      oAuthScopes: []
-      onlySpinnakerManaged: true
-      metrics: false
-      kubeconfigFile: ${PROJECT_ROOT}/clouddriver-kubernetes/build/kubeconfigs/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
+      kubeconfigFile: ${KUBECONFIGS_HOME}/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
+
+logging.level.com.netflix.spinnaker.cats.sql.cluster: DEBUG
 
 sql:
   enabled: true
