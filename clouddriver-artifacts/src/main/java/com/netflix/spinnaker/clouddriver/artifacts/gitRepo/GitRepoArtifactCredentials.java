@@ -68,8 +68,8 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     String repoBasename = getRepoBasename(repoUrl);
     Path outputFile = Paths.get(stagingPath.toString(), repoBasename + ".tgz");
 
-    if (gitRepoFileSystem.getCloneRetentionMin() == 0) {
-      // delete temporary files before returning
+    if (!gitRepoFileSystem.canRetainClone()) {
+      // delete clone before returning
       try (Closeable ignored = () -> FileUtils.deleteDirectory(stagingPath.toFile())) {
         return getInputStream(repoUrl, subPath, branch, stagingPath, repoBasename, outputFile);
       }

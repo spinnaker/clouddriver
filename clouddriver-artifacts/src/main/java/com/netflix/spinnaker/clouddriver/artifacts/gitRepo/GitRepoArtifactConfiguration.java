@@ -61,6 +61,6 @@ class GitRepoArtifactConfiguration {
 
   @Bean
   public GitRepoFileSystem gitRepoFileSystem() {
-    return new GitRepoFileSystem(gitRepoArtifactProviderProperties.getCloneRetentionMin());
+    return new GitRepoFileSystem(gitRepoArtifactProviderProperties);
   }
 }

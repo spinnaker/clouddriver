@@ -38,15 +38,11 @@ public class GitRepoFileSystem {
   private static final Path CLONES_HOME =
       Paths.get(System.getProperty("java.io.tmpdir"), "gitrepos");
 
-  private final int cloneRetentionMin;
+  private final GitRepoArtifactProviderProperties config;
   private final Map<String, Lock> pathLocks = new ConcurrentHashMap<>();
 
-  public GitRepoFileSystem(int cloneRetentionMin) {
-    this.cloneRetentionMin = cloneRetentionMin;
-  }
-
-  public int getCloneRetentionMin() {
-    return cloneRetentionMin;
+  public GitRepoFileSystem(GitRepoArtifactProviderProperties properties) {
+    this.config = properties;
   }
 
   public Path getLocalClonePath(String repoUrl, String branch) {
@@ -77,6 +73,15 @@ public class GitRepoFileSystem {
     lock.unlock();
   }
 
+  public boolean canRetainClone() {
+    return config.getCloneRetentionMinutes() != 0 && hasFreeDisk();
+  }
+
+  private boolean hasFreeDisk() {
+    long currentSize = FileUtils.sizeOfDirectory(CLONES_HOME.toFile());
+    return currentSize >= 0 && currentSize < config.getCloneRetentionMaxBytes();
+  }
+
   private String hashCoordinates(String repoUrl, String branch) {
     String coordinates =
         String.format(
@@ -93,7 +98,7 @@ public class GitRepoFileSystem {
               + "}")
   private void deleteExpiredRepos() {
     try {
-      if (!CLONES_HOME.toFile().exists() || cloneRetentionMin < 0) {
+      if (!CLONES_HOME.toFile().exists() || config.getCloneRetentionMinutes() < 0) {
         return;
       }
       File[] repos = CLONES_HOME.toFile().listFiles();
@@ -102,7 +107,7 @@ public class GitRepoFileSystem {
       }
       for (File r : repos) {
         long ageMin = ((System.currentTimeMillis() - r.lastModified()) / 1000) / 60;
-        if (ageMin < cloneRetentionMin) {
+        if (ageMin < config.getCloneRetentionMinutes()) {
           continue;
         }
         if (!tryLock(r.getName())) {

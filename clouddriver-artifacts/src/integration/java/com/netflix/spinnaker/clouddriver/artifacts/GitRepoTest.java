@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.Main;
+import com.netflix.spinnaker.clouddriver.artifacts.gitRepo.GitRepoArtifactProviderProperties;
 import com.netflix.spinnaker.clouddriver.artifacts.gitRepo.GitRepoFileSystem;
 import com.netflix.spinnaker.clouddriver.artifacts.utils.GiteaContainer;
 import io.restassured.RestAssured;
@@ -298,7 +299,7 @@ public class GitRepoTest {
 
   private static void deleteTmpClone(Map<String, Object> artifact) throws IOException {
     Path localClone =
-        new GitRepoFileSystem(0)
+        new GitRepoFileSystem(new GitRepoArtifactProviderProperties())
             .getLocalClonePath(
                 (String) artifact.get("reference"), (String) artifact.get("version"));
     if (localClone.toFile().exists()) {
