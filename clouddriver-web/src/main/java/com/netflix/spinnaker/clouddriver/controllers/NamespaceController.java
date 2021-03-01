@@ -17,32 +17,41 @@
 
 package com.netflix.spinnaker.clouddriver.controllers;
 
+import com.netflix.spinnaker.clouddriver.model.Namespace;
 import com.netflix.spinnaker.clouddriver.model.NamespaceProvider;
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/namespaces")
+@RequiredArgsConstructor
+@RequestMapping(value = "/namespaces")
 public class NamespaceController {
 
-  @Autowired List<NamespaceProvider> namespaceProviders;
+  private final List<NamespaceProvider> namespaceProviders;
 
   @PreAuthorize("hasPermission(#account, 'ACCOUNT', 'READ')")
   @RequestMapping(value = "/{provider}/{account}", method = RequestMethod.GET)
-  public Map getNamespaces(String providerId, String account) {
-    NamespaceProvider provider =
+  public Collection<Namespace> getNamespaces(
+      @PathVariable String provider, @PathVariable String account) {
+    NamespaceProvider namespaceProvider =
         namespaceProviders.stream()
-            .filter(np -> np.getCloudProvider().equalsIgnoreCase(providerId))
+            .filter(np -> np.getCloudProvider().equalsIgnoreCase(provider))
             .findAny()
             .orElseThrow(
                 () ->
-                    new IllegalArgumentException(
-                        "No NamespaceProvider found for cloud provider: " + providerId));
-    return provider.getNamespaces(account);
+                    new NotFoundException(
+                        "NamespaceProvider for provider " + provider + " not found."));
+    return namespaceProvider.getNamespaces(account).stream()
+        .sorted(Comparator.comparing(Namespace::getName))
+        .collect(Collectors.toList());
   }
 }

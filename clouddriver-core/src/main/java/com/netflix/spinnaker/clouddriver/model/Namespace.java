@@ -17,20 +17,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
-import com.netflix.spinnaker.clouddriver.documentation.Empty;
-import java.util.Map;
-
-public interface NamespaceProvider {
-
+public interface Namespace {
   /**
-   * Looks up all of the namespaces for a particular account. Keyed on account name.
+   * Name of the namespace
    *
-   * @param account name
-   * @return map of namespace-names to namespaces objects.
+   * @return name
    */
-  @Empty
-  Map<String, Object> getNamespaces(String account);
-
-  /** Provider-specific identifier */
-  String getCloudProvider();
+  String getName();
 }
