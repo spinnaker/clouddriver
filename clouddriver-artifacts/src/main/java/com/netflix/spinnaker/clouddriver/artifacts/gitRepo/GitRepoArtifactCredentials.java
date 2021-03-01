@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.Getter;
@@ -40,7 +39,6 @@ import org.jetbrains.annotations.NotNull;
 public class GitRepoArtifactCredentials implements ArtifactCredentials {
   public static final String CREDENTIALS_TYPE = "git/repo";
   private static final Pattern GENERIC_URL_PATTERN = Pattern.compile("^.*/(.*)$");
-  private static final long MAX_WAIT_LOCK_SEC = 10;
 
   @Getter private final ImmutableList<String> types = ImmutableList.of("git/repo");
   @Getter private final String name;
@@ -89,7 +87,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
       Path outputFile)
       throws IOException {
     try {
-      if (gitRepoFileSystem.tryLock(repoUrl, branch, MAX_WAIT_LOCK_SEC, TimeUnit.SECONDS)) {
+      if (gitRepoFileSystem.tryTimedLock(repoUrl, branch)) {
         try {
           executor.cloneOrPull(repoUrl, branch, stagingPath, repoBasename);
           log.info("Creating archive for git/repo {}", repoUrl);
@@ -101,9 +99,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
         }
       } else {
         throw new IllegalStateException(
-            "Timeout of "
-                + MAX_WAIT_LOCK_SEC
-                + " seconds waiting to acquire file system lock for "
+            "Timeout waiting to acquire file system lock for "
                 + repoUrl
                 + " (branch "
                 + branch

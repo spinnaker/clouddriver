@@ -31,5 +31,6 @@ public class GitRepoArtifactProviderProperties implements ArtifactProvider<GitRe
   private int cloneRetentionMinutes = 0;
   private int cloneRetentionCheckMs = DEFAULT_CLONE_RETENTION_CHECK_MS;
   private long cloneRetentionMaxBytes = 1024 * 1024 * 100; // 100 MB
+  private int cloneWaitLockTimeoutSec = 60;
   private List<GitRepoArtifactAccount> accounts = new ArrayList<>();
 }

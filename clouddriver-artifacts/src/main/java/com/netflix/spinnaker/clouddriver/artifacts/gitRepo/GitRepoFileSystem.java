@@ -49,11 +49,10 @@ public class GitRepoFileSystem {
     return Paths.get(CLONES_HOME.toString(), hashCoordinates(repoUrl, branch));
   }
 
-  public boolean tryLock(String repoUrl, String branch, long time, TimeUnit unit)
-      throws InterruptedException {
+  public boolean tryTimedLock(String repoUrl, String branch) throws InterruptedException {
     String hash = hashCoordinates(repoUrl, branch);
     Lock lock = pathLocks.computeIfAbsent(hash, k -> new ReentrantLock());
-    return lock.tryLock(time, unit);
+    return lock.tryLock(config.getCloneWaitLockTimeoutSec(), TimeUnit.SECONDS);
   }
 
   public boolean tryLock(String cloneHashDir) {
