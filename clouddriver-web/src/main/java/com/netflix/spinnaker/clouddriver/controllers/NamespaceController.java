@@ -21,10 +21,11 @@ import com.netflix.spinnaker.clouddriver.model.Namespace;
 import com.netflix.spinnaker.clouddriver.model.NamespaceProvider;
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,11 +33,14 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping(value = "/namespaces")
 public class NamespaceController {
 
   private final List<NamespaceProvider> namespaceProviders;
+
+  public NamespaceController(@Autowired(required = false) List<NamespaceProvider> providers) {
+    this.namespaceProviders = providers != null ? providers : Collections.emptyList();
+  }
 
   @PreAuthorize("hasPermission(#account, 'ACCOUNT', 'READ')")
   @RequestMapping(value = "/{provider}/{account}", method = RequestMethod.GET)
