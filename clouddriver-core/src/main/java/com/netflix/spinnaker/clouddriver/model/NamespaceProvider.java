@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Armory, Inc.
+ * Copyright 2021 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ public interface NamespaceProvider {
    * Looks up all of the namespaces for a particular account. Keyed on account name.
    *
    * @param account name
-   * @return map of namespace-names to namespaces objects.
+   * @return Collection of namespaces.
    */
   @Empty
   Collection<? extends Namespace> getNamespaces(String account);
