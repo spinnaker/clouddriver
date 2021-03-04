@@ -69,7 +69,7 @@ public class ArtifactController {
   List<String> getNames(
       @PathVariable("accountName") String accountName, @RequestParam(value = "type") String type) {
     ArtifactCredentials credentials =
-        artifactCredentialsRepository.getCredentials(accountName, type);
+        artifactCredentialsRepository.getCredentialsForType(accountName, type);
     return credentials.getArtifactNames();
   }
 
@@ -79,7 +79,7 @@ public class ArtifactController {
       @RequestParam(value = "type") String type,
       @RequestParam(value = "artifactName") String artifactName) {
     ArtifactCredentials credentials =
-        artifactCredentialsRepository.getCredentials(accountName, type);
+        artifactCredentialsRepository.getCredentialsForType(accountName, type);
     return credentials.getArtifactVersions(artifactName);
   }
 }
