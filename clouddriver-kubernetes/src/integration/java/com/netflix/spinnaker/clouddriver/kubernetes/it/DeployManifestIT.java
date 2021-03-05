@@ -775,11 +775,11 @@ public class DeployManifestIT extends BaseTest {
           + "  And sending disable manifest one time\n"
           + "Then there are two replicasets with only the last one receiving traffic\n===")
   @Test
-  public void shouldDeployRedBlack() throws IOException, InterruptedException {
+  public void shouldDeployRedBlackMultidoc() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String ns = kubeCluster.getAvailableNamespace();
     System.out.println("> Using namespace " + ns);
-    String name = "nginx";
+    String name = "myapp";
     String selectorValue = "traffichere";
 
     Map<String, Object> replicaset =
@@ -830,7 +830,89 @@ public class DeployManifestIT extends BaseTest {
     String port =
         kubeCluster.execKubectl(
             "-n " + ns + " get service " + name + " -o=jsonpath='{.spec.ports[0].nodePort}'");
-    Container.ExecResult result = kubeCluster.execInContainer("wget", "http://localhost:" + port);
+    Container.ExecResult result =
+        kubeCluster.execInContainer("wget", "http://localhost:" + port, "-O", "-");
+    assertEquals(
+        0,
+        result.getExitCode(),
+        "stdout: " + result.getStdout() + " stderr: " + result.getStderr());
+    List<String> podNames =
+        Splitter.on(" ")
+            .splitToList(
+                kubeCluster.execKubectl(
+                    "-n "
+                        + ns
+                        + " get pod -o=jsonpath='{.items[*].metadata.name}' -l=pointer="
+                        + selectorValue));
+    assertEquals(
+        1, podNames.size(), "Only one pod expected to have the label for traffic selection");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a replicaset yaml with red/black deployment traffic strategy\n"
+          + "  And an existing service\n"
+          + "When sending deploy manifest request two times\n"
+          + "  And sending disable manifest one time\n"
+          + "Then there are two replicasets with only the last one receiving traffic\n===")
+  @Test
+  public void shouldDeployRedBlackReplicaSet() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    System.out.println("> Using namespace " + ns);
+    String name = "myapp";
+    String selectorValue = "traffichere";
+
+    Map<String, Object> service =
+        KubeTestUtils.loadYaml("classpath:manifests/service.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name)
+            .withValue("spec.selector", ImmutableMap.of("pointer", selectorValue))
+            .withValue("spec.type", "NodePort")
+            .asMap();
+    kubeCluster.execKubectl("-n " + ns + " apply -f -", service);
+
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name)
+            .withValue("spec.selector.matchLabels", ImmutableMap.of("label1", "value1"))
+            .withValue("spec.template.metadata.labels", ImmutableMap.of("label1", "value1"))
+            .asList();
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", manifest)
+            .withValue("deployManifest.services", Collections.singleton("service " + name))
+            .withValue("deployManifest.strategy", "RED_BLACK")
+            .withValue("deployManifest.trafficManagement.enabled", true)
+            .withValue("deployManifest.trafficManagement.options.strategy", "redblack")
+            .withValue("deployManifest.trafficManagement.options.enableTraffic", true)
+            .withValue("deployManifest.trafficManagement.options.namespace", ns)
+            .withValue(
+                "deployManifest.trafficManagement.options.services",
+                Collections.singleton("service " + name))
+            .asList();
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "replicaSet " + name + "-v000");
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "replicaSet " + name + "-v001");
+    body =
+        KubeTestUtils.loadJson("classpath:requests/disable_manifest.json")
+            .withValue("disableManifest.app", APP1_NAME)
+            .withValue("disableManifest.manifestName", "replicaSet " + name + "-v000")
+            .withValue("disableManifest.location", ns)
+            .withValue("disableManifest.account", ACCOUNT1_NAME)
+            .asList();
+    KubeTestUtils.disableManifest(baseUrl(), body, ns);
+
+    // ------------------------- then --------------------------
+    String port =
+        kubeCluster.execKubectl(
+            "-n " + ns + " get service " + name + " -o=jsonpath='{.spec.ports[0].nodePort}'");
+    Container.ExecResult result =
+        kubeCluster.execInContainer("wget", "http://localhost:" + port, "-O", " -");
     assertEquals(
         0,
         result.getExitCode(),

@@ -46,9 +46,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 public class KubernetesServiceHandler extends KubernetesHandler implements CanLoadBalance {
   @Override
   public int deployPriority() {
@@ -182,10 +184,11 @@ public class KubernetesServiceHandler extends KubernetesHandler implements CanLo
   @Override
   @ParametersAreNonnullByDefault
   public void attach(KubernetesManifest loadBalancer, KubernetesManifest target) {
-    // avoid loops
-    if (KubernetesCoordinates.fromManifest(loadBalancer)
-        .equals(KubernetesCoordinates.fromManifest(target))) {
-      return;
+    KubernetesCoordinates loadBalancerCoords = KubernetesCoordinates.fromManifest(loadBalancer);
+    if (loadBalancerCoords.equals(KubernetesCoordinates.fromManifest(target))) {
+      log.warn(
+          "Adding traffic selection labels to service {}, which itself is the source load balancer. This may change in the future.",
+          loadBalancerCoords);
     }
     Map<String, String> labels = target.getSpecTemplateLabels().orElse(target.getLabels());
     ImmutableMap<String, String> selector = getSelector(loadBalancer);
