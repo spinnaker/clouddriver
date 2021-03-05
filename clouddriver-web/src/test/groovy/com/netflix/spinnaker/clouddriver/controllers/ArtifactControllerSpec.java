@@ -136,8 +136,9 @@ public class ArtifactControllerSpec {
 
     // We also don't expect to find an account that can support type artifacts-helm
     mvc.perform(
-            get("/artifacts/account/{accountName}/names", credentials.getName())
-                .param("type", HelmArtifactCredentials.CREDENTIALS_TYPE))
+            get("/artifacts/account/{accountName}/versions", credentials.getName())
+                .param("type", HelmArtifactCredentials.CREDENTIALS_TYPE)
+                .param("artifactName", artifactName))
         .andExpect(status().isNotFound());
   }
 }
