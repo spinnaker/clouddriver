@@ -17,16 +17,19 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.op.handler;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion.APPS_V1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Status;
@@ -53,6 +56,10 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
         CanUndoRollout,
         CanRollingRestart,
         ServerGroupHandler {
+
+  private static final ImmutableSet<KubernetesApiVersion> SUPPORTED_API_VERSIONS =
+      ImmutableSet.of(APPS_V1);
+
   @Nonnull
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
@@ -97,6 +104,9 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
 
   @Override
   public Status status(KubernetesManifest manifest) {
+    if (!SUPPORTED_API_VERSIONS.contains(manifest.getApiVersion())) {
+      throw new UnsupportedVersionException(manifest);
+    }
     V1StatefulSet v1StatefulSet =
         KubernetesCacheDataConverter.getResource(manifest, V1StatefulSet.class);
     return status(v1StatefulSet);
