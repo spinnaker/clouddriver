@@ -73,6 +73,7 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
   Boolean enableInboundNAT = false
   List<VirtualMachineScaleSetDataDisk> dataDisks
   Integer terminationNotBeforeTimeoutInMinutes
+  String windowsTimeZone
   Boolean doNotRunExtensionsOnOverprovisionedVMs = false
 
   static class AzureScaleSetSku {
@@ -203,6 +204,7 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
         azureSG.terminationNotBeforeTimeoutInMinutes = str[0].toInteger()
       }
     }
+    azureSG.windowsTimeZone = scaleSet.virtualMachineProfile()?.osProfile()?.windowsConfiguration()?.timeZone()
 
     // Get the image reference data
     def storageProfile = scaleSet.virtualMachineProfile()?.storageProfile()
