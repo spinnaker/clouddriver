@@ -17,8 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.asg
 
-import com.netflix.spinnaker.clouddriver.aws.deploy.AmazonResourceTagger
-import com.netflix.spinnaker.clouddriver.aws.deploy.CustomAmazonResourceTagger
 import com.netflix.spinnaker.clouddriver.aws.deploy.asg.asgbuilders.*
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.BasicAmazonDeployDescription
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonAsgLifecycleHook
@@ -88,7 +86,7 @@ class AutoScalingWorker {
     List<String> availabilityZones
     List<AmazonBlockDevice> blockDevices
     Map<String, String> tags
-    Map<String, String> blockDevicesTags
+    Map<String, String> blockDeviceTags
     List<AmazonAsgLifecycleHook> lifecycleHooks
     int minInstances
     int maxInstances
@@ -101,9 +99,6 @@ class AutoScalingWorker {
     Boolean unlimitedCpuCredits
     BasicAmazonDeployDescription.LaunchTemplatePlacement placement
     List<BasicAmazonDeployDescription.LaunchTemplateLicenseSpecification> licenseSpecifications
-    Collection<AmazonResourceTagger> getABlockDevicesTags(){
-      return Arrays.asList( new CustomAmazonResourceTagger(blockDevicesTags))
-    }
   }
 
   /**
