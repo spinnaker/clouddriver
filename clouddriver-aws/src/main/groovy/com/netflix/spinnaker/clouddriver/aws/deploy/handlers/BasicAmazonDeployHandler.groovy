@@ -390,7 +390,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
     }
 
     description.tags = cleanTags(description.tags)
-    description.blockDevicesTags = cleanTags(description.blockDevicesTags)
+    description.blockDeviceTags = cleanTags(description.blockDeviceTags)
 
     // skip a couple of AWS calls if we won't use any of the data
     if (!(useSourceCapacity || description.copySourceCustomBlockDeviceMappings)) {

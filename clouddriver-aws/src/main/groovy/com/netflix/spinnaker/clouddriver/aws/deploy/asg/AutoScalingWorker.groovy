@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.asg
 import com.netflix.spinnaker.clouddriver.aws.deploy.asg.asgbuilders.*
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.BasicAmazonDeployDescription
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonAsgLifecycleHook
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 import com.netflix.spinnaker.clouddriver.aws.model.AutoScalingProcessType
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
@@ -83,9 +84,9 @@ class AutoScalingWorker {
     Collection<String> targetGroupArns
     List<String> securityGroups
     List<String> availabilityZones
-    Map<String, String> blockDeviceTags
+    List<AmazonBlockDevice> blockDevices
     Map<String, String> tags
-    Map<String, String> blockDevicesTags
+    Map<String, String> blockDeviceTags
     List<AmazonAsgLifecycleHook> lifecycleHooks
     int minInstances
     int maxInstances
