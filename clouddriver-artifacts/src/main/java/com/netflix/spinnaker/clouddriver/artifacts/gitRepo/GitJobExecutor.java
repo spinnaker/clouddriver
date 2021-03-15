@@ -31,6 +31,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.regex.Pattern;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -41,6 +42,7 @@ import org.springframework.util.StringUtils;
 public class GitJobExecutor {
 
   private static final String SSH_KEY_PWD_ENV_VAR = "SSH_KEY_PWD";
+  private static final Pattern SHA_PATTERN = Pattern.compile("[0-9a-f]{40}");
   private static Path genericAskPassBinary;
 
   @Getter private final GitRepoArtifactAccount account;
@@ -79,7 +81,7 @@ public class GitJobExecutor {
       throws IOException {
     File localPathFile = localPath.toFile();
     if (!localPathFile.exists()) {
-      clone(repoUrl, branch, localPath);
+      clone(repoUrl, branch, localPath, repoBasename);
       return;
     }
     // localPath exists
@@ -92,7 +94,7 @@ public class GitJobExecutor {
 
     File[] localPathFiles = localPathFile.listFiles();
     if (localPathFiles == null || localPathFiles.length == 0) {
-      clone(repoUrl, branch, localPath);
+      clone(repoUrl, branch, localPath, repoBasename);
       return;
     }
     // localPath exists, is a directory and has files in it
@@ -105,15 +107,16 @@ public class GitJobExecutor {
           repoUrl,
           branch,
           dotGitPath.toString());
-      clone(repoUrl, branch, localPath);
+      clone(repoUrl, branch, localPath, repoBasename);
       return;
     }
     // localPath has "<repo>/.git" directory
 
-    pull(repoUrl, dotGitPath.getParent());
+    pull(repoUrl, branch, dotGitPath.getParent());
   }
 
-  private void clone(String repoUrl, String branch, Path destination) throws IOException {
+  private void clone(String repoUrl, String branch, Path destination, String repoBasename)
+      throws IOException {
     if (!isValidReference(repoUrl)) {
       throw new IllegalArgumentException(
           "Git reference \""
@@ -121,55 +124,82 @@ public class GitJobExecutor {
               + "\" is invalid for credentials with auth type "
               + authType);
     }
-    FileUtils.deleteDirectory(destination.toFile());
+
+    if (destination.toFile().exists()) {
+      FileUtils.deleteDirectory(destination.toFile());
+    }
     FileUtils.forceMkdir(destination.toFile());
+
+    if (SHA_PATTERN.matcher(branch).matches()) {
+      fetchSha(repoUrl, branch, destination, repoBasename);
+    } else {
+      cloneBranchOrTag(repoUrl, branch, destination);
+    }
+  }
+
+  private void cloneBranchOrTag(String repoUrl, String branch, Path destination)
+      throws IOException {
     log.info("Cloning git/repo {} into {}", repoUrl, destination.toString());
 
     String cloneCommand =
         gitExecutable + " clone --branch " + branch + " --depth 1 " + repoUrlWithAuth(repoUrl);
 
     List<String> command = cmdToList(cloneCommand);
-    log.debug("Executing command: \"{}\"", String.join(" ", command));
-
-    JobResult<String> result =
-        jobExecutor.runJob(
-            new JobRequest(command, addEnvVars(System.getenv()), destination.toFile()));
-
-    if (result.getResult() != JobResult.Result.SUCCESS) {
-      throw new IOException(
-          "Failed to clone repository "
-              + repoUrl
-              + " into "
-              + destination
-              + ". Error: "
-              + result.getError()
-              + " Output: "
-              + result.getOutput());
-    }
+    runCommand(
+        command, destination, "Failed to clone repository " + repoUrl + " into " + destination);
   }
 
-  private void pull(String repoUrl, Path localPath) throws IOException {
+  private void fetchSha(String repoUrl, String sha, Path destination, String repoBasename)
+      throws IOException {
+    Path repoPath = Paths.get(destination.toString(), repoBasename);
+    log.info("Fetching git/repo {} sha {} into {}", repoUrl, sha, destination.toString());
+
+    if (!repoPath.toFile().mkdirs()) {
+      throw new IOException("Unable to create directory " + repoPath.toString());
+    }
+
+    List<String> command = cmdToList(gitExecutable + " init");
+    runCommand(command, repoPath, "Failed to initialize repository in " + repoPath.toString());
+
+    command = cmdToList(gitExecutable + " remote add origin " + repoUrlWithAuth(repoUrl));
+    runCommand(command, repoPath, "Failed adding repository origin " + repoUrl);
+
+    command = cmdToList(gitExecutable + " fetch origin " + sha);
+    JobResult<String> result = runCommandAndGetResult(command, repoPath);
+    if (result.getResult() != JobResult.Result.SUCCESS) {
+      // Some git servers don't allow to directly fetch specific commits
+      // (error: Server does not allow request for unadvertised object),
+      // this is a fallback to fetch everything first
+      log.warn(
+          "Unable to directly fetch specific sha, trying generic fetch. Error: "
+              + result.getError());
+      command = cmdToList(gitExecutable + " fetch origin");
+      runCommand(command, repoPath, "Error running \"git fetch\"");
+      command = cmdToList(gitExecutable + " fetch origin " + sha);
+      runCommand(command, repoPath, "Unable to fetch sha " + sha);
+    }
+
+    command = cmdToList(gitExecutable + " reset --hard FETCH_HEAD");
+    runCommand(command, repoPath, "Failed doing \"git reset --hard FETCH_HEAD\"" + sha);
+  }
+
+  private void pull(String repoUrl, String branch, Path localPath) throws IOException {
+    if (SHA_PATTERN.matcher(branch).matches()) {
+      log.info(
+          "Contents of git/repo {} for sha {} already downloaded, no \"git pull\" needed.",
+          repoUrl,
+          branch);
+      return;
+    }
+
     log.info("Pulling git/repo {} into {}", repoUrl, localPath.toString());
 
     String cloneCommand = gitExecutable + " pull";
     List<String> command = cmdToList(cloneCommand);
-    log.debug("Executing command: \"{}\"", String.join(" ", command));
-
-    JobResult<String> result =
-        jobExecutor.runJob(
-            new JobRequest(command, addEnvVars(System.getenv()), localPath.toFile()));
-
-    if (result.getResult() != JobResult.Result.SUCCESS) {
-      throw new IOException(
-          "Failed on \"git pull\" of repository "
-              + repoUrl
-              + " into "
-              + localPath
-              + ". Error: "
-              + result.getError()
-              + " Output: "
-              + result.getOutput());
-    }
+    runCommand(
+        command,
+        localPath,
+        "Failed on \"git pull\" of repository " + repoUrl + " into " + localPath);
 
     if (!localPath.getParent().toFile().setLastModified(System.currentTimeMillis())) {
       log.warn("Unable to set last modified time on {}", localPath.getParent().toString());
@@ -193,18 +223,19 @@ public class GitJobExecutor {
       command.add(subDir);
     }
 
+    runCommand(command, localClone, "Failed to archive repository from " + localClone);
+  }
+
+  private JobResult<String> runCommandAndGetResult(List<String> command, Path dir) {
     log.debug("Executing command: \"{}\"", String.join(" ", command));
+    return jobExecutor.runJob(new JobRequest(command, addEnvVars(System.getenv()), dir.toFile()));
+  }
 
-    JobResult<String> result = jobExecutor.runJob(new JobRequest(command, localClone.toFile()));
-
+  private void runCommand(List<String> command, Path dir, String errorMsg) throws IOException {
+    JobResult<String> result = runCommandAndGetResult(command, dir);
     if (result.getResult() != JobResult.Result.SUCCESS) {
       throw new IOException(
-          "Failed to archive repository from "
-              + localClone
-              + ". Error: "
-              + result.getError()
-              + " Output: "
-              + result.getOutput());
+          errorMsg + ". Error: " + result.getError() + " Output: " + result.getOutput());
     }
   }
 
