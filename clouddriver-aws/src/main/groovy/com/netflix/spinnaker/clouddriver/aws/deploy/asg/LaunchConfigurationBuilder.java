@@ -127,7 +127,8 @@ public interface LaunchConfigurationBuilder {
       this.instanceMonitoring = instanceMonitoring;
       this.blockDevices = blockDevices;
       this.securityGroups = securityGroups;
-      this.blockDeviceTags = blockDeviceTags;;
+      this.blockDeviceTags = blockDeviceTags;
+      ;
     }
   }
 }

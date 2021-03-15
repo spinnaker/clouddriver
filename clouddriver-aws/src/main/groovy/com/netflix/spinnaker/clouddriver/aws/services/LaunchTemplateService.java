@@ -38,7 +38,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
@@ -163,7 +162,7 @@ public class LaunchTemplateService {
                     .withName(description.getIamRole()));
 
     Optional<LaunchTemplateTagSpecificationRequest> tagSpecification =
-      tagSpecification(amazonResourceTaggers, asgConfiguration, description.getAsgName());
+        tagSpecification(amazonResourceTaggers, asgConfiguration, description.getAsgName());
     if (tagSpecification.isPresent()) {
       request = request.withTagSpecifications(tagSpecification.get());
     }
@@ -269,7 +268,7 @@ public class LaunchTemplateService {
                     .withEnabled(asgConfig.getInstanceMonitoring()));
 
     Optional<LaunchTemplateTagSpecificationRequest> tagSpecification =
-      tagSpecification(amazonResourceTaggers, asgConfig, asgName);
+        tagSpecification(amazonResourceTaggers, asgConfig, asgName);
     if (tagSpecification.isPresent()) {
       request = request.withTagSpecifications(tagSpecification.get());
     }
@@ -445,7 +444,7 @@ public class LaunchTemplateService {
     if (amazonResourceTaggers != null && !amazonResourceTaggers.isEmpty()) {
       List<Tag> volumeTags =
           amazonResourceTaggers.stream()
-            .flatMap(t -> t.volumeTags(asgConfiguration, serverGroupName).stream())
+              .flatMap(t -> t.volumeTags(asgConfiguration, serverGroupName).stream())
               .map(t -> new Tag(t.getKey(), t.getValue()))
               .collect(Collectors.toList());
 
