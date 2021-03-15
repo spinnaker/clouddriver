@@ -298,7 +298,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         legacyUdf: description.legacyUdf,
         userDataOverride: description.userDataOverride,
         tags: applyAppStackDetailTags(deployDefaults, description).tags,
-        blockDevicesTags: description.blockDevicesTags,
+        blockDeviceTags: description.blockDeviceTags,
         lifecycleHooks: getLifecycleHooks(account, description),
         setLaunchTemplate: description.setLaunchTemplate,
         requireIMDSv2: description.requireIMDSv2,
