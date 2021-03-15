@@ -86,7 +86,7 @@ public class LaunchTemplateService {
       ModifyServerGroupLaunchTemplateDescription description,
       LaunchTemplateVersion sourceVersion) {
     RequestLaunchTemplateData data =
-        buildLaunchTemplateData(credentials, description, sourceVersion);
+        buildLaunchTemplateData(credentials, new AsgConfiguration(), description, sourceVersion);
     CreateLaunchTemplateVersionResult result =
         ec2.createLaunchTemplateVersion(
             new CreateLaunchTemplateVersionRequest()
@@ -149,6 +149,7 @@ public class LaunchTemplateService {
    */
   private RequestLaunchTemplateData buildLaunchTemplateData(
       NetflixAmazonCredentials credentials,
+      AsgConfiguration asgConfiguration,
       ModifyServerGroupLaunchTemplateDescription description,
       LaunchTemplateVersion launchTemplateVersion) {
     RequestLaunchTemplateData request =
@@ -162,7 +163,7 @@ public class LaunchTemplateService {
                     .withName(description.getIamRole()));
 
     Optional<LaunchTemplateTagSpecificationRequest> tagSpecification =
-        tagSpecification(amazonResourceTaggers, description.getAsgName());
+      tagSpecification(amazonResourceTaggers, asgConfiguration, description.getAsgName());
     if (tagSpecification.isPresent()) {
       request = request.withTagSpecifications(tagSpecification.get());
     }
@@ -267,15 +268,8 @@ public class LaunchTemplateService {
                 new LaunchTemplatesMonitoringRequest()
                     .withEnabled(asgConfig.getInstanceMonitoring()));
 
-    Stream<AmazonResourceTagger> tagsCombined =
-        Stream.concat(
-            amazonResourceTaggers == null ? Stream.empty() : amazonResourceTaggers.stream(),
-            asgConfig.getABlockDevicesTags() == null
-                ? Stream.empty()
-                : asgConfig.getABlockDevicesTags().stream());
-
     Optional<LaunchTemplateTagSpecificationRequest> tagSpecification =
-        tagSpecification(tagsCombined.collect(Collectors.toList()), asgName);
+      tagSpecification(amazonResourceTaggers, asgConfig, asgName);
     if (tagSpecification.isPresent()) {
       request = request.withTagSpecifications(tagSpecification.get());
     }
@@ -317,9 +311,6 @@ public class LaunchTemplateService {
         asgConfig.getAmi(),
         asgConfig.getBase64UserData(),
         asgConfig.getUserDataOverride());
-
-    // block device mappings
-    request.setBlockDeviceMappings(buildDeviceMapping(asgConfig.getBlockDevices()));
 
     // metadata options
     if (asgConfig.getRequireIMDSv2() != null && asgConfig.getRequireIMDSv2()) {
@@ -448,11 +439,13 @@ public class LaunchTemplateService {
 
   @NotNull
   private Optional<LaunchTemplateTagSpecificationRequest> tagSpecification(
-      Collection<AmazonResourceTagger> amazonResourceTaggers, @NotNull String serverGroupName) {
+      Collection<AmazonResourceTagger> amazonResourceTaggers,
+      @NotNull AsgConfiguration asgConfiguration,
+      @NotNull String serverGroupName) {
     if (amazonResourceTaggers != null && !amazonResourceTaggers.isEmpty()) {
       List<Tag> volumeTags =
           amazonResourceTaggers.stream()
-              .flatMap(t -> t.volumeTags(serverGroupName).stream())
+            .flatMap(t -> t.volumeTags(asgConfiguration, serverGroupName).stream())
               .map(t -> new Tag(t.getKey(), t.getValue()))
               .collect(Collectors.toList());
 

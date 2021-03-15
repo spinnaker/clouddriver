@@ -80,7 +80,7 @@ public interface LaunchConfigurationBuilder {
     boolean instanceMonitoring;
     List<AmazonBlockDevice> blockDevices;
     List<String> securityGroups;
-    Map<String, String> blockDevicesTags;
+    Map<String, String> blockDeviceTags;
 
     @Builder(toBuilder = true)
     private LaunchConfigurationSettings(
@@ -105,7 +105,7 @@ public interface LaunchConfigurationBuilder {
         boolean instanceMonitoring,
         List<AmazonBlockDevice> blockDevices,
         List<String> securityGroups,
-        Map<String, String> blockDevicesTags) {
+        Map<String, String> blockDeviceTags) {
       this.account = account;
       this.environment = environment;
       this.accountType = accountType;
@@ -127,7 +127,7 @@ public interface LaunchConfigurationBuilder {
       this.instanceMonitoring = instanceMonitoring;
       this.blockDevices = blockDevices;
       this.securityGroups = securityGroups;
-      this.blockDevicesTags = blockDevicesTags;
+      this.blockDeviceTags = blockDeviceTags;;
     }
   }
 }
