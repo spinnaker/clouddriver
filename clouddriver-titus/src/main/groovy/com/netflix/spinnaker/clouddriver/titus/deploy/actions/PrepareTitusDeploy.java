@@ -56,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -83,6 +84,7 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
   private static final String SKIP_SECURITY_GROUP_VALIDATION_LABEL =
       "spinnaker.skipSecurityGroupValidation";
   private static final String LABEL_TARGET_GROUPS = "spinnaker.targetGroups";
+  private static final String SPINNAKER_ACCOUNT_ENV_VAR = "SPINNAKER_ACCOUNT";
 
   private final AwsLookupUtil awsLookupUtil;
   private final RegionScopedProviderFactory regionScopedProviderFactory;
@@ -161,6 +163,8 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
     }
 
     resolveSecurityGroups(saga, description);
+
+    setSpinnakerAccountEnvVar(description);
 
     TargetGroupLookupHelper.TargetGroupLookupResult targetGroupLookupResult = null;
     if (!description.getTargetGroups().isEmpty()) {
@@ -352,6 +356,16 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
     }
   }
 
+  // Sets an env variable that can be accessed within the task (container) which maps to the
+  // spinnaker account
+  private void setSpinnakerAccountEnvVar(TitusDeployDescription description) {
+    if (description.getEnv().get(SPINNAKER_ACCOUNT_ENV_VAR) == null) {
+      Map existingEnvVars = description.getEnv();
+      existingEnvVars.put(SPINNAKER_ACCOUNT_ENV_VAR, description.getAccount());
+      description.setEnv(existingEnvVars);
+    }
+  }
+
   @Nonnull
   private DisruptionBudget getDefaultDisruptionBudget(LoadFront50App.Front50App front50App) {
     DisruptionBudget budget = new DisruptionBudget();
@@ -451,8 +465,7 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
                 }
               });
 
-      if (JobType.SERVICE.isEqual(description.getJobType())
-          && deployDefaults.getAddAppGroupToServerGroup()
+      if (deployDefaults.getAddAppGroupToServerGroup()
           && securityGroups.size() < deployDefaults.getMaxSecurityGroups()
           && useApplicationDefaultSecurityGroup) {
         String applicationSecurityGroup =

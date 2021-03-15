@@ -34,7 +34,6 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Package;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
 import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
@@ -115,11 +114,14 @@ public class Applications {
         .orElse(null);
   }
 
-  public List<CloudFoundryApplication> all() {
+  public List<CloudFoundryApplication> all(List<String> spaceGuids) {
     log.debug("Listing all applications from account {}", this.account);
 
+    String spaceGuidsQ =
+        spaceGuids == null || spaceGuids.isEmpty() ? null : String.join(",", spaceGuids);
+
     List<Application> newCloudFoundryAppList =
-        collectPages("applications", page -> api.all(page, resultsPerPage, null, null));
+        collectPages("applications", page -> api.all(page, resultsPerPage, null, spaceGuidsQ));
 
     log.debug(
         "Fetched {} total apps from foundation account {}",
@@ -232,7 +234,7 @@ public class Applications {
   @Nullable
   public CloudFoundryServerGroup findServerGroupByNameAndSpaceId(String name, String spaceId) {
     Optional<CloudFoundryServerGroup> result =
-        safelyCall(() -> api.all(null, 1, singletonList(name), singletonList(spaceId)))
+        safelyCall(() -> api.all(null, 1, singletonList(name), spaceId))
             .flatMap(page -> page.getResources().stream().findFirst().map(this::map));
     result.ifPresent(sg -> serverGroupCache.put(sg.getId(), sg));
     return result.orElse(null);
@@ -249,7 +251,7 @@ public class Applications {
         .map(CloudFoundryServerGroup::getId)
         .orElseGet(
             () ->
-                safelyCall(() -> api.all(null, 1, singletonList(name), singletonList(spaceId)))
+                safelyCall(() -> api.all(null, 1, singletonList(name), spaceId))
                     .flatMap(
                         page ->
                             page.getResources().stream()
@@ -533,17 +535,15 @@ public class Applications {
   public CloudFoundryServerGroup createApplication(
       String appName,
       CloudFoundrySpace space,
-      DeployCloudFoundryServerGroupDescription.ApplicationAttributes applicationAttributes,
-      @Nullable Map<String, String> environmentVariables)
+      @Nullable Map<String, String> environmentVariables,
+      Lifecycle lifecycle)
       throws CloudFoundryApiException {
     Map<String, ToOneRelationship> relationships = new HashMap<>();
     relationships.put("space", new ToOneRelationship(new Relationship(space.getId())));
-
     return safelyCall(
             () ->
                 api.createApplication(
-                    new CreateApplication(
-                        appName, relationships, environmentVariables, applicationAttributes)))
+                    new CreateApplication(appName, relationships, environmentVariables, lifecycle)))
         .map(this::map)
         .orElseThrow(
             () ->
@@ -586,8 +586,8 @@ public class Applications {
     safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
   }
 
-  public String createPackage(String appGuid) throws CloudFoundryApiException {
-    return safelyCall(() -> api.createPackage(new CreatePackage(appGuid)))
+  public String createPackage(CreatePackage createPackageRequest) throws CloudFoundryApiException {
+    return safelyCall(() -> api.createPackage(createPackageRequest))
         .map(Package::getGuid)
         .orElseThrow(
             () ->
@@ -719,5 +719,9 @@ public class Applications {
     Names names = Names.parseName(clusterName);
     return AbstractServerGroupNameResolver.generateServerGroupName(
         names.getApp(), names.getStack(), names.getDetail(), 999, false);
+  }
+
+  public void restageApplication(String appGuid) {
+    safelyCall(() -> api.restageApplication(appGuid, ""));
   }
 }

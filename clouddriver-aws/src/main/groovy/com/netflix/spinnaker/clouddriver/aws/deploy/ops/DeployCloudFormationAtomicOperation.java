@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.ops;
 import com.amazonaws.services.cloudformation.AmazonCloudFormation;
 import com.amazonaws.services.cloudformation.model.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.spinnaker.clouddriver.aws.AwsConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.DeployCloudFormationDescription;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
@@ -39,6 +40,7 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
   private static final String NO_CHANGE_STACK_ERROR_MESSAGE = "No updates";
 
   @Autowired AmazonClientProvider amazonClientProvider;
+  @Autowired AwsConfigurationProperties awsConfigurationProperties;
 
   @Autowired
   @Qualifier("amazonObjectMapper")
@@ -58,8 +60,9 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
     AmazonCloudFormation amazonCloudFormation =
         amazonClientProvider.getAmazonCloudFormation(
             description.getCredentials(), description.getRegion());
-    String template = description.getTemplateBody();
-    validateTemplate(amazonCloudFormation, template);
+    String templateURL = description.getTemplateURL();
+    String templateBody = description.getTemplateBody();
+    validateTemplate(amazonCloudFormation, templateURL, templateBody);
     String roleARN = description.getRoleARN();
     List<Parameter> parameters =
         description.getParameters().entrySet().stream()
@@ -83,7 +86,8 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
       stackId =
           createChangeSet(
               amazonCloudFormation,
-              template,
+              templateURL,
+              templateBody,
               roleARN,
               parameters,
               tags,
@@ -95,7 +99,8 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
         stackId =
             updateStack(
                 amazonCloudFormation,
-                template,
+                templateURL,
+                templateBody,
                 roleARN,
                 parameters,
                 tags,
@@ -105,7 +110,8 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
         stackId =
             createStack(
                 amazonCloudFormation,
-                template,
+                templateURL,
+                templateBody,
                 roleARN,
                 parameters,
                 tags,
@@ -117,7 +123,8 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
 
   private String createStack(
       AmazonCloudFormation amazonCloudFormation,
-      String template,
+      String templateURL,
+      String templateBody,
       String roleARN,
       List<Parameter> parameters,
       List<Tag> tags,
@@ -129,8 +136,14 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
             .withStackName(description.getStackName())
             .withParameters(parameters)
             .withTags(tags)
-            .withTemplateBody(template)
             .withCapabilities(capabilities);
+
+    if (StringUtils.hasText(templateURL)) {
+      createStackRequest.setTemplateURL(templateURL);
+    } else {
+      createStackRequest.setTemplateBody(templateBody);
+    }
+
     if (StringUtils.hasText(roleARN)) {
       createStackRequest.setRoleARN(roleARN);
     }
@@ -141,7 +154,8 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
 
   private String updateStack(
       AmazonCloudFormation amazonCloudFormation,
-      String template,
+      String templateURL,
+      String templateBody,
       String roleARN,
       List<Parameter> parameters,
       List<Tag> tags,
@@ -153,8 +167,14 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
             .withStackName(description.getStackName())
             .withParameters(parameters)
             .withTags(tags)
-            .withTemplateBody(template)
             .withCapabilities(capabilities);
+
+    if (StringUtils.hasText(templateURL)) {
+      updateStackRequest.setTemplateURL(templateURL);
+    } else {
+      updateStackRequest.setTemplateBody(templateBody);
+    }
+
     if (StringUtils.hasText(roleARN)) {
       updateStackRequest.setRoleARN(roleARN);
     }
@@ -175,7 +195,8 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
 
   private String createChangeSet(
       AmazonCloudFormation amazonCloudFormation,
-      String template,
+      String templateURL,
+      String templateBody,
       String roleARN,
       List<Parameter> parameters,
       List<Tag> tags,
@@ -189,12 +210,21 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
             .withChangeSetName(description.getChangeSetName())
             .withParameters(parameters)
             .withTags(tags)
-            .withTemplateBody(template)
             .withCapabilities(capabilities)
-            .withChangeSetType(changeSetType);
+            .withChangeSetType(changeSetType)
+            .withIncludeNestedStacks(
+                awsConfigurationProperties.getCloudformation().getChangeSetsIncludeNestedStacks());
+
+    if (StringUtils.hasText(templateURL)) {
+      createChangeSetRequest.setTemplateURL(templateURL);
+    } else {
+      createChangeSetRequest.setTemplateBody(templateBody);
+    }
+
     if (StringUtils.hasText(roleARN)) {
       createChangeSetRequest.setRoleARN(roleARN);
     }
+
     task.updateStatus(BASE_PHASE, "Uploading CloudFormation ChangeSet");
     try {
       CreateChangeSetResult createChangeSetResult =
@@ -228,10 +258,18 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
         .getStackId();
   }
 
-  private void validateTemplate(AmazonCloudFormation amazonCloudFormation, String template) {
+  private void validateTemplate(
+      AmazonCloudFormation amazonCloudFormation, String templateURL, String templateBody) {
     try {
-      amazonCloudFormation.validateTemplate(
-          new ValidateTemplateRequest().withTemplateBody(template));
+      ValidateTemplateRequest validateTemplateRequest = new ValidateTemplateRequest();
+
+      if (StringUtils.hasText(templateURL)) {
+        validateTemplateRequest.setTemplateURL(templateURL);
+      } else {
+        validateTemplateRequest.setTemplateBody(templateBody);
+      }
+
+      amazonCloudFormation.validateTemplate(validateTemplateRequest);
     } catch (AmazonCloudFormationException e) {
       log.error("Error validating cloudformation template", e);
       throw e;
