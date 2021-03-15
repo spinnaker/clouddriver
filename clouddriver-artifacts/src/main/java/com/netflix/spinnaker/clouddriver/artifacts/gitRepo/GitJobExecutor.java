@@ -125,10 +125,11 @@ public class GitJobExecutor {
               + authType);
     }
 
-    if (destination.toFile().exists()) {
-      FileUtils.deleteDirectory(destination.toFile());
+    File destinationFile = destination.toFile();
+    if (destinationFile.exists()) {
+      FileUtils.deleteDirectory(destinationFile);
     }
-    FileUtils.forceMkdir(destination.toFile());
+    FileUtils.forceMkdir(destinationFile);
 
     if (SHA_PATTERN.matcher(branch).matches()) {
       fetchSha(repoUrl, branch, destination, repoBasename);
