@@ -77,10 +77,7 @@ public class GitRepoFileSystem {
   }
 
   private boolean hasFreeDisk() {
-    long currentSize = 0;
-    if (CLONES_HOME.toFile().exists()) {
-      currentSize = FileUtils.sizeOfDirectory(CLONES_HOME.toFile());
-    }
+    long currentSize = FileUtils.sizeOfDirectory(CLONES_HOME.toFile());
     return currentSize >= 0 && currentSize < config.getCloneRetentionMaxBytes();
   }
 
