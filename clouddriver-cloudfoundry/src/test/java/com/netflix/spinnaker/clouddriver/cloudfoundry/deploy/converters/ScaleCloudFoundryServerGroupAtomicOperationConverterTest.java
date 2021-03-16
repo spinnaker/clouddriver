@@ -32,10 +32,12 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvi
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.vavr.collection.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
@@ -44,6 +46,28 @@ class ScaleCloudFoundryServerGroupAtomicOperationConverterTest {
 
   private final CloudFoundryClient cloudFoundryClient = new MockCloudFoundryClient();
   private final CacheRepository cacheRepository = mock(CacheRepository.class);
+
+  private final CloudFoundryCredentials cloudFoundryCredentials =
+      new CloudFoundryCredentials(
+          "test",
+          "managerUri",
+          "metricsUri",
+          "apiHost",
+          "username",
+          "password",
+          "environment",
+          false,
+          500,
+          cacheRepository,
+          null,
+          ForkJoinPool.commonPool(),
+          emptyMap(),
+          new OkHttpClient(),
+          new SimpleMeterRegistry()) {
+        public CloudFoundryClient getClient() {
+          return cloudFoundryClient;
+        }
+      };
 
   {
     when(cloudFoundryClient.getOrganizations().findByName(any()))
@@ -61,26 +85,6 @@ class ScaleCloudFoundryServerGroupAtomicOperationConverterTest {
     when(cloudFoundryClient.getSpaces().findSpaceByRegion(any()))
         .thenReturn(Optional.of(CloudFoundrySpace.builder().build()));
   }
-
-  private final CloudFoundryCredentials cloudFoundryCredentials =
-      new CloudFoundryCredentials(
-          "test",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          false,
-          500,
-          cacheRepository,
-          null,
-          ForkJoinPool.commonPool(),
-          emptyMap()) {
-        public CloudFoundryClient getClient() {
-          return cloudFoundryClient;
-        }
-      };
 
   private final CredentialsRepository<CloudFoundryCredentials> credentialsRepository =
       new MapBackedCredentialsRepository<>(CloudFoundryProvider.PROVIDER_ID, null);
@@ -128,14 +132,16 @@ class ScaleCloudFoundryServerGroupAtomicOperationConverterTest {
   void convertDescriptionMissingFields() {
     final Map input =
         HashMap.of(
-                "credentials", "test",
-                "region", "org > space",
+                "credentials",
+                "test",
+                "region",
+                "org > space",
                 "capacity",
-                    HashMap.of(
-                            "desired", 215,
-                            "min", 12,
-                            "max", 61)
-                        .toJavaMap())
+                HashMap.of(
+                        "desired", 215,
+                        "min", 12,
+                        "max", 61)
+                    .toJavaMap())
             .toJavaMap();
 
     final ScaleCloudFoundryServerGroupDescription result = converter.convertDescription(input);

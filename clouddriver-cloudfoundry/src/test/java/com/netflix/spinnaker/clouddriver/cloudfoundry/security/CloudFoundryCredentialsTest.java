@@ -20,7 +20,8 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.security;
 import static java.util.Collections.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -30,10 +31,12 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 
 public class CloudFoundryCredentialsTest {
@@ -46,18 +49,20 @@ public class CloudFoundryCredentialsTest {
     CloudFoundryCredentials credentials =
         new CloudFoundryCredentials(
             "test",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
+            "managerUri",
+            "metricsUri",
+            "api.host",
+            "username",
+            "password",
+            "environment",
             false,
             500,
             cacheRepository,
             null,
             ForkJoinPool.commonPool(),
-            emptyMap());
+            emptyMap(),
+            new OkHttpClient(),
+            new SimpleMeterRegistry());
 
     assertThat(credentials.getFilteredSpaces()).isEqualTo(emptyList());
   }
@@ -67,18 +72,20 @@ public class CloudFoundryCredentialsTest {
     CloudFoundryCredentials credentials =
         new CloudFoundryCredentials(
             "test",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
+            "managerUri",
+            "metricsUri",
+            "api.host",
+            "username",
+            "password",
+            "environment",
             false,
             500,
             cacheRepository,
             null,
             ForkJoinPool.commonPool(),
-            emptyMap()) {
+            emptyMap(),
+            new OkHttpClient(),
+            new SimpleMeterRegistry()) {
           public CloudFoundryClient getClient() {
             return cloudFoundryClient;
           }
@@ -116,18 +123,20 @@ public class CloudFoundryCredentialsTest {
     CloudFoundryCredentials credentials =
         new CloudFoundryCredentials(
             "test",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
+            "managerUri",
+            "metricsUri",
+            "api.host",
+            "username",
+            "password",
+            "environment",
             false,
             500,
             cacheRepository,
             null,
             ForkJoinPool.commonPool(),
-            emptyMap()) {
+            emptyMap(),
+            new OkHttpClient(),
+            new SimpleMeterRegistry()) {
           public CloudFoundryClient getClient() {
             return cloudFoundryClient;
           }
@@ -165,18 +174,20 @@ public class CloudFoundryCredentialsTest {
     CloudFoundryCredentials credentials =
         new CloudFoundryCredentials(
             "test",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
+            "managerUri",
+            "metricsUri",
+            "api.host",
+            "username",
+            "password",
+            "environment",
             false,
             500,
             cacheRepository,
             null,
             ForkJoinPool.commonPool(),
-            emptyMap()) {
+            emptyMap(),
+            new OkHttpClient(),
+            new SimpleMeterRegistry()) {
           public CloudFoundryClient getClient() {
             return cloudFoundryClient;
           }

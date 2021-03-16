@@ -30,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.HttpCloudFoundryCli
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 
 @Slf4j
 @Getter
@@ -85,6 +87,8 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
 
   private final List<CloudFoundrySpace> filteredSpaces;
 
+  private final CloudFoundryClient cloudFoundryClient;
+
   public CloudFoundryCredentials(
       String name,
       String appsManagerUri,
@@ -98,7 +102,9 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
       CacheRepository cacheRepository,
       Permissions permissions,
       ForkJoinPool forkJoinPool,
-      Map<String, Set<String>> spaceFilter) {
+      Map<String, Set<String>> spaceFilter,
+      OkHttpClient okHttpClient,
+      MeterRegistry registry) {
     this.name = name;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
@@ -112,27 +118,28 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
     this.permissions = permissions == null ? Permissions.EMPTY : permissions;
     this.forkJoinPool = forkJoinPool;
     this.filteredSpaces = createFilteredSpaces(spaceFilter);
+    this.cloudFoundryClient =
+        new HttpCloudFoundryClient(
+            name,
+            appsManagerUri,
+            metricsUri,
+            apiHost,
+            userName,
+            password,
+            true,
+            skipSslValidation,
+            resultsPerPage,
+            forkJoinPool,
+            okHttpClient.newBuilder(),
+            registry);
   }
 
   public CloudFoundryClient getCredentials() {
-    if (this.credentials == null) {
-      this.credentials =
-          new HttpCloudFoundryClient(
-              name,
-              appsManagerUri,
-              metricsUri,
-              apiHost,
-              userName,
-              password,
-              skipSslValidation,
-              resultsPerPage,
-              forkJoinPool);
-    }
     return credentials;
   }
 
   public CloudFoundryClient getClient() {
-    return getCredentials();
+    return cloudFoundryClient;
   }
 
   public Collection<Map<String, String>> getRegions() {
@@ -197,6 +204,45 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
         resultsPerPage);
   }
 
+  protected List<CloudFoundrySpace> createFilteredSpaces(Map<String, Set<String>> spaceFilter) {
+    List<CloudFoundrySpace> spaces = new ArrayList<>();
+    if (spaceFilter.isEmpty() || spaceFilter == null) {
+      return emptyList();
+    }
+
+    Set<String> filteredRegions = new HashSet<>();
+    // IF an Org is provided without spaces -> add all spaces for the ORG
+    for (String orgName : spaceFilter.keySet()) {
+      if (spaceFilter.get(orgName).isEmpty() || spaceFilter.get(orgName) == null) {
+        List<CloudFoundrySpace> allSpacesByOrg =
+            this.getClient()
+                .getSpaces()
+                .findAllBySpaceNamesAndOrgNames(null, singletonList(orgName));
+        spaces.addAll(allSpacesByOrg);
+      } else {
+        for (String spaceName : spaceFilter.get(orgName)) {
+          filteredRegions.add(orgName + " > " + spaceName);
+        }
+      }
+    }
+    // IF an Org is provided with spaces -> add all spaces that are in the ORG and filteredRegions
+    List<CloudFoundrySpace> allSpaces =
+        this.getClient()
+            .getSpaces()
+            .findAllBySpaceNamesAndOrgNames(
+                spaceFilter.values().stream().flatMap(l -> l.stream()).collect(Collectors.toList()),
+                List.copyOf(spaceFilter.keySet()));
+    allSpaces.stream()
+        .filter(s -> filteredRegions.contains(s.getRegion()))
+        .forEach(s -> spaces.add(s));
+
+    if (spaces.isEmpty())
+      throw new IllegalArgumentException(
+          "The spaceFilter had Orgs and/or Spaces but CloudFoundry returned no spaces as a result. Spaces must not be null or empty when a spaceFilter is included.");
+
+    return ImmutableList.copyOf(spaces);
+  }
+
   /**
    * Thin wrapper around a Caffeine cache that handles memoizing a supplier function with expiration
    */
@@ -211,52 +257,13 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
               .build(key -> supplier.get());
     }
 
-    public T get() {
-      return cache.get(CACHE_KEY);
-    }
-
     public static <U> Memoizer<U> memoizeWithExpiration(
         Supplier<U> supplier, long expirySeconds, TimeUnit timeUnit) {
       return new Memoizer<>(supplier, expirySeconds, timeUnit);
     }
-  }
 
-  protected List<CloudFoundrySpace> createFilteredSpaces(Map<String, Set<String>> spaceFilter) {
-    List<CloudFoundrySpace> spaces = new ArrayList<>();
-    if (spaceFilter.isEmpty() || spaceFilter == null) {
-      return emptyList();
+    public T get() {
+      return cache.get(CACHE_KEY);
     }
-
-    Set<String> filteredRegions = new HashSet<>();
-    // IF an Org is provided without spaces -> add all spaces for the ORG
-    for (String orgName : spaceFilter.keySet()) {
-      if (spaceFilter.get(orgName).isEmpty() || spaceFilter.get(orgName) == null) {
-        List<CloudFoundrySpace> allSpacesByOrg =
-            this.getCredentials()
-                .getSpaces()
-                .findAllBySpaceNamesAndOrgNames(null, singletonList(orgName));
-        spaces.addAll(allSpacesByOrg);
-      } else {
-        for (String spaceName : spaceFilter.get(orgName)) {
-          filteredRegions.add(orgName + " > " + spaceName);
-        }
-      }
-    }
-    // IF an Org is provided with spaces -> add all spaces that are in the ORG and filteredRegions
-    List<CloudFoundrySpace> allSpaces =
-        this.getCredentials()
-            .getSpaces()
-            .findAllBySpaceNamesAndOrgNames(
-                spaceFilter.values().stream().flatMap(l -> l.stream()).collect(Collectors.toList()),
-                List.copyOf(spaceFilter.keySet()));
-    allSpaces.stream()
-        .filter(s -> filteredRegions.contains(s.getRegion()))
-        .forEach(s -> spaces.add(s));
-
-    if (spaces.isEmpty())
-      throw new IllegalArgumentException(
-          "The spaceFilter had Orgs and/or Spaces but CloudFoundry returned no spaces as a result. Spaces must not be null or empty when a spaceFilter is included.");
-
-    return ImmutableList.copyOf(spaces);
   }
 }
