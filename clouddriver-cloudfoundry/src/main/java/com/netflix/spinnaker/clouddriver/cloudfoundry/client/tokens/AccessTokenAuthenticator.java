@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.tokens;
 
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.Token;
+import java.io.IOException;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +27,6 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.Route;
 import org.jetbrains.annotations.Nullable;
-
-import java.io.IOException;
 
 @Getter
 @RequiredArgsConstructor
