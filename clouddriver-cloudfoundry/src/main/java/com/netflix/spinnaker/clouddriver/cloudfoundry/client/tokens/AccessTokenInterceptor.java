@@ -33,26 +33,32 @@ public class AccessTokenInterceptor implements Interceptor {
   @Override
   public Response intercept(Chain chain) throws IOException {
     final Token currentToken = accessTokenProvider.getAccessToken();
-
     // Token is expiring soon, refresh and proceed.
     if (currentToken == null
         || System.currentTimeMillis() >= accessTokenProvider.getTokenExpiration()) {
-      synchronized (accessTokenProvider.getTokenLock()) {
-        final Token newToken = accessTokenProvider.getAccessToken();
 
-        // Token was refreshed before the synchronization. Use the updated token and proceed.
-        if (currentToken == null || !currentToken.equals(newToken)) {
-          return chain.proceed(newRequestWithAccessToken(chain.request(), newToken));
+      if (accessTokenProvider.getRefreshLock().tryLock()) {
+        try {
+          final Token newToken = accessTokenProvider.getAccessToken();
+
+          // Token was refreshed before getting the lock. Use the updated token and proceed.
+          if (currentToken == null || !currentToken.equals(newToken)) {
+            return chain.proceed(newRequestWithAccessToken(chain.request(), newToken));
+          }
+
+          // Refresh for new token and proceed.
+          accessTokenProvider.refreshAccessToken();
+
+          final Token updatedToken = accessTokenProvider.getAccessToken();
+          return chain.proceed(newRequestWithAccessToken(chain.request(), updatedToken));
+        } finally {
+          if (accessTokenProvider.getRefreshLock().isHeldByCurrentThread()) {
+            accessTokenProvider.getRefreshLock().unlock();
+          }
         }
-
-        // Refresh for new token and proceed.
-        accessTokenProvider.refreshAccessToken();
-        final Token updatedToken = accessTokenProvider.getAccessToken();
-        return chain.proceed(newRequestWithAccessToken(chain.request(), updatedToken));
       }
     }
-
-    // Token should still be valid and not expiring soon, proceed.
+    // Token should still be valid even though its expiring soon, proceed.
     return chain.proceed(newRequestWithAccessToken(chain.request(), currentToken));
   }
 

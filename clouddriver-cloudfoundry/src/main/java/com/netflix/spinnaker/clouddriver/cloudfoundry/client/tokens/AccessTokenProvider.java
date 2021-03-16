@@ -22,6 +22,7 @@ import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundry
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.AuthenticationService;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.Token;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.Getter;
 
 public class AccessTokenProvider {
@@ -32,6 +33,7 @@ public class AccessTokenProvider {
   @Getter private final Object tokenLock = new Object();
   @Getter private long tokenExpiration;
   private Token token;
+  @Getter private ReentrantLock refreshLock = new ReentrantLock();
 
   public AccessTokenProvider(String user, String password, AuthenticationService uaa) {
     this.user = user;
