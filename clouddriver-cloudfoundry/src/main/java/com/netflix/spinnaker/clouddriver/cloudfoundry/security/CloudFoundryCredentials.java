@@ -77,8 +77,6 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
   private final Supplier<List<CloudFoundrySpace>> spaceSupplier =
       Memoizer.memoizeWithExpiration(this::spaceSupplier, SPACE_EXPIRY_SECONDS, TimeUnit.SECONDS);
 
-  private CloudFoundryClient credentials;
-
   private CacheRepository cacheRepository;
 
   private Permissions permissions;
@@ -135,7 +133,7 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
   }
 
   public CloudFoundryClient getCredentials() {
-    return credentials;
+    return getClient();
   }
 
   public CloudFoundryClient getClient() {
