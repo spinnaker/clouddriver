@@ -29,7 +29,6 @@ import com.netflix.spinnaker.credentials.definition.BasicCredentialsLoader;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinitionSource;
 import com.netflix.spinnaker.credentials.poller.Poller;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -100,8 +99,8 @@ public class CloudFoundryProviderConfig {
                 a.getPermissions().build(),
                 cloudFoundryThreadPool,
                 a.getSpaceFilter(),
-                new OkHttpClient(),
-                new SimpleMeterRegistry()),
+                okHttpClient,
+                registry),
         cloudFoundryCredentialsRepository);
   }
 
