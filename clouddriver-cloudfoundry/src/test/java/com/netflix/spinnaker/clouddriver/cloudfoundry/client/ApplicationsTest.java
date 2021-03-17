@@ -30,7 +30,6 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Applicatio
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Package;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.vavr.collection.HashMap;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -81,8 +80,7 @@ class ApplicationsTest {
             false,
             500,
             ForkJoinPool.commonPool(),
-            new OkHttpClient().newBuilder(),
-            new SimpleMeterRegistry());
+            new OkHttpClient().newBuilder());
 
     assertThatThrownBy(() -> client.getApplications().all(emptyList()))
         .isInstanceOf(CloudFoundryApiException.class);

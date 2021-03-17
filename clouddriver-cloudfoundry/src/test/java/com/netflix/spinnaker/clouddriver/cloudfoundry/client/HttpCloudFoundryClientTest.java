@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.matching.UrlPattern;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import okhttp3.OkHttpClient;
@@ -158,7 +157,6 @@ class HttpCloudFoundryClientTest {
         true,
         500,
         ForkJoinPool.commonPool(),
-        new OkHttpClient.Builder(),
-        new SimpleMeterRegistry());
+        new OkHttpClient.Builder());
   }
 }

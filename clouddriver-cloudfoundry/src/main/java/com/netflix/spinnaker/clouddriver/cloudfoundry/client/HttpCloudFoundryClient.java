@@ -26,10 +26,6 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.retry.RetryIntercep
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.tokens.AccessTokenAuthenticator;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.tokens.AccessTokenInterceptor;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.tokens.AccessTokenProvider;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tags;
-import io.micrometer.core.instrument.binder.okhttp3.OkHttpMetricsEventListener;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -78,8 +74,7 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
       boolean skipSslValidation,
       Integer resultsPerPage,
       ForkJoinPool forkJoinPool,
-      OkHttpClient.Builder okHttpClientBuilder,
-      MeterRegistry registry) {
+      OkHttpClient.Builder okHttpClientBuilder) {
 
     this.apiHost = apiHost;
     this.user = user;
@@ -90,13 +85,6 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
     mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
     mapper.registerModule(new JavaTimeModule());
-
-    okHttpClientBuilder.eventListener(
-        OkHttpMetricsEventListener.builder(registry, "okhttp.requests")
-            .uriMapper(req -> req.url().encodedPath())
-            .tags(Tags.of("account", account))
-            .tags(Tags.of("provider", CloudFoundryProvider.PROVIDER_ID))
-            .build());
 
     // The UAA service is built first because the Authenticator interceptor needs it to get tokens
     // from CF.

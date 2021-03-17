@@ -30,7 +30,6 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.HttpCloudFoundryCli
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
@@ -101,8 +100,7 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
       Permissions permissions,
       ForkJoinPool forkJoinPool,
       Map<String, Set<String>> spaceFilter,
-      OkHttpClient okHttpClient,
-      MeterRegistry registry) {
+      OkHttpClient okHttpClient) {
     this.name = name;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
@@ -128,8 +126,7 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
             skipSslValidation,
             resultsPerPage,
             forkJoinPool,
-            okHttpClient.newBuilder(),
-            registry);
+            okHttpClient.newBuilder());
   }
 
   public CloudFoundryClient getCredentials() {

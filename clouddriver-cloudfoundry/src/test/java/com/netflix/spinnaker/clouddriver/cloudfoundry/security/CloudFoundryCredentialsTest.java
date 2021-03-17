@@ -31,7 +31,6 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,8 +60,7 @@ public class CloudFoundryCredentialsTest {
             null,
             ForkJoinPool.commonPool(),
             emptyMap(),
-            new OkHttpClient(),
-            new SimpleMeterRegistry());
+            new OkHttpClient());
 
     assertThat(credentials.getFilteredSpaces()).isEqualTo(emptyList());
   }
@@ -84,8 +82,7 @@ public class CloudFoundryCredentialsTest {
             null,
             ForkJoinPool.commonPool(),
             emptyMap(),
-            new OkHttpClient(),
-            new SimpleMeterRegistry()) {
+            new OkHttpClient()) {
           public CloudFoundryClient getClient() {
             return cloudFoundryClient;
           }
@@ -135,8 +132,7 @@ public class CloudFoundryCredentialsTest {
             null,
             ForkJoinPool.commonPool(),
             emptyMap(),
-            new OkHttpClient(),
-            new SimpleMeterRegistry()) {
+            new OkHttpClient()) {
           public CloudFoundryClient getClient() {
             return cloudFoundryClient;
           }
@@ -186,8 +182,7 @@ public class CloudFoundryCredentialsTest {
             null,
             ForkJoinPool.commonPool(),
             emptyMap(),
-            new OkHttpClient(),
-            new SimpleMeterRegistry()) {
+            new OkHttpClient()) {
           public CloudFoundryClient getClient() {
             return cloudFoundryClient;
           }

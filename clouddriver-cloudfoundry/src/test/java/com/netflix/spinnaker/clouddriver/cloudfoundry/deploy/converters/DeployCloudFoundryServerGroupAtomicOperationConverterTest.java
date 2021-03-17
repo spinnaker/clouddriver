@@ -38,7 +38,6 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCrede
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
 import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -95,8 +94,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
         null,
         ForkJoinPool.commonPool(),
         emptyMap(),
-        new OkHttpClient(),
-        new SimpleMeterRegistry()) {
+        new OkHttpClient()) {
       public CloudFoundryClient getClient() {
         return cloudFoundryClient;
       }

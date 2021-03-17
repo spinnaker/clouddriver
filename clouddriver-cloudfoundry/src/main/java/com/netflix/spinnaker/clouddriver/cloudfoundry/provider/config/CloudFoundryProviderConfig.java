@@ -28,7 +28,6 @@ import com.netflix.spinnaker.credentials.definition.AbstractCredentialsLoader;
 import com.netflix.spinnaker.credentials.definition.BasicCredentialsLoader;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinitionSource;
 import com.netflix.spinnaker.credentials.poller.Poller;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -76,8 +75,7 @@ public class CloudFoundryProviderConfig {
       CacheRepository cacheRepository,
       CredentialsRepository<CloudFoundryCredentials> cloudFoundryCredentialsRepository,
       ForkJoinPool cloudFoundryThreadPool,
-      @Qualifier("cloudFoundryOkHttpClient") OkHttpClient okHttpClient,
-      MeterRegistry registry) {
+      @Qualifier("cloudFoundryOkHttpClient") OkHttpClient okHttpClient) {
 
     if (cloudFoundryCredentialSource == null) {
       cloudFoundryCredentialSource = configurationProperties::getAccounts;
@@ -99,8 +97,7 @@ public class CloudFoundryProviderConfig {
                 a.getPermissions().build(),
                 cloudFoundryThreadPool,
                 a.getSpaceFilter(),
-                okHttpClient,
-                registry),
+                okHttpClient),
         cloudFoundryCredentialsRepository);
   }
 
