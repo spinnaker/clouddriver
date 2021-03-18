@@ -17,3 +17,6 @@ databaseChangeLog:
 - include:
     file: changelog/20201110-field-type-postgres.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20210106-task-outputs.yml
+    relativeToChangelogFile: true
