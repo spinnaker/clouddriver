@@ -16,14 +16,17 @@
 
 package com.netflix.spinnaker.clouddriver.lambda.deploy.converters;
 
+import com.netflix.spinnaker.clouddriver.aws.AmazonOperation;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaFunctionDescription;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.ops.InvokeLambdaAtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component("invokeLambdaFunction")
+@AmazonOperation(AtomicOperations.INVOKE_LAMBDA_FUNCTION)
 public class InvokeLambdaFunctionAtomicOperationConverter
     extends AbstractAtomicOperationsCredentialsSupport {
   @Override

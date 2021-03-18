@@ -120,4 +120,12 @@ public final class AtomicOperations {
 
   // AppEngine Config operations
   public static final String DEPLOY_APPENGINE_CONFIG = "deployAppengineConfiguration";
+
+  // Lambda Function operations
+  public static final String CREATE_LAMBDA_FUNCTION = "createLambdaFunction";
+  public static final String DELETE_LAMBDA_FUNCTION = "deleteLambdaFunction";
+  public static final String INVOKE_LAMBDA_FUNCTION = "invokeLambdaFunction";
+  public static final String UPDATE_LAMBDA_FUNCTION_CONFIGURATION =
+      "updateLambdaFunctionConfiguration";
+  public static final String UPDATE_LAMBDA_FUNCTION_CODE = "updateLambdaFunctionCode";
 }
