@@ -67,7 +67,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
 
     // delete temporary files before returning
     try (Closeable ignored = () -> FileUtils.deleteDirectory(stagingPath.toFile())) {
-      executor.clone(repoReference, remoteRef, stagingPath);
+      executor.clone(repoReference, remoteRef, stagingPath, repoBasename);
 
       log.info("Creating archive for git/repo {}", repoReference);
 
