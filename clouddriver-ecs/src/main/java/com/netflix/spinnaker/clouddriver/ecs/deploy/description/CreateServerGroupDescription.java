@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
+import com.amazonaws.services.ecs.model.CapacityProviderStrategyItem;
 import com.amazonaws.services.ecs.model.PlacementConstraint;
 import com.amazonaws.services.ecs.model.PlacementStrategy;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
@@ -70,7 +71,15 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   List<PlacementStrategy> placementStrategySequence;
   List<PlacementConstraint> placementConstraints;
   String networkMode;
-  String subnetType;
+
+  /**
+   * @deprecated this field only allows for one subnetType where as ECS supports the ability to
+   *     deploy to multiple subnets.
+   */
+  @Deprecated String subnetType;
+
+  Set<String> subnetTypes;
+
   Boolean associatePublicIpAddress;
   Integer healthCheckGracePeriodSeconds;
 
@@ -96,6 +105,8 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   @Deprecated String loadBalancedContainer;
 
   Set<TargetGroupProperties> targetGroupMappings;
+
+  List<CapacityProviderStrategyItem> capacityProviderStrategy;
 
   @Override
   public String getRegion() {

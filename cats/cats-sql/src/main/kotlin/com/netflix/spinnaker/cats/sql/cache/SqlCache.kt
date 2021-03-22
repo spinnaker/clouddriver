@@ -6,6 +6,8 @@ import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.DefaultJsonCacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.cache.WriteableCache
+import com.netflix.spinnaker.cats.provider.ProviderCacheConfiguration
+import com.netflix.spinnaker.cats.sql.SqlUtil
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND
 import com.netflix.spinnaker.config.SqlConstraints
 import com.netflix.spinnaker.config.coroutineThreadPrefix
@@ -35,6 +37,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.jooq.Condition
 import org.jooq.DSLContext
+import org.jooq.SQLDialect
 import org.jooq.exception.DataAccessException
 import org.jooq.exception.SQLDialectNotSupportedException
 import org.jooq.impl.DSL.field
@@ -56,7 +59,8 @@ class SqlCache(
   tableNamespace: String?,
   private val cacheMetrics: SqlCacheMetrics,
   private val dynamicConfigService: DynamicConfigService,
-  private val sqlConstraints: SqlConstraints
+  private val sqlConstraints: SqlConstraints,
+  private val providerCacheConfiguration: ProviderCacheConfiguration
 ) : WriteableCache {
 
   companion object {
@@ -127,14 +131,20 @@ class SqlCache(
 
     createTables(type)
 
-    if (items.isNullOrEmpty() || items.none { it.id != "_ALL_" }) {
-      return
+    if (!providerCacheConfiguration.supportsFullEviction()) {
+      if (items.isNullOrEmpty() || items.none { it.id != "_ALL_" }) {
+        return
+      }
+    }
+
+    if (items.isNullOrEmpty()) {
+      log.warn("No cacheable items supplied, collection will be cleared (type: {}, agent: {})", type, agentHint)
     }
 
     var agent: String? = agentHint
 
     val first: String? = items
-      .firstOrNull { it.relationships.isNotEmpty() }
+      ?.firstOrNull { it.relationships.isNotEmpty() }
       ?.relationships
       ?.keys
       ?.firstOrNull()
@@ -148,9 +158,9 @@ class SqlCache(
     }
 
     val storeResult = if (authoritative) {
-      storeAuthoritative(type, agent, items, cleanup)
+      storeAuthoritative(type, agent, items ?: mutableListOf(), cleanup)
     } else {
-      storeInformative(type, items, cleanup)
+      storeInformative(type, items ?: mutableListOf(), cleanup)
     }
 
     cacheMetrics.merge(
@@ -582,13 +592,22 @@ class SqlCache(
         insert.apply {
           chunk.forEach {
             values(it, sqlNames.checkAgentName(agent), apps[it], hashes[it], bodies[it], now)
+            when (jooq.dialect()) {
+              SQLDialect.POSTGRES ->
+                onConflict(field("id"), field("agent"))
+                  .doUpdate()
+                  .set(field("application"), SqlUtil.excluded(field("application")) as Any)
+                  .set(field("body_hash"), SqlUtil.excluded(field("body_hash")) as Any)
+                  .set(field("body"), SqlUtil.excluded(field("body")) as Any)
+                  .set(field("last_updated"), SqlUtil.excluded(field("last_updated")) as Any)
+              else ->
+                onDuplicateKeyUpdate()
+                  .set(field("application"), MySQLDSL.values(field("application")) as Any)
+                  .set(field("body_hash"), MySQLDSL.values(field("body_hash")) as Any)
+                  .set(field("body"), MySQLDSL.values(field("body")) as Any)
+                  .set(field("last_updated"), MySQLDSL.values(field("last_updated")) as Any)
+            }
           }
-
-          onDuplicateKeyUpdate()
-            .set(field("application"), MySQLDSL.values(field("application")) as Any)
-            .set(field("body_hash"), MySQLDSL.values(field("body_hash")) as Any)
-            .set(field("body"), MySQLDSL.values(field("body")) as Any)
-            .set(field("last_updated"), MySQLDSL.values(field("last_updated")) as Any)
         }
 
         withRetry(RetryCategory.WRITE) {
@@ -854,14 +873,8 @@ class SqlCache(
     if (!createdTables.contains(type)) {
       try {
         withRetry(RetryCategory.WRITE) {
-          jooq.execute(
-            "CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(type)} " +
-              "LIKE cats_v${schemaVersion}_resource_template"
-          )
-          jooq.execute(
-            "CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(type)} " +
-              "LIKE cats_v${schemaVersion}_rel_template"
-          )
+          SqlUtil.createTableLike(jooq, sqlNames.resourceTableName(type), "cats_v${schemaVersion}_resource_template")
+          SqlUtil.createTableLike(jooq, sqlNames.relTableName(type), "cats_v${schemaVersion}_rel_template")
         }
 
         createdTables.add(type)
@@ -873,14 +886,8 @@ class SqlCache(
       // TODO not sure if best schema for onDemand
       try {
         withRetry(RetryCategory.WRITE) {
-          jooq.execute(
-            "CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(onDemandType)} " +
-              "LIKE cats_v${schemaVersion}_resource_template"
-          )
-          jooq.execute(
-            "CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(onDemandType)} " +
-              "LIKE cats_v${schemaVersion}_rel_template"
-          )
+          SqlUtil.createTableLike(jooq, sqlNames.resourceTableName(onDemandType), "cats_v${schemaVersion}_resource_template")
+          SqlUtil.createTableLike(jooq, sqlNames.relTableName(onDemandType), "cats_v${schemaVersion}_rel_template")
         }
 
         createdTables.add(onDemandType)

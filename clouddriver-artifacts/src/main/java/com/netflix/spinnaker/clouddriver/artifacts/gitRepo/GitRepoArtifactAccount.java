@@ -26,13 +26,14 @@ import org.springframework.boot.context.properties.ConstructorBinding;
 
 @NonnullByDefault
 @Value
-final class GitRepoArtifactAccount implements ArtifactAccount {
+public class GitRepoArtifactAccount implements ArtifactAccount {
   private final String name;
   private final String username;
   private final String password;
   private final String token;
   private final String sshPrivateKeyFilePath;
   private final String sshPrivateKeyPassphrase;
+  private final String sshPrivateKeyPassphraseCmd;
   private final String sshKnownHostsFilePath;
   private final boolean sshTrustUnknownHosts;
 
@@ -46,6 +47,7 @@ final class GitRepoArtifactAccount implements ArtifactAccount {
       String token,
       String sshPrivateKeyFilePath,
       String sshPrivateKeyPassphrase,
+      String sshPrivateKeyPassphraseCmd,
       String sshKnownHostsFilePath,
       boolean sshTrustUnknownHosts) {
     this.name = Strings.nullToEmpty(name);
@@ -54,6 +56,7 @@ final class GitRepoArtifactAccount implements ArtifactAccount {
     this.token = Strings.nullToEmpty(token);
     this.sshPrivateKeyFilePath = Strings.nullToEmpty(sshPrivateKeyFilePath);
     this.sshPrivateKeyPassphrase = Strings.nullToEmpty(sshPrivateKeyPassphrase);
+    this.sshPrivateKeyPassphraseCmd = Strings.nullToEmpty(sshPrivateKeyPassphraseCmd);
     this.sshKnownHostsFilePath = Strings.nullToEmpty(sshKnownHostsFilePath);
     this.sshTrustUnknownHosts = sshTrustUnknownHosts;
   }

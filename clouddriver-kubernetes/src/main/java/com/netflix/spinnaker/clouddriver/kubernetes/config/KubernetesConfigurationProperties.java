@@ -56,6 +56,9 @@ public class KubernetesConfigurationProperties {
     private List<String> omitKinds = new ArrayList<>();
     private boolean onlySpinnakerManaged = false;
     private Long cacheIntervalSeconds;
+    private boolean cacheAllApplicationRelationships = false;
+    private RawResourcesEndpointConfig rawResourcesEndpointConfig =
+        new RawResourcesEndpointConfig();
 
     public void validate() {
       if (Strings.isNullOrEmpty(name)) {
@@ -71,6 +74,7 @@ public class KubernetesConfigurationProperties {
         throw new IllegalArgumentException(
             "At most one of 'kinds' and 'omitKinds' can be specified");
       }
+      rawResourcesEndpointConfig.validate();
     }
   }
 }
