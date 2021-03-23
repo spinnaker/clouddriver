@@ -134,14 +134,16 @@ class SqlCachingPodsObserver (
         val now = System.currentTimeMillis()
         while (existingReplicas.next()) {
           val expiry = existingReplicas.getLong(LAST_HEARTBEAT_TIME)
+          val podId = existingReplicas.getString(POD_ID)
           if (now > expiry) {
             try {
               jooq.deleteFrom(table(replicasTable))
                 .where(
-                  DSL.field(POD_ID).eq(existingReplicas.getString(POD_ID))
+                  DSL.field(POD_ID).eq(podId)
                     .and(DSL.field(LAST_HEARTBEAT_TIME).eq(expiry))
                 )
                 .execute()
+              log.info("Deleted expired entry having id : {} and expiry millis : {}", podId, expiry)
             } catch (e: SQLException) {
               //this exception can be safely ignored as other pod might have succeeded
               log.info(
@@ -186,6 +188,7 @@ class SqlCachingPodsObserver (
     }
     podCount = counter
     podIndex = index
+    log.debug("Pod count : {} and current pod's index : {}", podCount, podIndex)
   }
 
   override fun filter(agent: Agent) : Boolean{

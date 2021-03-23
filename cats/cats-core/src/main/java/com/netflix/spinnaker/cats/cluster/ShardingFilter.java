@@ -20,5 +20,5 @@ package com.netflix.spinnaker.cats.cluster;
 import com.netflix.spinnaker.cats.agent.Agent;
 
 public interface ShardingFilter {
-  Boolean filter(Agent agent);
+  boolean filter(Agent agent);
 }

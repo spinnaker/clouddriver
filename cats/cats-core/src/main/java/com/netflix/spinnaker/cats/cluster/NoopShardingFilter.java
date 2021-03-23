@@ -21,7 +21,7 @@ import com.netflix.spinnaker.cats.agent.Agent;
 
 public class NoopShardingFilter implements ShardingFilter {
   @Override
-  public Boolean filter(Agent agent) {
+  public boolean filter(Agent agent) {
     return true;
   }
 }
