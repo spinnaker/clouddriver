@@ -17,8 +17,7 @@
 package com.netflix.spinnaker.clouddriver.artifacts.utils;
 
 import static io.restassured.RestAssured.given;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.common.collect.ImmutableMap;
 import io.restassured.response.Response;
@@ -27,9 +26,11 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.jetbrains.annotations.NotNull;
 import org.testcontainers.containers.GenericContainer;
 
 public class GiteaContainer extends GenericContainer<GiteaContainer> {
@@ -50,7 +51,7 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
   @Override
   public void start() {
     super.start();
-    String baseUrl = "http://" + this.getContainerIpAddress() + ":" + this.getMappedPort(3000);
+    String baseUrl = getExternalBaseUrl();
     try {
       if (SSH_KEY_FILE.toFile().getParentFile().exists()) {
         FileUtils.forceDelete(SSH_KEY_FILE.toFile().getParentFile());
@@ -68,6 +69,11 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
     } catch (IOException | InterruptedException e) {
       fail("Exception initializing gitea: " + e.getMessage());
     }
+  }
+
+  @NotNull
+  private String getExternalBaseUrl() {
+    return "http://" + this.getContainerIpAddress() + ":" + this.getMappedPort(3000);
   }
 
   public String httpUrl() {
@@ -181,5 +187,31 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
     FileUtils.writeStringToFile(
         knownHosts.toFile(), "localhost " + publicKey, Charset.defaultCharset());
     return knownHosts;
+  }
+
+  public void addFileToRepo(String fileName) {
+    Map<String, Object> body = ImmutableMap.of("someKey", "someValue");
+    Response resp =
+        given()
+            .auth()
+            .preemptive()
+            .basic(USER, PASS)
+            .contentType("application/json")
+            .body(body)
+            .post(getExternalBaseUrl() + "/api/v1/repos/test/test/contents/" + fileName);
+    int sc = resp.statusCode();
+    assertTrue(sc == 201 || sc == 422); // 422 is returned when the file was already added
+  }
+
+  public String getFirstCommitSha() {
+    Response resp =
+        given()
+            .auth()
+            .preemptive()
+            .basic(USER, PASS)
+            .get(getExternalBaseUrl() + "/api/v1/repos/test/test/commits");
+    resp.then().statusCode(200);
+    List<String> shas = resp.jsonPath().getList("sha");
+    return shas.get(shas.size() - 1);
   }
 }
