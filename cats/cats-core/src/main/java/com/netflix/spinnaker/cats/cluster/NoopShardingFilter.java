@@ -1,34 +1,27 @@
 /*
- * Copyright 2014 Netflix, Inc.
+ * Copyright 2021 OpsMx
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package com.netflix.spinnaker.cats.agent;
+package com.netflix.spinnaker.cats.cluster;
 
-public class NoopExecutionInstrumentation implements ExecutionInstrumentation {
-  @Override
-  public void executionStarted(Agent agent) {
-    // noop
-  }
+import com.netflix.spinnaker.cats.agent.Agent;
 
+public class NoopShardingFilter implements ShardingFilter {
   @Override
-  public void executionCompleted(Agent agent, long elapsedMs) {
-    // noop
-  }
-
-  @Override
-  public void executionFailed(Agent agent, Throwable cause, long elapsedMs) {
-    // noop
+  public boolean filter(Agent agent) {
+    return true;
   }
 }
