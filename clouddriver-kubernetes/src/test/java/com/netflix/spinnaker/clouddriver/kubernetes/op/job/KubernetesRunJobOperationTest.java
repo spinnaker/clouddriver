@@ -79,6 +79,7 @@ final class KubernetesRunJobOperationTest {
         .containsExactlyInAnyOrder(DEPLOYED_JOB);
   }
 
+  @Test
   void deploysJobWithGenerateName() {
     KubernetesRunJobOperationDescription runJobDescription =
         baseJobDescription("job-generate-name.yml");
@@ -89,6 +90,7 @@ final class KubernetesRunJobOperationTest {
         .containsExactlyInAnyOrder(DEPLOYED_JOB + GENERATE_SUFFIX);
   }
 
+  @Test
   void overridesNamespace() {
     String overrideNamespace = "override-namespace";
     KubernetesRunJobOperationDescription runJobDescription =
