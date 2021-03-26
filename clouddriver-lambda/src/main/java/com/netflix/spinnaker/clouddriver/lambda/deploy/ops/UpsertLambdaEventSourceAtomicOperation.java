@@ -65,6 +65,12 @@ public class UpsertLambdaEventSourceAtomicOperation
         new UpdateEventSourceMappingRequest()
             .withFunctionName(cache.getFunctionArn())
             .withBatchSize(description.getBatchsize())
+            .withBisectBatchOnFunctionError(description.getBisectBatchOnError())
+            .withMaximumBatchingWindowInSeconds(description.getMaxBatchingWindowSecs())
+            .withMaximumRecordAgeInSeconds(description.getMaxRecordAgeSecs())
+            .withMaximumRetryAttempts(description.getMaxRetryAttempts())
+            .withParallelizationFactor(description.getParallelizationFactor())
+            .withTumblingWindowInSeconds(description.getTumblingWindowSecs())
             .withEnabled(description.getEnabled())
             .withUUID(description.getUuid());
 
@@ -88,6 +94,12 @@ public class UpsertLambdaEventSourceAtomicOperation
         new CreateEventSourceMappingRequest()
             .withFunctionName(cache.getFunctionArn())
             .withBatchSize(description.getBatchsize())
+            .withBisectBatchOnFunctionError(description.getBisectBatchOnError())
+            .withMaximumBatchingWindowInSeconds(description.getMaxBatchingWindowSecs())
+            .withMaximumRecordAgeInSeconds(description.getMaxRecordAgeSecs())
+            .withMaximumRetryAttempts(description.getMaxRetryAttempts())
+            .withParallelizationFactor(description.getParallelizationFactor())
+            .withTumblingWindowInSeconds(description.getTumblingWindowSecs())
             .withEnabled(description.getEnabled())
             .withStartingPosition(description.getStartingPosition())
             .withEventSourceArn(description.getEventSourceArn());
