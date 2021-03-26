@@ -71,6 +71,7 @@ public class UpsertLambdaEventSourceAtomicOperation
             .withMaximumRetryAttempts(description.getMaxRetryAttempts())
             .withParallelizationFactor(description.getParallelizationFactor())
             .withTumblingWindowInSeconds(description.getTumblingWindowSecs())
+            .withDestinationConfig(description.getDestinationConfig())
             .withEnabled(description.getEnabled())
             .withUUID(description.getUuid());
 
@@ -100,6 +101,7 @@ public class UpsertLambdaEventSourceAtomicOperation
             .withMaximumRetryAttempts(description.getMaxRetryAttempts())
             .withParallelizationFactor(description.getParallelizationFactor())
             .withTumblingWindowInSeconds(description.getTumblingWindowSecs())
+            .withDestinationConfig(description.getDestinationConfig())
             .withEnabled(description.getEnabled())
             .withStartingPosition(description.getStartingPosition())
             .withEventSourceArn(description.getEventSourceArn());

@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.lambda.deploy.description;
 
+import com.amazonaws.services.lambda.model.DestinationConfig;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -35,4 +36,5 @@ public class UpsertLambdaFunctionEventMappingDescription extends AbstractLambdaF
   String eventSourceArn = null;
   String uuid = null;
   String startingPosition = null;
+  DestinationConfig destinationConfig = null;
 }
