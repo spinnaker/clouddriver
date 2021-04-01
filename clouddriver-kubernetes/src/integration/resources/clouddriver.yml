@@ -48,6 +48,16 @@ kubernetes:
         - testns28
         - testns29
         - testns30
+        - testns31
+        - testns32
+        - testns33
+        - testns34
+        - testns35
+        - testns36
+        - testns37
+        - testns38
+        - testns39
+        - testns40
       omitNamespaces: []
       kinds:
         - pod

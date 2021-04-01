@@ -891,9 +891,7 @@ public class InfrastructureIT extends BaseTest {
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
-          if (resp.statusCode() == 404) {
-            return false;
-          }
+
           resp.then().statusCode(200);
           List securityGroupList = resp.jsonPath().getList(ACCOUNT1_NAME + ".kubernetes." + ns);
           return securityGroupList != null && securityGroupList.size() == 2;
@@ -1244,7 +1242,7 @@ public class InfrastructureIT extends BaseTest {
       ".\n===\n"
           + "Given a kubernetes deployment\n"
           + "When sending get clusters /applications/{appName}/serverGroupManagers\n"
-          + "Then deployment should be present in serverGroups list of the response\n===")
+          + "Then the deployment should be present in serverGroups list of the response\n===")
   @Test
   public void shouldGetServerGroupManagerForApplication() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
@@ -1263,6 +1261,9 @@ public class InfrastructureIT extends BaseTest {
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
           resp.then().statusCode(200);
           List serverGroupList = resp.jsonPath().getList("[0].serverGroups");
           return serverGroupList != null & serverGroupList.size() > 0;
@@ -1301,6 +1302,9 @@ public class InfrastructureIT extends BaseTest {
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
           resp.then().statusCode(200).and();
           var appNameResp = resp.jsonPath().getString("name");
           return appNameResp != null && appNameResp.equals(appName);
