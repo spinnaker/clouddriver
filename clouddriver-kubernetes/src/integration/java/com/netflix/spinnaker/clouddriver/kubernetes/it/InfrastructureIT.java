@@ -838,4 +838,480 @@ public class InfrastructureIT extends BaseTest {
             + appName
             + "/rawResources to return valid data");
   }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given two kubernetes network policies\n"
+          + "When sending get securityGroups\n"
+          + "Then response should contain a list with security groups of size 2\n===")
+  @Test
+  public void shouldListSecurityGroups() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    String name = "default-deny-ingress";
+    String appName = "getmanifest";
+    System.out.println("> Using namespace " + ns);
+
+    Map<String, Object> networkPolicy =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name)
+            .asMap();
+
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "networkPolicy" + " " + name);
+
+    Map<String, Object> networkPolicy2 =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name + "-second")
+            .asMap();
+
+    List<Map<String, Object>> body2 =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy2))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body2, ns, "networkPolicy" + " " + name + "-second");
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get securityGroups request");
+          Response resp = get(baseUrl() + "/securityGroups");
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List securityGroupList = resp.jsonPath().getList(ACCOUNT1_NAME + ".kubernetes." + ns);
+          return securityGroupList != null && securityGroupList.size() == 2;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups"
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given two kubernetes network policies for one account\n"
+          + "When sending get securityGroups/{account}\n"
+          + "Then response should contain a list with security groups of size 2\n===")
+  @Test
+  public void shouldListSecurityGroupsByAccount() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    String name = "default-deny-ingress";
+    String appName = "getmanifest";
+    System.out.println("> Using namespace " + ns);
+
+    Map<String, Object> networkPolicy =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name)
+            .asMap();
+
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "networkPolicy" + " " + name);
+
+    Map<String, Object> networkPolicy2 =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name + "-second")
+            .asMap();
+
+    List<Map<String, Object>> body2 =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy2))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body2, ns, "networkPolicy" + " " + name + "-second");
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get securityGroups request");
+          Response resp = get(baseUrl() + "/securityGroups/" + ACCOUNT1_NAME);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List securityGroupList = resp.jsonPath().getList("kubernetes." + ns);
+          return securityGroupList != null && securityGroupList.size() == 2;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given two kubernetes network policies for one account\n"
+          + "When sending get securityGroups/{account}?region={region}\n"
+          + "Then response should contain a list with security groups of size 2\n===")
+  @Test
+  public void shouldListSecurityGroupsByAccountAndRegion()
+      throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    String name = "default-deny-ingress";
+    String appName = "getmanifest";
+    System.out.println("> Using namespace " + ns);
+
+    Map<String, Object> networkPolicy =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name)
+            .asMap();
+
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "networkPolicy" + " " + name);
+
+    Map<String, Object> networkPolicy2 =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name + "-second")
+            .asMap();
+
+    List<Map<String, Object>> body2 =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy2))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body2, ns, "networkPolicy" + " " + name + "-second");
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get securityGroups request");
+          Response resp = get(baseUrl() + "/securityGroups/" + ACCOUNT1_NAME + "?region=" + ns);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List securityGroupList = resp.jsonPath().getList("kubernetes." + ns);
+          return securityGroupList != null && securityGroupList.size() == 2;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + "?region="
+            + ns
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes network policies for one account\n"
+          + "When sending get securityGroups/{account}/{cloudprovider}\n"
+          + "Then response should contain the securityGroup\n===")
+  @Test
+  public void shouldListSecurityGroupsByAccountAndCloudProvider()
+      throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    String name = "default-deny-ingress";
+    String appName = "getmanifest";
+    System.out.println("> Using namespace " + ns);
+
+    Map<String, Object> networkPolicy =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name)
+            .asMap();
+
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "networkPolicy" + " " + name);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get securityGroups request");
+          Response resp = get(baseUrl() + "/securityGroups/" + ACCOUNT1_NAME + "/kubernetes");
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List securityGroupList = resp.jsonPath().getList(ns);
+          return securityGroupList != null && securityGroupList.size() > 0;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + "/kubernetes"
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given two kubernetes network policies for one account\n"
+          + "When sending get securityGroups/{account}/{cloudprovider}/{name}\n"
+          + "Then response should contain the security group specified in name\n===")
+  @Test
+  public void shouldListSecurityGroupsByAccountAndCloudProviderAndName()
+      throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    String name = "default-deny-ingress";
+    String appName = "getmanifest";
+    System.out.println("> Using namespace " + ns);
+
+    Map<String, Object> networkPolicy =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name)
+            .asMap();
+
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "networkPolicy" + " " + name);
+
+    Map<String, Object> networkPolicy2 =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name + "-second")
+            .asMap();
+
+    List<Map<String, Object>> body2 =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy2))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body2, ns, "networkPolicy" + " " + name + "-second");
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get securityGroups request");
+          Response resp =
+              get(
+                  baseUrl()
+                      + "/securityGroups/"
+                      + ACCOUNT1_NAME
+                      + "/kubernetes/networkpolicy "
+                      + name);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List securityGroupList = resp.jsonPath().getList(ns);
+          return securityGroupList != null && securityGroupList.size() > 0;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + "/kubernetes/networkpolicy "
+            + name
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes network policy for one account\n"
+          + "When sending get securityGroups/{account}/{cloudProvider}/{region}/{securityGroupNameOrId}\n"
+          + "Then response should contain the security group specified in securityGroupNameOrId\n===")
+  @Test
+  public void shouldGetSecurityGroupByAccountAndName() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    String name = "default-deny-ingress";
+    String appName = "getmanifest";
+    System.out.println("> Using namespace " + ns);
+
+    Map<String, Object> networkPolicy =
+        KubeTestUtils.loadYaml("classpath:manifests/networkpolicy.yml")
+            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", name)
+            .asMap();
+
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(networkPolicy))
+            .asList();
+
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "networkPolicy" + " " + name);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get securityGroups request");
+          Response resp =
+              get(
+                  baseUrl()
+                      + "/securityGroups/"
+                      + ACCOUNT1_NAME
+                      + "/kubernetes/"
+                      + ns
+                      + "/networkolicy "
+                      + name);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          var displayName = resp.jsonPath().getString("displayName");
+          return displayName.equals(name);
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + "/kubernetes/"
+            + ns
+            + "/networkolicy "
+            + name
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes deployment\n"
+          + "When sending get clusters /applications/{appName}/serverGroupManagers\n"
+          + "Then deployment should be present in serverGroups list of the response\n===")
+  @Test
+  public void shouldGetServerGroupManagerForApplication() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "inframyapp";
+    String appName = "getclusters";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, appName);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get clusters request");
+          Response resp = get(baseUrl() + "/applications/" + appName + "/serverGroupManagers");
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          resp.then().statusCode(200);
+          List serverGroupList = resp.jsonPath().getList("[0].serverGroups");
+          return serverGroupList.size() > 0;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
+            + deploymentName
+            + "' cluster to return from GET /applications/"
+            + appName
+            + "/serverGroupManagers");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes deployment of one application made by spinnaker\n"
+          + "When sending get /applications/{application} request\n"
+          + "Then both deployments should be returned\n===")
+  @Test
+  public void shouldGetApplicationInCluster() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    String ns = kubeCluster.getAvailableNamespace();
+    String deploymentName = "inframyapp";
+    String appName = "getclusters";
+    System.out.println("> Using namespace " + ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, appName);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get clusters request");
+          Response resp = get(baseUrl() + "/applications/" + appName);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          resp.then().statusCode(200).and();
+          var appNameResp = resp.jsonPath().getString("name");
+          return appNameResp != null && appNameResp.equals(appName);
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
+            + deploymentName
+            + "' cluster to return from GET /applications/"
+            + appName);
+  }
 }
