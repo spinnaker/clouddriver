@@ -1225,7 +1225,7 @@ public class InfrastructureIT extends BaseTest {
           }
           resp.then().statusCode(200);
           var displayName = resp.jsonPath().getString("displayName");
-          return displayName.equals(name);
+          return displayName != null && displayName.equals(name);
         },
         CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
@@ -1265,7 +1265,7 @@ public class InfrastructureIT extends BaseTest {
           System.out.println(resp.asString());
           resp.then().statusCode(200);
           List serverGroupList = resp.jsonPath().getList("[0].serverGroups");
-          return serverGroupList.size() > 0;
+          return serverGroupList != null & serverGroupList.size() > 0;
         },
         CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
@@ -1282,7 +1282,7 @@ public class InfrastructureIT extends BaseTest {
       ".\n===\n"
           + "Given a kubernetes deployment of one application made by spinnaker\n"
           + "When sending get /applications/{application} request\n"
-          + "Then both deployments should be returned\n===")
+          + "Then an application object should be returned\n===")
   @Test
   public void shouldGetApplicationInCluster() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
