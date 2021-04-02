@@ -1161,7 +1161,7 @@ public class InfrastructureIT extends BaseTest {
           }
           resp.then().statusCode(200);
           List securityGroupList = resp.jsonPath().getList(ns);
-          return securityGroupList != null && securityGroupList.size() > 0;
+          return securityGroupList != null && securityGroupList.size() == 0;
         },
         CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
@@ -1240,9 +1240,9 @@ public class InfrastructureIT extends BaseTest {
 
   @DisplayName(
       ".\n===\n"
-          + "Given a kubernetes deployment\n"
+          + "Given two kubernetes deployments\n"
           + "When sending get clusters /applications/{appName}/serverGroupManagers\n"
-          + "Then the deployment should be present in serverGroups list of the response\n===")
+          + "Then two deployments should be present in serverGroups list of the response\n===")
   @Test
   public void shouldGetServerGroupManagerForApplication() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
@@ -1265,8 +1265,8 @@ public class InfrastructureIT extends BaseTest {
             return false;
           }
           resp.then().statusCode(200);
-          List serverGroupList = resp.jsonPath().getList("[0].serverGroups");
-          return serverGroupList != null & serverGroupList.size() > 0;
+          List serverGroupList = resp.jsonPath().getList("$");
+          return serverGroupList != null & serverGroupList.size() == 1;
         },
         CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
