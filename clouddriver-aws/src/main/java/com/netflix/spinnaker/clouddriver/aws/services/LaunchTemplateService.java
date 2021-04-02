@@ -247,6 +247,10 @@ public class LaunchTemplateService {
     networkInterfaceRequest.setDeviceIndex(0);
     networkInterfaceRequest.setGroups(description.getSecurityGroups());
 
+    // Nitro Enclave options
+    request.setEnclaveOptions(
+        new LaunchTemplateEnclaveOptionsRequest().withEnabled(asgConfiguration.getEnableEnclave()));
+
     return request.withNetworkInterfaces(networkInterfaceRequest);
   }
 
@@ -335,6 +339,10 @@ public class LaunchTemplateService {
             .withIpv6AddressCount(asgConfig.getAssociateIPv6Address() ? 1 : 0)
             .withGroups(asgConfig.getSecurityGroups())
             .withDeviceIndex(0));
+
+    // Nitro Enclave options
+    request.setEnclaveOptions(
+        new LaunchTemplateEnclaveOptionsRequest().withEnabled(asgConfig.getEnableEnclave()));
 
     return request;
   }
