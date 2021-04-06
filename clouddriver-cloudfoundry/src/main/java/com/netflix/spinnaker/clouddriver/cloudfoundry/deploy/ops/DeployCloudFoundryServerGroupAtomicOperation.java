@@ -30,6 +30,8 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.CreateServiceBinding;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.CreatePackage;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Lifecycle;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessRequest;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.CloudFoundryServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
@@ -96,11 +98,10 @@ public class DeployCloudFoundryServerGroupAtomicOperation
     createServiceBindings(serverGroup, description);
 
     buildDroplet(packageId, serverGroup.getId(), description);
+
+    // update process before scaling process
+    updateProcess(serverGroup.getId(), description);
     scaleApplication(serverGroup.getId(), description);
-    if (description.getApplicationAttributes().getHealthCheckType() != null
-        || description.getApplicationAttributes().getCommand() != null) {
-      updateProcess(serverGroup.getId(), description);
-    }
 
     if (!mapRoutes(
         description,
@@ -472,7 +473,6 @@ public class DeployCloudFoundryServerGroupAtomicOperation
         convertToMb("memory", description.getApplicationAttributes().getMemory());
     Integer diskSizeAmount =
         convertToMb("disk quota", description.getApplicationAttributes().getDiskQuota());
-
     client
         .getProcesses()
         .scaleProcess(
@@ -480,6 +480,28 @@ public class DeployCloudFoundryServerGroupAtomicOperation
             description.getApplicationAttributes().getInstances(),
             memoryAmount,
             diskSizeAmount);
+
+    if (!description.getApplicationAttributes().getProcesses().isEmpty()) {
+      List<Process> processes = client.getProcesses().getAllProcessesByAppId(serverGroupId);
+
+      for (ProcessRequest req : description.getApplicationAttributes().getProcesses()) {
+        String processGuid =
+            processes.stream()
+                .filter(p -> p.getType().equalsIgnoreCase(req.getType()))
+                .map(p -> p.getGuid())
+                .findFirst()
+                .orElseThrow(
+                    () ->
+                        new CloudFoundryApiException(
+                            "Unable to find a process with type: " + req.getType()));
+
+        Integer pMemoryAmount = convertToMb("memory", req.getMemory());
+        Integer pDiskSizeAmount = convertToMb("disk quota", req.getDiskQuota());
+        client
+            .getProcesses()
+            .scaleProcess(processGuid, req.getInstances(), pMemoryAmount, pDiskSizeAmount);
+      }
+    }
     getTask().updateStatus(PHASE, "Scaled application '" + description.getServerGroupName() + "'");
   }
 
@@ -487,6 +509,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       String serverGroupId, DeployCloudFoundryServerGroupDescription description) {
     CloudFoundryClient client = description.getClient();
     getTask().updateStatus(PHASE, "Updating process '" + description.getServerGroupName() + "'");
+
     client
         .getProcesses()
         .updateProcess(
@@ -494,6 +517,31 @@ public class DeployCloudFoundryServerGroupAtomicOperation
             description.getApplicationAttributes().getCommand(),
             description.getApplicationAttributes().getHealthCheckType(),
             description.getApplicationAttributes().getHealthCheckHttpEndpoint());
+
+    if (!description.getApplicationAttributes().getProcesses().isEmpty()) {
+      List<Process> processes = client.getProcesses().getAllProcessesByAppId(serverGroupId);
+
+      for (ProcessRequest req : description.getApplicationAttributes().getProcesses()) {
+        String processGuid =
+            processes.stream()
+                .filter(p -> p.getType().equalsIgnoreCase(req.getType()))
+                .map(p -> p.getGuid())
+                .findFirst()
+                .orElseThrow(
+                    () ->
+                        new CloudFoundryApiException(
+                            "Unable to find a process with type: " + req.getType()));
+
+        client
+            .getProcesses()
+            .updateProcess(
+                processGuid,
+                req.getCommand(),
+                req.getHealthCheckType(),
+                req.getHealthCheckHttpEndpoint());
+      }
+    }
+
     getTask().updateStatus(PHASE, "Updated process '" + description.getServerGroupName() + "'");
   }
 
