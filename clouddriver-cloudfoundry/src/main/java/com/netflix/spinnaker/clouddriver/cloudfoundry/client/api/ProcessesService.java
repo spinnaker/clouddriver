@@ -16,8 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.api;
 
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Pagination;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessResources;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ScaleProcess;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.UpdateProcess;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.http.*;
