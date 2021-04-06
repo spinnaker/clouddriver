@@ -485,15 +485,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       List<Process> processes = client.getProcesses().getAllProcessesByAppId(serverGroupId);
 
       for (ProcessRequest req : description.getApplicationAttributes().getProcesses()) {
-        String processGuid =
-            processes.stream()
-                .filter(p -> p.getType().equalsIgnoreCase(req.getType()))
-                .map(p -> p.getGuid())
-                .findFirst()
-                .orElseThrow(
-                    () ->
-                        new CloudFoundryApiException(
-                            "Unable to find a process with type: " + req.getType()));
+        String processGuid = getProcessGuidByType(processes, req.getType());
 
         Integer pMemoryAmount = convertToMb("memory", req.getMemory());
         Integer pDiskSizeAmount = convertToMb("disk quota", req.getDiskQuota());
@@ -522,15 +514,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       List<Process> processes = client.getProcesses().getAllProcessesByAppId(serverGroupId);
 
       for (ProcessRequest req : description.getApplicationAttributes().getProcesses()) {
-        String processGuid =
-            processes.stream()
-                .filter(p -> p.getType().equalsIgnoreCase(req.getType()))
-                .map(p -> p.getGuid())
-                .findFirst()
-                .orElseThrow(
-                    () ->
-                        new CloudFoundryApiException(
-                            "Unable to find a process with type: " + req.getType()));
+        String processGuid = getProcessGuidByType(processes, req.getType());
 
         client
             .getProcesses()
@@ -562,5 +546,15 @@ public class DeployCloudFoundryServerGroupAtomicOperation
 
     throw new IllegalArgumentException(
         "Invalid size for application " + field + " = '" + size + "'");
+  }
+
+  // Helper method for filtering and returning a process guid by type
+  private String getProcessGuidByType(List<Process> processes, String type) {
+    return processes.stream()
+        .filter(p -> p.getType().equalsIgnoreCase(type))
+        .map(p -> p.getGuid())
+        .findFirst()
+        .orElseThrow(
+            () -> new CloudFoundryApiException("Unable to find a process with type: " + type));
   }
 }
