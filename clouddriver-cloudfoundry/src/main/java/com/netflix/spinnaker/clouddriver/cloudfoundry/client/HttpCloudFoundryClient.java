@@ -32,7 +32,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
@@ -109,9 +108,6 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
     okHttpClient =
         okHttpClient
             .newBuilder()
-            .connectTimeout(clientConfig.getConnectionTimeout(), TimeUnit.MILLISECONDS)
-            .readTimeout(clientConfig.getReadTimeout(), TimeUnit.MILLISECONDS)
-            .writeTimeout(clientConfig.getWriteTimeout(), TimeUnit.MILLISECONDS)
             .authenticator(new AccessTokenAuthenticator(accessTokenProvider))
             .addInterceptor(new AccessTokenInterceptor(accessTokenProvider))
             .addInterceptor(new RetryInterceptor(clientConfig.getMaxRetries()))
