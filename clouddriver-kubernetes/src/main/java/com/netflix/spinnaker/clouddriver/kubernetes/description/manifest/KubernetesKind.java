@@ -75,8 +75,6 @@ public class KubernetesKind {
   public static final KubernetesKind PERSISTENT_VOLUME_CLAIM =
       createWithAlias("persistentVolumeClaim", "pvc", KubernetesApiGroup.CORE);
   public static final KubernetesKind POD = createWithAlias("pod", "po", KubernetesApiGroup.CORE);
-  public static final KubernetesKind POD_PRESET =
-      createWithAlias("podPreset", null, KubernetesApiGroup.SETTINGS_K8S_IO);
   public static final KubernetesKind POD_SECURITY_POLICY =
       createWithAlias("podSecurityPolicy", null, KubernetesApiGroup.POLICY);
   public static final KubernetesKind POD_DISRUPTION_BUDGET =

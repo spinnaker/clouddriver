@@ -50,7 +50,6 @@ public class KubernetesKindProperties {
         new KubernetesKindProperties(KubernetesKind.PERSISTENT_VOLUME, false),
         new KubernetesKindProperties(KubernetesKind.PERSISTENT_VOLUME_CLAIM, true),
         new KubernetesKindProperties(KubernetesKind.POD, true),
-        new KubernetesKindProperties(KubernetesKind.POD_PRESET, true),
         new KubernetesKindProperties(KubernetesKind.POD_SECURITY_POLICY, false),
         new KubernetesKindProperties(KubernetesKind.POD_DISRUPTION_BUDGET, true),
         new KubernetesKindProperties(KubernetesKind.REPLICA_SET, true),
