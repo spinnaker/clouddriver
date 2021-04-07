@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.provider.agent;
 
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.AutoScalePolicy;
 import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.CpuUtilizationRule;
 import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.CustomRule;
