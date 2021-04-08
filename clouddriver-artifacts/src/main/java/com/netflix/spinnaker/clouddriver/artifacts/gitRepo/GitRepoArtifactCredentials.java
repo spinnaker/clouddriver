@@ -64,36 +64,29 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     String branch = artifactVersion(artifact);
     Path stagingPath = gitRepoFileSystem.getLocalClonePath(repoUrl, branch);
     String repoBasename = getRepoBasename(repoUrl);
-    Path outputFile = Paths.get(stagingPath.toString(), repoBasename + ".tgz");
 
     if (!gitRepoFileSystem.canRetainClone()) {
       // delete clone before returning
       try (Closeable ignored = () -> FileUtils.deleteDirectory(stagingPath.toFile())) {
-        return getInputStream(repoUrl, subPath, branch, stagingPath, repoBasename, outputFile);
+        return getInputStream(repoUrl, subPath, branch, stagingPath, repoBasename);
       }
     } else {
       // clones are deleted by gitRepoFileSystem depending on retention period
-      return getInputStream(repoUrl, subPath, branch, stagingPath, repoBasename, outputFile);
+      return getInputStream(repoUrl, subPath, branch, stagingPath, repoBasename);
     }
   }
 
   @NotNull
   private FileInputStream getInputStream(
-      String repoUrl,
-      String subPath,
-      String branch,
-      Path stagingPath,
-      String repoBasename,
-      Path outputFile)
+      String repoUrl, String subPath, String branch, Path stagingPath, String repoBasename)
       throws IOException {
     try {
       if (gitRepoFileSystem.tryTimedLock(repoUrl, branch)) {
         try {
           executor.cloneOrPull(repoUrl, branch, stagingPath, repoBasename);
-          log.info("Creating archive for git/repo {}", repoUrl);
-          executor.archive(
-              Paths.get(stagingPath.toString(), repoBasename), branch, subPath, outputFile);
-          return new FileInputStream(outputFile.toFile());
+          log.info("Pulling file '{}' from git/repo {}", subPath, repoUrl);
+          return new FileInputStream(
+              Paths.get(stagingPath.toString(), repoBasename, subPath).toFile());
         } finally {
           gitRepoFileSystem.unlock(repoUrl, branch);
         }
