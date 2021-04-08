@@ -16,9 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.cache;
 
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository.Detail.FULL;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository.Detail.NAMES_ONLY;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository.Detail.NONE;
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository.Detail.*;
 import static java.util.Collections.*;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,12 +34,14 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Applications;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Routes;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.agent.CloudFoundryServerGroupCachingAgent;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -95,8 +95,8 @@ class CacheRepositoryTest {
 
     when(client.getApplications()).thenReturn(apps);
     when(client.getRoutes()).thenReturn(routes);
-    when(apps.all()).thenReturn(singletonList(app));
-    when(routes.all()).thenReturn(emptyList());
+    when(apps.all(emptyList())).thenReturn(singletonList(app));
+    when(routes.all(emptyList())).thenReturn(emptyList());
     when(providerCache.filterIdentifiers(any(), any())).thenReturn(emptyList());
     when(providerCache.getAll(any(), anyCollectionOf(String.class))).thenReturn(emptyList());
     when(credentials.getName()).thenReturn("devaccount");
@@ -124,7 +124,10 @@ class CacheRepositoryTest {
         null,
         repo,
         null,
-        ForkJoinPool.commonPool());
+        ForkJoinPool.commonPool(),
+        emptyMap(),
+        new OkHttpClient(),
+        new CloudFoundryConfigurationProperties.ClientConfig());
   }
 
   @Test

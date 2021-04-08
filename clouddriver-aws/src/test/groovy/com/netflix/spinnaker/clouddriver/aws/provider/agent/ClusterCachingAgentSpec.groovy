@@ -17,8 +17,12 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider.agent
 
+import com.amazonaws.services.autoscaling.AmazonAutoScaling
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
+import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
+import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
 import com.amazonaws.services.autoscaling.model.SuspendedProcess
+import com.amazonaws.services.autoscaling.model.TagDescription
 import com.amazonaws.services.ec2.AmazonEC2
 import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer
 import com.netflix.spectator.api.Spectator
@@ -60,6 +64,9 @@ class ClusterCachingAgentSpec extends Specification {
   @Shared
   EddaTimeoutConfig edda = Mock(EddaTimeoutConfig)
 
+  @Shared
+  AmazonCachingAgentFilter filter = new AmazonCachingAgentFilter()
+
   def getAgent() {
     def creds = Stub(NetflixAmazonCredentials) {
       getName() >> accountName
@@ -69,7 +76,7 @@ class ClusterCachingAgentSpec extends Specification {
     def client = Stub(AmazonClientProvider) {
       getAmazonEC2(creds, region, _) >> ec2
     }
-    new ClusterCachingAgent(cloud, client, creds, region, AmazonObjectMapperConfigurer.createConfigured(), Spectator.globalRegistry(), edda)
+    new ClusterCachingAgent(cloud, client, creds, region, AmazonObjectMapperConfigurer.createConfigured(), Spectator.globalRegistry(), edda, filter)
   }
 
   @Unroll
@@ -134,7 +141,65 @@ class ClusterCachingAgentSpec extends Specification {
     def result = agent.handle(providerCache, data)
 
     then:
-    result.authoritativeTypes as Set == ["clusters", "serverGroups", "applications"] as Set
+    result.authoritativeTypes as Set == ["serverGroups"] as Set
+  }
+
+  void "asg should filter excluded tags"() {
+    given:
+    def agent = getAgent()
+    def client = Stub(AmazonClientProvider) {
+      getAutoScaling(_, _, _) >> Stub(AmazonAutoScaling) {
+        describeAutoScalingGroups(_) >> new DescribeAutoScalingGroupsResult() {
+          List<AutoScalingGroup> getAutoScalingGroups() {
+            return filterableASGs
+          }
+        }
+      }
+    }
+
+    def clients = new ClusterCachingAgent.AmazonClients(client, agent.account, agent.region, false)
+    filter.includeTags = includeTags
+    filter.excludeTags = excludeTags
+
+    when:
+    def result = agent.loadAutoScalingGroups(clients)
+
+    then:
+    result.asgs*.autoScalingGroupName == expected
+
+    where:
+    includeTags                   | excludeTags                   | expected
+    null                          | null                          | filterableASGs*.autoScalingGroupName
+    [taggify("hello")]            | null                          | ["test-hello-tag-value", "test-hello-tag-value-different", "test-hello-tag-no-value"]
+    [taggify("hello", "goodbye")] | null                          | ["test-hello-tag-value"]
+    [taggify("hello", "goo")]     | null                          | []
+    [taggify("hello", ".*bye")]   | null                          | ["test-hello-tag-value"]
+    [taggify(".*a.*")]            | null                          | ["test-no-hello-tag"]
+    null                          | [taggify("hello")]            | ["test-no-hello-tag", "test-no-tags"]
+    null                          | [taggify("hello", "goodbye")] | ["test-hello-tag-value-different", "test-hello-tag-no-value", "test-no-hello-tag", "test-no-tags"]
+    [taggify("hello", "goodbye")] | [taggify("hello")]            | []
+    [taggify(".*", "ciao")]       | [taggify("hello", ".*")]      | []
+  }
+
+  private static final List<AutoScalingGroup> filterableASGs = [
+    new AutoScalingGroup()
+      .withAutoScalingGroupName("test-hello-tag-value")
+      .withTags(new TagDescription().withKey("hello").withValue("goodbye")),
+    new AutoScalingGroup()
+      .withAutoScalingGroupName("test-hello-tag-value-different")
+      .withTags(new TagDescription().withKey("hello").withValue("ciao")),
+    new AutoScalingGroup()
+      .withAutoScalingGroupName("test-hello-tag-no-value")
+      .withTags(new TagDescription().withKey("hello")),
+    new AutoScalingGroup()
+      .withAutoScalingGroupName("test-no-hello-tag")
+      .withTags(new TagDescription().withKey("Name")),
+    new AutoScalingGroup()
+      .withAutoScalingGroupName("test-no-tags"),
+  ]
+
+  private static def taggify(String name = null, String value = null) {
+    return new AmazonCachingAgentFilter.TagFilterOption(name, value)
   }
 
   private SuspendedProcess sP(String processName) {

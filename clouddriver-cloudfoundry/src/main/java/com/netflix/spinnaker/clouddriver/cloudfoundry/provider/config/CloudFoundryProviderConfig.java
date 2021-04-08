@@ -28,8 +28,13 @@ import com.netflix.spinnaker.credentials.definition.AbstractCredentialsLoader;
 import com.netflix.spinnaker.credentials.definition.BasicCredentialsLoader;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinitionSource;
 import com.netflix.spinnaker.credentials.poller.Poller;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.okhttp3.OkHttpMetricsEventListener;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
+import okhttp3.OkHttpClient;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,6 +54,20 @@ public class CloudFoundryProviderConfig {
   }
 
   @Bean
+  public OkHttpClient cloudFoundryOkHttpClient(
+      CloudFoundryConfigurationProperties configurationProperties, MeterRegistry meterRegistry) {
+    return new OkHttpClient.Builder()
+        .connectTimeout(
+            configurationProperties.getClient().getConnectionTimeout(), TimeUnit.MILLISECONDS)
+        .readTimeout(
+            configurationProperties.getClient().getConnectionTimeout(), TimeUnit.MILLISECONDS)
+        .writeTimeout(configurationProperties.getClient().getReadTimeout(), TimeUnit.MILLISECONDS)
+        .eventListener(
+            OkHttpMetricsEventListener.builder(meterRegistry, "cf.okhttp.requests").build())
+        .build();
+  }
+
+  @Bean
   @ConditionalOnMissingBean(
       value = CloudFoundryCredentials.class,
       parameterizedContainer = AbstractCredentialsLoader.class)
@@ -59,7 +78,8 @@ public class CloudFoundryProviderConfig {
       CloudFoundryConfigurationProperties configurationProperties,
       CacheRepository cacheRepository,
       CredentialsRepository<CloudFoundryCredentials> cloudFoundryCredentialsRepository,
-      ForkJoinPool cloudFoundryThreadPool) {
+      ForkJoinPool cloudFoundryThreadPool,
+      @Qualifier("cloudFoundryOkHttpClient") OkHttpClient okHttpClient) {
 
     if (cloudFoundryCredentialSource == null) {
       cloudFoundryCredentialSource = configurationProperties::getAccounts;
@@ -79,7 +99,10 @@ public class CloudFoundryProviderConfig {
                 a.getResultsPerPage(),
                 cacheRepository,
                 a.getPermissions().build(),
-                cloudFoundryThreadPool),
+                cloudFoundryThreadPool,
+                a.getSpaceFilter(),
+                okHttpClient,
+                configurationProperties.getClient()),
         cloudFoundryCredentialsRepository);
   }
 

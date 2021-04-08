@@ -13,7 +13,9 @@ RUN apt-get update && apt-get install -y curl gnupg && \
   google-cloud-sdk-app-engine-java \
   google-cloud-sdk-app-engine-go \
   kubectl \
-  python-pip && \
+  python-pip \
+  git \
+  openssh-client && \
   pip install awscli==1.18.152 --upgrade && \
   rm -rf ~/.config/gcloud
 

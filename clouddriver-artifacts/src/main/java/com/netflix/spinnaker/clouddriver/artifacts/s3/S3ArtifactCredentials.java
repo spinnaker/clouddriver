@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.s3;
 
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.PredefinedClientConfigurations;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder;
@@ -32,7 +34,8 @@ import lombok.Getter;
 
 @NonnullByDefault
 @Slf4j
-final class S3ArtifactCredentials implements ArtifactCredentials {
+public class S3ArtifactCredentials implements ArtifactCredentials {
+  public static final String CREDENTIALS_TYPE = "artifacts-s3";
   @Getter private final String name;
   @Getter private final ImmutableList<String> types = ImmutableList.of("s3/object");
 
@@ -41,6 +44,7 @@ final class S3ArtifactCredentials implements ArtifactCredentials {
   private final String region;
   private final String awsAccessKeyId;
   private final String awsSecretAccessKey;
+  private final String signerOverride;
 
   S3ArtifactCredentials(S3ArtifactAccount account) throws IllegalArgumentException {
     name = account.getName();
@@ -49,11 +53,16 @@ final class S3ArtifactCredentials implements ArtifactCredentials {
     region = account.getRegion();
     awsAccessKeyId = account.getAwsAccessKeyId();
     awsSecretAccessKey = account.getAwsSecretAccessKey();
+    signerOverride = account.getSignerOverride();
   }
 
   private AmazonS3 getS3Client() {
     AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
-
+    if (!signerOverride.isEmpty()) {
+      ClientConfiguration configuration = PredefinedClientConfigurations.defaultConfig();
+      configuration.setSignerOverride(signerOverride);
+      builder.setClientConfiguration(configuration);
+    }
     if (!apiEndpoint.isEmpty()) {
       AwsClientBuilder.EndpointConfiguration endpoint =
           new AwsClientBuilder.EndpointConfiguration(apiEndpoint, apiRegion);
@@ -88,5 +97,10 @@ final class S3ArtifactCredentials implements ArtifactCredentials {
     String path = reference.substring(slash + 1);
     S3Object s3obj = getS3Client().getObject(bucketName, path);
     return s3obj.getObjectContent();
+  }
+
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
   }
 }

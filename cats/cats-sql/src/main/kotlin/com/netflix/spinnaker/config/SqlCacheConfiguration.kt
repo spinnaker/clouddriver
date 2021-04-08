@@ -18,6 +18,8 @@ import com.netflix.spinnaker.cats.sql.cache.SqlNamedCacheFactory
 import com.netflix.spinnaker.cats.sql.cache.SqlNames
 import com.netflix.spinnaker.cats.sql.cache.SqlTableMetricsAgent
 import com.netflix.spinnaker.cats.sql.cache.SqlUnknownAgentCleanupAgent
+import com.netflix.spinnaker.cats.cluster.NoopShardingFilter
+import com.netflix.spinnaker.cats.cluster.ShardingFilter
 import com.netflix.spinnaker.clouddriver.cache.CustomSchedulableAgentIntervalProvider
 import com.netflix.spinnaker.clouddriver.cache.DiscoveryStatusNodeStatusProvider
 import com.netflix.spinnaker.clouddriver.sql.SqlAgent
@@ -37,6 +39,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext
@@ -51,7 +54,7 @@ const val coroutineThreadPrefix = "catsSql"
 @Configuration
 @ConditionalOnProperty("sql.cache.enabled")
 @Import(DefaultSqlConfiguration::class)
-@EnableConfigurationProperties(SqlAgentProperties::class, SqlConstraints::class)
+@EnableConfigurationProperties(SqlAgentProperties::class, SqlConstraintsProperties::class)
 @ComponentScan("com.netflix.spinnaker.cats.sql.controllers")
 class SqlCacheConfiguration {
 
@@ -78,6 +81,10 @@ class SqlCacheConfiguration {
       .instrumentation(executionInstrumentation)
       .build(providers)
   }
+
+  @Bean
+  fun sqlConstraints(jooq: DSLContext, sqlConstraintsProperties: SqlConstraintsProperties): SqlConstraints =
+    SqlConstraints(SqlConstraintsInitializer.getDefaultSqlConstraints(jooq.dialect()), sqlConstraintsProperties)
 
   /**
    * sql.cache.async.poolSize: If set to a positive integer, a fixed thread pool of this size is created
@@ -183,5 +190,11 @@ class SqlCacheConfiguration {
   @Bean
   fun nodeStatusProvider(discoveryStatusListener: DiscoveryStatusListener): NodeStatusProvider {
     return DiscoveryStatusNodeStatusProvider(discoveryStatusListener)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(ShardingFilter::class)
+  fun shardingFilter() : ShardingFilter {
+    return NoopShardingFilter()
   }
 }

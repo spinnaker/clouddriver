@@ -10,13 +10,15 @@ import com.netflix.spinnaker.cats.cache.WriteableCache
 import com.netflix.spinnaker.cats.provider.ProviderCacheSpec
 import com.netflix.spinnaker.cats.sql.cache.SpectatorSqlCacheMetrics
 import com.netflix.spinnaker.cats.sql.cache.SqlCache
-import com.netflix.spinnaker.config.SqlConstraints
+import com.netflix.spinnaker.cats.sql.cache.SqlNamedCacheFactory
+import com.netflix.spinnaker.config.SqlConstraintsInitializer
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
 import com.zaxxer.hikari.HikariDataSource
 import org.jooq.DSLContext
+import org.jooq.SQLDialect
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Unroll
@@ -69,7 +71,8 @@ class SqlProviderCacheSpec extends ProviderCacheSpec {
       "test",
       sqlMetrics,
       dynamicConfigService,
-      new SqlConstraints()
+      new SqlConstraintsInitializer().getDefaultSqlConstraints(SQLDialect.MYSQL),
+      new SqlNamedCacheFactory.DefaultProviderCacheConfiguration()
     )
 
     return new SqlProviderCache(backingStore)

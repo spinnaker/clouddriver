@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
+import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.when;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.CreateCloudFoundryServiceKeyDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
@@ -35,6 +37,7 @@ import io.vavr.collection.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 
 class CreateCloudFoundryServiceKeyAtomicOperationConverterTest {
@@ -56,17 +59,20 @@ class CreateCloudFoundryServiceKeyAtomicOperationConverterTest {
   private final CloudFoundryCredentials cloudFoundryCredentials =
       new CloudFoundryCredentials(
           "my-account",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
+          "managerUri",
+          "metricsUri",
+          "apiHost",
+          "username",
+          "password",
+          "environment",
           false,
           500,
           cacheRepository,
           null,
-          ForkJoinPool.commonPool()) {
+          ForkJoinPool.commonPool(),
+          emptyMap(),
+          new OkHttpClient(),
+          new CloudFoundryConfigurationProperties.ClientConfig()) {
         public CloudFoundryClient getClient() {
           return cloudFoundryClient;
         }
