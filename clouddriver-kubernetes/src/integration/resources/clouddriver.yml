@@ -51,7 +51,14 @@ kubernetes:
       namespaces:
         - account2-testns00
       omitNamespaces: []
-      kinds: []
+      kinds:
+        - pod
+        - replicaset
+        - deployment
+        - service
+        - configmap
+        - secret
+        - networkpolicy
       omitKinds: []
       customResources: []
       cachingPolicies: []
