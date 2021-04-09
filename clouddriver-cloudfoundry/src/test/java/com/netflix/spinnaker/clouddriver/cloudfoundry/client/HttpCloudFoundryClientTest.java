@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.matching.UrlPattern;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
@@ -75,6 +76,74 @@ class HttpCloudFoundryClientTest {
 
     // 504 means it was retried after 502 and 503
     assertTrue(thrown.getMessage().contains("Cloud Foundry API returned with error(s): 504 error"));
+  }
+
+  @Test
+  void createRetryInterceptorShouldRetryOnTimeoutErrors(
+      @WiremockResolver.Wiremock WireMockServer server) throws Exception {
+    stubServer(
+        server,
+        200,
+        STARTED,
+        "Will respond 200 delayed",
+        "{\"access_token\":\"token\",\"expires_in\":1000000}");
+    stubServerWithFixedDelay(
+        server,
+        200,
+        "Will respond 200 delayed",
+        "Will respond 200 without delay",
+        // successful but delayed and with diff org name
+        "{\"pagination\":{\"total_pages\":1},\"resources\":[{\"guid\": \"orgId\", \"name\":\"orgNameDelayed\"}]}",
+        10000);
+    stubServer(
+        server,
+        200,
+        "Will respond 200 without delay",
+        "END",
+        "{\"pagination\":{\"total_pages\":1},\"resources\":[{\"guid\": \"orgId\", \"name\":\"orgName\"}]}");
+
+    HttpCloudFoundryClient cloudFoundryClient = createDefaultCloudFoundryClient(server);
+
+    Optional<CloudFoundryOrganization> cloudFoundryOrganization =
+        cloudFoundryClient.getOrganizations().findByName("randomName");
+
+    assertThat(cloudFoundryOrganization.get())
+        .extracting(CloudFoundryOrganization::getId, CloudFoundryOrganization::getName)
+        .containsExactly("orgId", "orgName");
+  }
+
+  @Test
+  void createRetryInterceptorShouldNotRetryOnTimeoutErrorsWhenConfigIsOverridden(
+      @WiremockResolver.Wiremock WireMockServer server) throws Exception {
+    stubServer(
+        server,
+        200,
+        STARTED,
+        "Will respond 200 delayed",
+        "{\"access_token\":\"token\",\"expires_in\":1000000}");
+    stubServerWithFixedDelay(
+        server,
+        200,
+        "Will respond 200 delayed",
+        "Will respond 200 without delay",
+        // successful but delayed and with diff org name
+        "{\"pagination\":{\"total_pages\":1},\"resources\":[{\"guid\": \"orgId\", \"name\":\"orgNameDelayed\"}]}",
+        10000);
+
+    CloudFoundryConfigurationProperties.ClientConfig clientConfig =
+        new CloudFoundryConfigurationProperties.ClientConfig();
+    clientConfig.setMaxRetries(1);
+    clientConfig.setConnectionTimeout(1);
+    clientConfig.setReadTimeout(1);
+    clientConfig.setWriteTimeout(1);
+    HttpCloudFoundryClient cloudFoundryClient =
+        createCloudFoundryClientWithRetryConfig(server, clientConfig);
+
+    CloudFoundryApiException thrown =
+        assertThrows(
+            CloudFoundryApiException.class,
+            () -> cloudFoundryClient.getOrganizations().findByName("randomName"),
+            "Expected thrown 'Cloud Foundry API returned with error(s): java.net.SocketTimeoutException', but it didn't");
   }
 
   @Test
@@ -132,20 +201,39 @@ class HttpCloudFoundryClientTest {
 
   private void stubServer(
       WireMockServer server, int status, String currentState, String nextState, String body) {
+    stubServerWithFixedDelay(server, status, currentState, nextState, body, null);
+  }
+
+  private void stubServerWithFixedDelay(
+      WireMockServer server,
+      int status,
+      String currentState,
+      String nextState,
+      String body,
+      Integer delayInMillis) {
     server.stubFor(
         any(UrlPattern.ANY)
             .inScenario("Retry Scenario")
             .whenScenarioStateIs(currentState)
             .willReturn(
                 aResponse()
-                    .withStatus(status) // request unsuccessful with status code 500
+                    .withStatus(status)
                     .withHeader("Content-Type", "application/json")
-                    .withBody(body))
+                    .withBody(body)
+                    .withFixedDelay(delayInMillis))
             .willSetStateTo(nextState));
   }
 
   @NotNull
   private HttpCloudFoundryClient createDefaultCloudFoundryClient(WireMockServer server) {
+    CloudFoundryConfigurationProperties.ClientConfig clientConfig =
+        new CloudFoundryConfigurationProperties.ClientConfig();
+    return createCloudFoundryClientWithRetryConfig(server, clientConfig);
+  }
+
+  @NotNull
+  private HttpCloudFoundryClient createCloudFoundryClientWithRetryConfig(
+      WireMockServer server, CloudFoundryConfigurationProperties.ClientConfig clientConfig) {
     return new HttpCloudFoundryClient(
         "account",
         "appsManUri",
@@ -157,6 +245,7 @@ class HttpCloudFoundryClientTest {
         true,
         500,
         ForkJoinPool.commonPool(),
-        new OkHttpClient.Builder());
+        new OkHttpClient.Builder(),
+        clientConfig);
   }
 }
