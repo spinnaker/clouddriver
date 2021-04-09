@@ -836,7 +836,7 @@ public class InfrastructureIT extends BaseTest {
       ".\n===\n"
           + "Given two kubernetes network policies\n"
           + "When sending get securityGroups\n"
-          + "Then response should contain a list with security groups of size 2\n===")
+          + "Then response should contain two lists with the security group for each\n===")
   @Test
   public void shouldListSecurityGroups() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
@@ -846,9 +846,8 @@ public class InfrastructureIT extends BaseTest {
 
     KubeTestUtils.deployIfMissing(
         baseUrl(), ACCOUNT1_NAME, ns, "networkPolicy", NETWORK_POLICY_1_NAME, appName, kubeCluster);
-
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "networkPolicy", NETWORK_POLICY_2_NAME, appName, kubeCluster);
+        baseUrl(), ACCOUNT2_NAME, ns, "networkPolicy", NETWORK_POLICY_1_NAME, appName, kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -860,8 +859,9 @@ public class InfrastructureIT extends BaseTest {
           System.out.println(resp.asString());
 
           resp.then().statusCode(200);
-          List securityGroupList = resp.jsonPath().getList(ACCOUNT1_NAME + ".kubernetes." + ns);
-          return securityGroupList != null && securityGroupList.size() == 2;
+          List<Object> list1 = resp.jsonPath().getList(ACCOUNT1_NAME + ".kubernetes." + ns);
+          List<Object> list2 = resp.jsonPath().getList(ACCOUNT2_NAME + ".kubernetes." + ns);
+          return list1 != null && !list1.isEmpty() && list2 != null && !list2.isEmpty();
         },
         CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
@@ -900,7 +900,7 @@ public class InfrastructureIT extends BaseTest {
             return false;
           }
           resp.then().statusCode(200);
-          List securityGroupList = resp.jsonPath().getList("kubernetes." + ns);
+          List<Object> securityGroupList = resp.jsonPath().getList("kubernetes." + ns);
           return securityGroupList != null && securityGroupList.size() == 2;
         },
         CACHE_TIMEOUT_MIN,
@@ -914,9 +914,9 @@ public class InfrastructureIT extends BaseTest {
 
   @DisplayName(
       ".\n===\n"
-          + "Given two kubernetes network policies for one account\n"
+          + "Given two kubernetes network policies for different namespaces\n"
           + "When sending get securityGroups/{account}?region={region}\n"
-          + "Then response should contain a list with security groups of size 2\n===")
+          + "Then response should contain a list with security groups of size 1\n===")
   @Test
   public void shouldListSecurityGroupsByAccountAndRegion()
       throws InterruptedException, IOException {
@@ -928,7 +928,13 @@ public class InfrastructureIT extends BaseTest {
     KubeTestUtils.deployIfMissing(
         baseUrl(), ACCOUNT1_NAME, ns, "networkPolicy", NETWORK_POLICY_1_NAME, appName, kubeCluster);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "networkPolicy", NETWORK_POLICY_2_NAME, appName, kubeCluster);
+        baseUrl(),
+        ACCOUNT2_NAME,
+        "default",
+        "networkPolicy",
+        NETWORK_POLICY_2_NAME,
+        appName,
+        kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -942,8 +948,8 @@ public class InfrastructureIT extends BaseTest {
             return false;
           }
           resp.then().statusCode(200);
-          List securityGroupList = resp.jsonPath().getList("kubernetes." + ns);
-          return securityGroupList != null && securityGroupList.size() == 2;
+          List<Object> securityGroupList = resp.jsonPath().getList("kubernetes." + ns);
+          return securityGroupList != null && securityGroupList.size() == 1;
         },
         CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
@@ -985,7 +991,7 @@ public class InfrastructureIT extends BaseTest {
             return false;
           }
           resp.then().statusCode(200);
-          List securityGroupList = resp.jsonPath().getList(ns);
+          List<Object> securityGroupList = resp.jsonPath().getList(ns);
           return securityGroupList != null && securityGroupList.size() > 0;
         },
         CACHE_TIMEOUT_MIN,
@@ -1033,8 +1039,8 @@ public class InfrastructureIT extends BaseTest {
             return false;
           }
           resp.then().statusCode(200);
-          List securityGroupList = resp.jsonPath().getList(ns);
-          return securityGroupList != null && securityGroupList.size() != 0;
+          List<Object> securityGroupList = resp.jsonPath().getList(ns);
+          return securityGroupList != null && securityGroupList.size() == 1;
         },
         CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
@@ -1121,8 +1127,8 @@ public class InfrastructureIT extends BaseTest {
             return false;
           }
           resp.then().statusCode(200);
-          List serverGroupList = resp.jsonPath().getList("$");
-          return serverGroupList != null & serverGroupList.size() == 1;
+          List<Object> serverGroupList = resp.jsonPath().getList("$");
+          return serverGroupList != null && serverGroupList.size() == 1;
         },
         CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
