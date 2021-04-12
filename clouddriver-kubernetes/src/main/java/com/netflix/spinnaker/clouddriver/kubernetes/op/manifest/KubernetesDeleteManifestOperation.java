@@ -65,7 +65,6 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Operat
               deployer.delete(
                   credentials,
                   c.getNamespace(),
-                  c.getKind(),
                   c.getName(),
                   description.getLabelSelectors(),
                   description.getOptions()));

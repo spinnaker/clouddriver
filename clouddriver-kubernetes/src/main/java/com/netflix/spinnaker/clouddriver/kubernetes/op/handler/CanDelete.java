@@ -35,12 +35,12 @@ public interface CanDelete {
   default OperationResult delete(
       KubernetesCredentials credentials,
       String namespace,
-      KubernetesKind kind,
       String name,
       KubernetesSelectorList labelSelectors,
       V1DeleteOptions options) {
     options = options == null ? new V1DeleteOptions() : options;
-    List<String> deletedNames = credentials.delete(kind, namespace, name, labelSelectors, options);
+    List<String> deletedNames =
+        credentials.delete(kind(), namespace, name, labelSelectors, options);
     OperationResult result = new OperationResult();
     Set<String> fullNames =
         deletedNames.stream()
