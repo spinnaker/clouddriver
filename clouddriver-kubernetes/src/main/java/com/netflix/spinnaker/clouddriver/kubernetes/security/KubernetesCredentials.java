@@ -53,6 +53,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesNamerRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesCustomResourceHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor.KubectlException;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor.KubectlNotFoundException;
@@ -328,10 +329,11 @@ public class KubernetesCredentials {
               .collect(
                   toImmutableMap(KubernetesKindProperties::getKubernetesKind, Function.identity()));
 
-      for (KubernetesKind kind : crds.keySet()) {
-        this.globalResourcePropertyRegistry.updateCrdProperties(
-            new KubernetesCustomResourceHandler(kind));
-      }
+      List<KubernetesHandler> crdHandlers =
+          crds.keySet().stream()
+              .map(KubernetesCustomResourceHandler::new)
+              .collect(toImmutableList());
+      this.globalResourcePropertyRegistry.updateCrdProperties(crdHandlers);
 
       return crds;
     } catch (KubectlException e) {

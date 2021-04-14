@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregisteredCustomResourceHandler;
-import java.util.HashMap;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -35,8 +34,8 @@ import org.springframework.stereotype.Component;
 @ParametersAreNonnullByDefault
 public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry {
   private final ImmutableMap<KubernetesKind, KubernetesResourceProperties> globalProperties;
-  private final HashMap<KubernetesKind, KubernetesResourceProperties> crdProperties =
-      new HashMap<KubernetesKind, KubernetesResourceProperties>();
+  private ImmutableMap<KubernetesKind, KubernetesResourceProperties> crdProperties =
+      ImmutableMap.of();
   private final KubernetesResourceProperties defaultProperties;
 
   @Autowired
@@ -53,9 +52,13 @@ public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry 
         new KubernetesResourceProperties(defaultHandler, defaultHandler.versioned());
   }
 
-  public void updateCrdProperties(KubernetesHandler handler) {
-    this.crdProperties.put(
-        handler.kind(), new KubernetesResourceProperties(handler, handler.versioned()));
+  public void updateCrdProperties(List<KubernetesHandler> handlers) {
+    this.crdProperties =
+        handlers.stream()
+            .collect(
+                toImmutableMap(
+                    KubernetesHandler::kind,
+                    h -> new KubernetesResourceProperties(h, h.versioned())));
   }
 
   @Override
