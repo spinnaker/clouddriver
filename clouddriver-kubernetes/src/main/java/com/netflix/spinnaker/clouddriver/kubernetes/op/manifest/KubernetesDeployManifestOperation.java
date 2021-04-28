@@ -69,7 +69,6 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     getTask().updateStatus(OP_NAME, "Beginning deployment of manifest...");
 
     List<KubernetesManifest> inputManifests = description.getManifests();
-    List<KubernetesManifest> deployManifests = new ArrayList<>();
     if (inputManifests == null || inputManifests.isEmpty()) {
       // The stage currently only supports using the `manifests` field but we need to continue to
       // check `manifest` for backwards compatibility until all existing stages have been updated.
@@ -85,55 +84,8 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
     inputManifests = inputManifests.stream().filter(Objects::nonNull).collect(Collectors.toList());
 
-    List<Artifact> requiredArtifacts = description.getRequiredArtifacts();
-    if (requiredArtifacts == null) {
-      requiredArtifacts = new ArrayList<>();
-    }
-
-    List<Artifact> optionalArtifacts = description.getOptionalArtifacts();
-    if (optionalArtifacts == null) {
-      optionalArtifacts = new ArrayList<>();
-    }
-
-    List<Artifact> artifacts = new ArrayList<>();
-    // Optional artifacts are intentionally added before required artifacts. This is to ensure that
-    // when artifact replacement occurs the required artifacts are not overwritten by optional
-    // artifacts.
-    artifacts.addAll(optionalArtifacts);
-    artifacts.addAll(requiredArtifacts);
-
     Set<Artifact> boundArtifacts = new HashSet<>();
-
-    for (KubernetesManifest manifest : inputManifests) {
-      KubernetesManifestAnnotater.validateAnnotationsForRolloutStrategies(
-          manifest, description.getStrategy());
-
-      getTask()
-          .updateStatus(
-              OP_NAME,
-              "Swapping out artifacts in " + manifest.getFullResourceName() + " from context...");
-      ReplaceResult replaceResult =
-          findResourceProperties(manifest)
-              .getHandler()
-              .replaceArtifacts(manifest, artifacts, description.getAccount());
-      deployManifests.add(replaceResult.getManifest());
-      boundArtifacts.addAll(replaceResult.getBoundArtifacts());
-    }
-
-    Set<ArtifactKey> unboundArtifacts =
-        Sets.difference(
-            ArtifactKey.fromArtifacts(description.getRequiredArtifacts()),
-            ArtifactKey.fromArtifacts(boundArtifacts));
-
-    getTask().updateStatus(OP_NAME, "Checking if all requested artifacts were bound...");
-    if (!unboundArtifacts.isEmpty()) {
-      throw new IllegalArgumentException(
-          String.format(
-              "The following required artifacts could not be bound: '%s'. "
-                  + "Check that the Docker image name above matches the name used in the image field of your manifest. "
-                  + "Failing the stage as this is likely a configuration error.",
-              unboundArtifacts));
-    }
+    List<KubernetesManifest> deployManifests = bindArtifacts(inputManifests, boundArtifacts);
 
     getTask().updateStatus(OP_NAME, "Sorting manifests by priority...");
     deployManifests.sort(
@@ -192,18 +144,6 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       getTask()
           .updateStatus(
               OP_NAME,
-              "Swapping out artifacts in "
-                  + manifest.getFullResourceName()
-                  + " from other deployments...");
-      ReplaceResult replaceResult =
-          deployer.replaceArtifacts(
-              manifest, new ArrayList<>(result.getCreatedArtifacts()), description.getAccount());
-      boundArtifacts.addAll(replaceResult.getBoundArtifacts());
-      manifest = replaceResult.getManifest();
-
-      getTask()
-          .updateStatus(
-              OP_NAME,
               "Submitting manifest " + manifest.getFullResourceName() + " to kubernetes master...");
       log.debug("Manifest in {} to be deployed: {}", accountName, manifest);
       result.merge(deployer.deploy(credentials, manifest, strategy.getDeployStrategy()));
@@ -216,6 +156,85 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
     getTask().updateStatus(OP_NAME, "Deploy manifest task completed successfully.");
     return result;
+  }
+
+  private List<KubernetesManifest> bindArtifacts(
+      List<KubernetesManifest> inputManifests, Set<Artifact> boundArtifacts) {
+    List<Artifact> requiredArtifacts = description.getRequiredArtifacts();
+    if (requiredArtifacts == null) {
+      requiredArtifacts = new ArrayList<>();
+    }
+
+    List<Artifact> optionalArtifacts = description.getOptionalArtifacts();
+    if (optionalArtifacts == null) {
+      optionalArtifacts = new ArrayList<>();
+    }
+
+    List<Artifact> manifestArtifacts = new ArrayList<>();
+    for (KubernetesManifest manifest : inputManifests) {
+      KubernetesResourceProperties properties = findResourceProperties(manifest);
+      KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
+
+      OptionalInt version =
+          isVersioned(properties, strategy)
+              ? resourceVersioner.getVersion(manifest, credentials)
+              : OptionalInt.empty();
+
+      manifestArtifacts.add(
+          ArtifactConverter.toArtifact(manifest, description.getAccount(), version));
+    }
+
+    Map<String, Artifact> artifacts = new HashMap<>();
+    // Order is important, it determines priority of artifact binding.
+    // The first one for the same key wins. Manifest artifacts are used
+    // when there are multiple manifests in the same stage depending on each other
+    manifestArtifacts.forEach(a -> artifacts.putIfAbsent(getArtifactKey(a), a));
+    if (description.isEnableArtifactBinding()) {
+      // Required artifacts are explicitly set in stage configuration
+      requiredArtifacts.forEach(a -> artifacts.putIfAbsent(getArtifactKey(a), a));
+      // Optional artifacts are taken from the pipeline trigger or pipeline execution context
+      optionalArtifacts.forEach(a -> artifacts.putIfAbsent(getArtifactKey(a), a));
+    }
+
+    List<KubernetesManifest> resultManifests = new ArrayList<>();
+    for (KubernetesManifest manifest : inputManifests) {
+      KubernetesManifestAnnotater.validateAnnotationsForRolloutStrategies(
+          manifest, description.getStrategy());
+
+      getTask()
+          .updateStatus(OP_NAME, "Binding artifacts in " + manifest.getFullResourceName() + "...");
+      ReplaceResult replaceResult =
+          findResourceProperties(manifest)
+              .getHandler()
+              .replaceArtifacts(
+                  manifest, List.copyOf(artifacts.values()), description.getAccount());
+      resultManifests.add(replaceResult.getManifest());
+      boundArtifacts.addAll(replaceResult.getBoundArtifacts());
+
+      getTask()
+          .updateStatus(OP_NAME, "Bound artifacts: " + replaceResult.getBoundArtifacts() + "...");
+    }
+
+    Set<ArtifactKey> unboundArtifacts =
+        Sets.difference(
+            ArtifactKey.fromArtifacts(description.getRequiredArtifacts()),
+            ArtifactKey.fromArtifacts(boundArtifacts));
+
+    getTask().updateStatus(OP_NAME, "Checking if all requested artifacts were bound...");
+    if (description.isEnableArtifactBinding() && !unboundArtifacts.isEmpty()) {
+      throw new IllegalArgumentException(
+          String.format(
+              "The following required artifacts could not be bound: '%s'. "
+                  + "Check that the Docker image name above matches the name used in the image field of your manifest. "
+                  + "Failing the stage as this is likely a configuration error.",
+              unboundArtifacts));
+    }
+
+    return resultManifests;
+  }
+
+  private String getArtifactKey(Artifact artifact) {
+    return String.format("[%s]-[%s]", artifact.getType(), artifact.getName());
   }
 
   private void setTrafficAnnotation(List<String> services, KubernetesManifest manifest) {

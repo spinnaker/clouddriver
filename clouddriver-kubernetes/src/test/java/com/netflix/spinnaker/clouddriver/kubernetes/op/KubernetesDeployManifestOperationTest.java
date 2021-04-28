@@ -43,14 +43,12 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestTraffic;
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesManifestNamer;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesReplicaSetHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesServiceHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregisteredCustomResourceHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ManifestFetcher;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.*;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.manifest.KubernetesDeployManifestOperation;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
+import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +61,10 @@ final class KubernetesDeployManifestOperationTest {
   private static final String DEFAULT_NAMESPACE = "default-namespace";
   private static final ResourcePropertyRegistry resourcePropertyRegistry =
       new GlobalResourcePropertyRegistry(
-          ImmutableList.of(new KubernetesReplicaSetHandler(), new KubernetesServiceHandler()),
+          ImmutableList.of(
+              new KubernetesReplicaSetHandler(),
+              new KubernetesServiceHandler(),
+              new KubernetesConfigMapHandler()),
           new KubernetesUnregisteredCustomResourceHandler());
   private static final Namer<KubernetesManifest> NAMER = new KubernetesManifestNamer();
   private static final String ACCOUNT = "my-account";
@@ -105,7 +106,8 @@ final class KubernetesDeployManifestOperationTest {
     OperationResult result = deploy(description);
 
     KubernetesManifest manifest = Iterables.getOnlyElement(result.getManifests());
-    assertThat(manifest.getLabels()).contains(entry("selector-key", "selector-value"));
+    assertThat(manifest.getSpecTemplateLabels().orElse(manifest.getLabels()))
+        .contains(entry("selector-key", "selector-value"));
 
     KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(manifest);
     assertThat(traffic.getLoadBalancers()).containsExactly("service my-service");
@@ -120,7 +122,8 @@ final class KubernetesDeployManifestOperationTest {
     OperationResult result = deploy(description);
 
     KubernetesManifest manifest = Iterables.getOnlyElement(result.getManifests());
-    assertThat(manifest.getLabels()).doesNotContain(entry("selector-key", "selector-value"));
+    assertThat(manifest.getSpecTemplateLabels().orElse(manifest.getLabels()))
+        .doesNotContain(entry("selector-key", "selector-value"));
 
     KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(manifest);
     assertThat(traffic.getLoadBalancers()).containsExactly("service my-service");
@@ -144,13 +147,119 @@ final class KubernetesDeployManifestOperationTest {
     assertThatThrownBy(() -> deploy(description)).isInstanceOf(IllegalArgumentException.class);
   }
 
+  @Test
+  void deploysWithArtifactBindingDisabled() {
+    KubernetesDeployManifestDescription description =
+        baseDeployDescription("deploy/replicaset-configmap.yml");
+    description.setEnableArtifactBinding(false);
+    description.setRequiredArtifacts(
+        ImmutableList.of(
+            Artifact.builder()
+                .name("index.docker.io/library/nginx")
+                .type("docker/image")
+                .reference("index.docker.io/library/nginx:required")
+                .build()));
+    description.setOptionalArtifacts(
+        ImmutableList.of(
+            Artifact.builder()
+                .name("index.docker.io/library/nginx")
+                .type("docker/image")
+                .reference("index.docker.io/library/nginx:optional")
+                .build()));
+    OperationResult result = deploy(description);
+
+    assertThat(result.getBoundArtifacts().size()).isEqualTo(1);
+    assertThat(result.getBoundArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v000");
+    assertThat(result.getCreatedArtifacts().size()).isEqualTo(2);
+    assertThat(result.getCreatedArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v000", "my-name-v000");
+  }
+
+  @Test
+  void deploysWithArtifactBindingUnspecified() {
+    KubernetesDeployManifestDescription description =
+        baseDeployDescription("deploy/replicaset-configmap.yml");
+    description.setRequiredArtifacts(
+        ImmutableList.of(
+            Artifact.builder()
+                .name("index.docker.io/library/nginx")
+                .type("docker/image")
+                .reference("index.docker.io/library/nginx:required")
+                .build()));
+    description.setOptionalArtifacts(
+        ImmutableList.of(
+            Artifact.builder()
+                .name("index.docker.io/library/nginx")
+                .type("docker/image")
+                .reference("index.docker.io/library/nginx:optional")
+                .build()));
+    OperationResult result = deploy(description);
+
+    assertThat(result.getBoundArtifacts().size()).isEqualTo(2);
+    assertThat(result.getBoundArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v000", "index.docker.io/library/nginx:required");
+    assertThat(result.getCreatedArtifacts().size()).isEqualTo(2);
+    assertThat(result.getCreatedArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v000", "my-name-v000");
+  }
+
+  @Test
+  void deploysBindingRequiredArtifact() {
+    KubernetesDeployManifestDescription description =
+        baseDeployDescription("deploy/replicaset-configmap.yml");
+    description.setEnableArtifactBinding(true);
+    description.setRequiredArtifacts(
+        ImmutableList.of(
+            Artifact.builder()
+                .name("index.docker.io/library/nginx")
+                .type("docker/image")
+                .reference("index.docker.io/library/nginx:required")
+                .build()));
+    description.setOptionalArtifacts(
+        ImmutableList.of(
+            Artifact.builder()
+                .name("index.docker.io/library/nginx")
+                .type("docker/image")
+                .reference("index.docker.io/library/nginx:optional")
+                .build()));
+    OperationResult result = deploy(description);
+
+    assertThat(result.getBoundArtifacts().size()).isEqualTo(2);
+    assertThat(result.getBoundArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v000", "index.docker.io/library/nginx:required");
+    assertThat(result.getCreatedArtifacts().size()).isEqualTo(2);
+    assertThat(result.getCreatedArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v000", "my-name-v000");
+  }
+
+  @Test
+  void deploysBindingOptionalArtifact() {
+    KubernetesDeployManifestDescription description =
+        baseDeployDescription("deploy/replicaset-configmap.yml");
+    description.setEnableArtifactBinding(true);
+    description.setOptionalArtifacts(
+        ImmutableList.of(
+            Artifact.builder()
+                .name("index.docker.io/library/nginx")
+                .type("docker/image")
+                .reference("index.docker.io/library/nginx:optional")
+                .build()));
+    OperationResult result = deploy(description);
+
+    assertThat(result.getBoundArtifacts().size()).isEqualTo(2);
+    assertThat(result.getBoundArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v000", "index.docker.io/library/nginx:optional");
+    assertThat(result.getCreatedArtifacts().size()).isEqualTo(2);
+    assertThat(result.getCreatedArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v000", "my-name-v000");
+  }
+
   private static KubernetesDeployManifestDescription baseDeployDescription(String manifest) {
     KubernetesDeployManifestDescription deployManifestDescription =
         new KubernetesDeployManifestDescription()
             .setManifests(
-                ImmutableList.of(
-                    ManifestFetcher.getManifest(
-                        KubernetesDeployManifestOperationTest.class, manifest)))
+                ManifestFetcher.getManifest(KubernetesDeployManifestOperationTest.class, manifest))
             .setMoniker(new Moniker())
             .setSource(KubernetesDeployManifestDescription.Source.text);
     deployManifestDescription.setAccount(ACCOUNT);
@@ -190,7 +299,8 @@ final class KubernetesDeployManifestOperationTest {
                 .build()))
         .thenReturn(
             ManifestFetcher.getManifest(
-                KubernetesDeployManifestOperationTest.class, "deploy/service.yml"));
+                    KubernetesDeployManifestOperationTest.class, "deploy/service.yml")
+                .get(0));
     when(credentialsMock.get(
             KubernetesCoordinates.builder()
                 .kind(KubernetesKind.SERVICE)
@@ -199,7 +309,8 @@ final class KubernetesDeployManifestOperationTest {
                 .build()))
         .thenReturn(
             ManifestFetcher.getManifest(
-                KubernetesDeployManifestOperationTest.class, "deploy/service-no-selector.yml"));
+                    KubernetesDeployManifestOperationTest.class, "deploy/service-no-selector.yml")
+                .get(0));
     when(credentialsMock.deploy(any(KubernetesManifest.class)))
         .thenAnswer(
             invocation -> {

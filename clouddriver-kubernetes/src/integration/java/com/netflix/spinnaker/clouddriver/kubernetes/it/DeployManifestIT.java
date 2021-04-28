@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.KubeTestUtils;
 import io.restassured.response.Response;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.util.Strings;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -35,11 +36,11 @@ public class DeployManifestIT extends BaseTest {
 
   private static final String DEPLOYMENT_1_NAME = "deployment1";
   private static final String SERVICE_1_NAME = "service1";
-  private static String ns;
+  private static String account1Ns;
 
   @BeforeAll
   public static void setUpAll() throws IOException, InterruptedException {
-    ns = kubeCluster.getAvailableNamespace();
+    account1Ns = kubeCluster.createNamespace(ACCOUNT1_NAME);
   }
 
   @DisplayName(
@@ -57,24 +58,25 @@ public class DeployManifestIT extends BaseTest {
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .asList();
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
 
     // ------------------------- when --------------------------
     List<Map<String, Object>> body =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
             .withValue("deployManifest.account", ACCOUNT1_NAME)
-            .withValue("deployManifest.namespaceOverride", ns)
+            .withValue("deployManifest.namespaceOverride", account1Ns)
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + DEPLOYMENT_1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
 
     // ------------------------- then --------------------------
-    String pods = kubeCluster.execKubectl("-n " + ns + " get pods");
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
     String readyPods =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.status.readyReplicas}'");
@@ -142,7 +144,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- when --------------------------
     List<Map<String, Object>> body =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
-            .withValue("deployManifest.account", ACCOUNT2_NAME)
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
@@ -173,10 +175,10 @@ public class DeployManifestIT extends BaseTest {
   public void shouldDeployMultidocManifest() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "deploy-multidoc";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/multi_deployment_service.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", appName)
             .asList();
 
@@ -188,18 +190,23 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, ns, "deployment " + appName, "service " + appName);
+        baseUrl(), body, account1Ns, "deployment " + appName, "service " + appName);
 
     // ------------------------- then --------------------------
-    String pods = kubeCluster.execKubectl("-n " + ns + " get pods");
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
     String readyPods =
         kubeCluster.execKubectl(
-            "-n " + ns + " get deployment " + appName + " -o=jsonpath='{.status.readyReplicas}'");
+            "-n "
+                + account1Ns
+                + " get deployment "
+                + appName
+                + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1", readyPods, "Expected one ready pod for " + appName + " deployment. Pods:\n" + pods);
-    String services = kubeCluster.execKubectl("-n " + ns + " get services");
+    String services = kubeCluster.execKubectl("-n " + account1Ns + " get services");
     assertTrue(
-        Strings.isNotEmpty(kubeCluster.execKubectl("-n " + ns + " get services " + appName)),
+        Strings.isNotEmpty(
+            kubeCluster.execKubectl("-n " + account1Ns + " get services " + appName)),
         "Expected service " + appName + " to exist. Services: " + services);
   }
 
@@ -214,13 +221,13 @@ public class DeployManifestIT extends BaseTest {
   public void shouldUpdateExistingDeployment() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "update-deploy";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String oldImage = "index.docker.io/library/alpine:3.11";
     String newImage = "index.docker.io/library/alpine:3.12";
 
     List<Map<String, Object>> oldManifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .withValue("spec.template.spec.containers[0].image", oldImage)
             .asList();
@@ -231,11 +238,12 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", oldManifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + DEPLOYMENT_1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
     String currentImage =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
@@ -244,7 +252,7 @@ public class DeployManifestIT extends BaseTest {
 
     List<Map<String, Object>> newManifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .withValue("spec.template.spec.containers[0].image", newImage)
             .asList();
@@ -256,14 +264,15 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", newManifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + DEPLOYMENT_1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
 
     // ------------------------- then --------------------------
-    String pods = kubeCluster.execKubectl("-n " + ns + " get pods");
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
     String readyPods =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.status.readyReplicas}'");
@@ -274,7 +283,7 @@ public class DeployManifestIT extends BaseTest {
     currentImage =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
@@ -293,13 +302,13 @@ public class DeployManifestIT extends BaseTest {
   public void shouldBindOptionalDockerImage() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-optional";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String imageNoTag = "index.docker.io/library/alpine";
     String imageWithTag = "index.docker.io/library/alpine:3.12";
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .withValue("spec.template.spec.containers[0].image", imageNoTag)
             .asList();
@@ -319,14 +328,15 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .withValue("deployManifest.optionalArtifacts[0]", artifact)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + DEPLOYMENT_1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
 
     // ------------------------- then --------------------------
-    String pods = kubeCluster.execKubectl("-n " + ns + " get pods");
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
     String readyPods =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.status.readyReplicas}'");
@@ -337,7 +347,7 @@ public class DeployManifestIT extends BaseTest {
     String imageDeployed =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
@@ -358,13 +368,13 @@ public class DeployManifestIT extends BaseTest {
   public void shouldBindRequiredDockerImage() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-required";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String imageNoTag = "index.docker.io/library/alpine";
     String imageWithTag = "index.docker.io/library/alpine:3.12";
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .withValue("spec.template.spec.containers[0].image", imageNoTag)
             .asList();
@@ -384,14 +394,15 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .withValue("deployManifest.requiredArtifacts[0]", artifact)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + DEPLOYMENT_1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
 
     // ------------------------- then --------------------------
-    String pods = kubeCluster.execKubectl("-n " + ns + " get pods");
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
     String readyPods =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.status.readyReplicas}'");
@@ -402,7 +413,7 @@ public class DeployManifestIT extends BaseTest {
     String imageDeployed =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
@@ -424,14 +435,14 @@ public class DeployManifestIT extends BaseTest {
   public void shouldBindRequiredOverOptionalDockerImage() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-required-over-optional";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String imageNoTag = "index.docker.io/library/alpine";
     String requiredImage = "index.docker.io/library/alpine:3.11";
     String optionalImage = "index.docker.io/library/alpine:3.12";
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .withValue("spec.template.spec.containers[0].image", imageNoTag)
             .asList();
@@ -459,14 +470,15 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.requiredArtifacts[0]", requiredArtifact)
             .withValue("deployManifest.optionalArtifacts[0]", optionalArtifact)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + DEPLOYMENT_1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
 
     // ------------------------- then --------------------------
-    String pods = kubeCluster.execKubectl("-n " + ns + " get pods");
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
     String readyPods =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.status.readyReplicas}'");
@@ -477,7 +489,7 @@ public class DeployManifestIT extends BaseTest {
     String imageDeployed =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
@@ -499,21 +511,21 @@ public class DeployManifestIT extends BaseTest {
   public void shouldBindVersionedConfigMap() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-config-map";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String cmName = "myconfig";
     String version = "v005";
 
     // deploy versioned configmap
     Map<String, Object> cm =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", cmName + "-" + version)
             .asMap();
-    kubeCluster.execKubectl("-n " + ns + " apply -f -", cm);
+    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", cm);
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment_with_vol.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .withValue("spec.template.spec.volumes[0].configMap.name", cmName)
             .asList();
@@ -522,7 +534,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("name", cmName)
             .withValue("type", "kubernetes/configMap")
             .withValue("reference", cmName + "-" + version)
-            .withValue("location", ns)
+            .withValue("location", account1Ns)
             .withValue("version", version)
             .withValue("metadata.account", ACCOUNT1_NAME)
             .asMap();
@@ -535,14 +547,15 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .withValue("deployManifest.optionalArtifacts[0]", artifact)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + DEPLOYMENT_1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
 
     // ------------------------- then --------------------------
-    String pods = kubeCluster.execKubectl("-n " + ns + " get pods");
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
     String readyPods =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.status.readyReplicas}'");
@@ -553,7 +566,7 @@ public class DeployManifestIT extends BaseTest {
     String cmNameDeployed =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.spec.template.spec.volumes[0].configMap.name}'");
@@ -573,21 +586,21 @@ public class DeployManifestIT extends BaseTest {
   public void shouldBindVersionedSecret() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-secret";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String secretName = "mysecret";
     String version = "v009";
 
     // deploy versioned secret
     Map<String, Object> secret =
         KubeTestUtils.loadYaml("classpath:manifests/secret.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", secretName + "-" + version)
             .asMap();
-    kubeCluster.execKubectl("-n " + ns + " apply -f -", secret);
+    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", secret);
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment_with_vol.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .withValue("spec.template.spec.volumes[0].secret.secretName", secretName)
             .asList();
@@ -596,7 +609,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("name", secretName)
             .withValue("type", "kubernetes/secret")
             .withValue("reference", secretName + "-" + version)
-            .withValue("location", ns)
+            .withValue("location", account1Ns)
             .withValue("version", version)
             .withValue("metadata.account", ACCOUNT1_NAME)
             .asMap();
@@ -609,14 +622,15 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .withValue("deployManifest.optionalArtifacts[0]", artifact)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + DEPLOYMENT_1_NAME);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
 
     // ------------------------- then --------------------------
-    String pods = kubeCluster.execKubectl("-n " + ns + " get pods");
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
     String readyPods =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.status.readyReplicas}'");
@@ -627,12 +641,89 @@ public class DeployManifestIT extends BaseTest {
     String secretNameDeployed =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
                 + " -o=jsonpath='{.spec.template.spec.volumes[0].secret.secretName}'");
     assertEquals(
         secretName + "-" + version, secretNameDeployed, "Expected correct secret to be referenced");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a deployment manifest with docker image tag\n"
+          + "  And a required and optional docker artifacts\n"
+          + "  And artifact binding disabled\n"
+          + "When sending deploy manifest request\n"
+          + "  And waiting on manifest stable\n"
+          + "Then the manifest is deployed with the original image tag in the manifest\n===")
+  @Test
+  public void shouldNotBindArtifacts() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String appName = "bind-disabled";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    String imageInManifest = "index.docker.io/library/alpine:3.11";
+    String requiredImage = "index.docker.io/library/alpine:3.12";
+    String optionalImage = "index.docker.io/library/alpine:3.13";
+
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", DEPLOYMENT_1_NAME)
+            .withValue("spec.template.spec.containers[0].image", imageInManifest)
+            .asList();
+    Map<String, Object> requiredArtifact =
+        KubeTestUtils.loadJson("classpath:requests/artifact.json")
+            .withValue("name", imageInManifest.substring(0, imageInManifest.indexOf(':')))
+            .withValue("type", "docker/image")
+            .withValue("reference", requiredImage)
+            .withValue("version", requiredImage.substring(requiredImage.indexOf(':') + 1))
+            .asMap();
+    Map<String, Object> optionalArtifact =
+        KubeTestUtils.loadJson("classpath:requests/artifact.json")
+            .withValue("name", imageInManifest.substring(0, imageInManifest.indexOf(':')))
+            .withValue("type", "docker/image")
+            .withValue("reference", optionalImage)
+            .withValue("version", optionalImage.substring(optionalImage.indexOf(':') + 1))
+            .asMap();
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .withValue("deployManifest.requiredArtifacts[0]", requiredArtifact)
+            .withValue("deployManifest.optionalArtifacts[0]", optionalArtifact)
+            .withValue("deployManifest.enableArtifactBinding", false)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+
+    // ------------------------- then --------------------------
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
+    String readyPods =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get deployment "
+                + DEPLOYMENT_1_NAME
+                + " -o=jsonpath='{.status.readyReplicas}'");
+    assertEquals(
+        "1",
+        readyPods,
+        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+    String imageDeployed =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get deployment "
+                + DEPLOYMENT_1_NAME
+                + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
+    assertEquals(
+        imageInManifest,
+        imageDeployed,
+        "Expected correct " + DEPLOYMENT_1_NAME + " image to be deployed");
   }
 
   @DisplayName(
@@ -645,12 +736,12 @@ public class DeployManifestIT extends BaseTest {
   public void shouldAddVersionToConfigmap() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "add-config-map-version";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String cmName = "myconfig";
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", cmName)
             .asList();
 
@@ -661,10 +752,10 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "configMap " + cmName + "-v000");
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "configMap " + cmName + "-v000");
 
     // ------------------------- then --------------------------
-    String cm = kubeCluster.execKubectl("-n " + ns + " get cm " + cmName + "-v000");
+    String cm = kubeCluster.execKubectl("-n " + account1Ns + " get cm " + cmName + "-v000");
     assertTrue(cm.contains("v000"), "Expected configmap with name " + cmName + "-v000");
   }
 
@@ -678,12 +769,12 @@ public class DeployManifestIT extends BaseTest {
   public void shouldAddVersionToSecret() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "add-secret-version";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String secretName = "mysecret";
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/secret.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", secretName)
             .asList();
 
@@ -694,10 +785,11 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "secret " + secretName + "-v000");
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "secret " + secretName + "-v000");
 
     // ------------------------- then --------------------------
-    String cm = kubeCluster.execKubectl("-n " + ns + " get secret " + secretName + "-v000");
+    String cm = kubeCluster.execKubectl("-n " + account1Ns + " get secret " + secretName + "-v000");
     assertTrue(cm.contains("v000"), "Expected secret with name " + secretName + "-v000");
   }
 
@@ -713,12 +805,12 @@ public class DeployManifestIT extends BaseTest {
   public void shouldDeployNewConfigmapVersion() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "new-config-map-version";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String cmName = "myconfig";
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", cmName)
             .asList();
     List<Map<String, Object>> body =
@@ -727,11 +819,11 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "configMap " + cmName + "-v000");
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "configMap " + cmName + "-v000");
 
     manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", cmName)
             .withValue("data.newfile", "new content")
             .asList();
@@ -743,12 +835,12 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "configMap " + cmName + "-v001");
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "configMap " + cmName + "-v001");
 
     // ------------------------- then --------------------------
-    String cm = kubeCluster.execKubectl("-n " + ns + " get cm " + cmName + "-v001");
+    String cm = kubeCluster.execKubectl("-n " + account1Ns + " get cm " + cmName + "-v001");
     assertTrue(cm.contains("v001"), "Expected configmap with name " + cmName + "-v001");
-    cm = kubeCluster.execKubectl("-n " + ns + " get cm " + cmName + "-v000");
+    cm = kubeCluster.execKubectl("-n " + account1Ns + " get cm " + cmName + "-v000");
     assertTrue(cm.contains("v000"), "Expected configmap with name " + cmName + "-v000");
   }
 
@@ -764,12 +856,12 @@ public class DeployManifestIT extends BaseTest {
   public void shouldDeployNewSecretVersion() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "new-secret-version";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String secretName = "mysecret";
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/secret.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", secretName)
             .asList();
     List<Map<String, Object>> body =
@@ -778,11 +870,12 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "secret " + secretName + "-v000");
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "secret " + secretName + "-v000");
 
     manifest =
         KubeTestUtils.loadYaml("classpath:manifests/secret.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", secretName)
             .withValue("data.newfile", "SGVsbG8gd29ybGQK")
             .asList();
@@ -794,12 +887,14 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "secret " + secretName + "-v001");
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "secret " + secretName + "-v001");
 
     // ------------------------- then --------------------------
-    String secret = kubeCluster.execKubectl("-n " + ns + " get secret " + secretName + "-v001");
+    String secret =
+        kubeCluster.execKubectl("-n " + account1Ns + " get secret " + secretName + "-v001");
     assertTrue(secret.contains("v001"), "Expected secret with name " + secretName + "-v001");
-    secret = kubeCluster.execKubectl("-n " + ns + " get secret " + secretName + "-v000");
+    secret = kubeCluster.execKubectl("-n " + account1Ns + " get secret " + secretName + "-v000");
     assertTrue(secret.contains("v000"), "Expected secret with name " + secretName + "-v000");
   }
 
@@ -813,12 +908,12 @@ public class DeployManifestIT extends BaseTest {
   public void shouldNotAddVersionToConfigmap() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "unversioned-config-map";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String cmName = "myconfig";
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", cmName)
             .withValue(
                 "metadata.annotations", ImmutableMap.of("strategy.spinnaker.io/versioned", "false"))
@@ -831,10 +926,10 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "configMap " + cmName);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "configMap " + cmName);
 
     // ------------------------- then --------------------------
-    String cm = kubeCluster.execKubectl("-n " + ns + " get cm " + cmName);
+    String cm = kubeCluster.execKubectl("-n " + account1Ns + " get cm " + cmName);
     assertFalse(cm.contains("v000"), "Expected configmap with name " + cmName);
   }
 
@@ -848,12 +943,12 @@ public class DeployManifestIT extends BaseTest {
   public void shouldNotAddVersionToSecret() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "unversioned-secret";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String secretName = "mysecret";
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/secret.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", secretName)
             .withValue(
                 "metadata.annotations", ImmutableMap.of("strategy.spinnaker.io/versioned", "false"))
@@ -866,10 +961,10 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "secret " + secretName);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "secret " + secretName);
 
     // ------------------------- then --------------------------
-    String cm = kubeCluster.execKubectl("-n " + ns + " get secret " + secretName);
+    String cm = kubeCluster.execKubectl("-n " + account1Ns + " get secret " + secretName);
     assertFalse(cm.contains("v000"), "Expected secret with name " + secretName);
   }
 
@@ -884,19 +979,19 @@ public class DeployManifestIT extends BaseTest {
   public void shouldDeployRedBlackMultidoc() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "red-black-multidoc";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String selectorValue = appName + "traffichere";
 
     Map<String, Object> replicaset =
         KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", appName)
             .withValue("spec.selector.matchLabels", ImmutableMap.of("label1", "value1"))
             .withValue("spec.template.metadata.labels", ImmutableMap.of("label1", "value1"))
             .asMap();
     Map<String, Object> service =
         KubeTestUtils.loadYaml("classpath:manifests/service.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", SERVICE_1_NAME)
             .withValue("spec.selector", ImmutableMap.of("pointer", selectorValue))
             .withValue("spec.type", "NodePort")
@@ -914,44 +1009,69 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.trafficManagement.enabled", true)
             .withValue("deployManifest.trafficManagement.options.strategy", "redblack")
             .withValue("deployManifest.trafficManagement.options.enableTraffic", true)
-            .withValue("deployManifest.trafficManagement.options.namespace", ns)
+            .withValue("deployManifest.trafficManagement.options.namespace", account1Ns)
             .withValue(
                 "deployManifest.trafficManagement.options.services",
                 Collections.singleton("service " + appName))
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, ns, "service " + SERVICE_1_NAME, "replicaSet " + appName + "-v000");
+        baseUrl(),
+        body,
+        account1Ns,
+        "service " + SERVICE_1_NAME,
+        "replicaSet " + appName + "-v000");
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, ns, "service " + SERVICE_1_NAME, "replicaSet " + appName + "-v001");
+        baseUrl(),
+        body,
+        account1Ns,
+        "service " + SERVICE_1_NAME,
+        "replicaSet " + appName + "-v001");
     body =
         KubeTestUtils.loadJson("classpath:requests/disable_manifest.json")
             .withValue("disableManifest.app", appName)
             .withValue("disableManifest.manifestName", "replicaSet " + appName + "-v000")
-            .withValue("disableManifest.location", ns)
+            .withValue("disableManifest.location", account1Ns)
             .withValue("disableManifest.account", ACCOUNT1_NAME)
             .asList();
-    KubeTestUtils.disableManifest(baseUrl(), body, ns, "replicaSet " + appName + "-v000");
+    KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
 
     // ------------------------- then --------------------------
     String port =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get service "
                 + SERVICE_1_NAME
                 + " -o=jsonpath='{.spec.ports[0].nodePort}'");
-    Container.ExecResult result =
-        kubeCluster.execInContainer("wget", "http://localhost:" + port, "-O", "-");
-    assertEquals(
-        0,
-        result.getExitCode(),
-        "stdout: " + result.getStdout() + " stderr: " + result.getStderr());
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          try {
+            Container.ExecResult result =
+                kubeCluster.execInContainer("wget", "http://localhost:" + port, "-O", "-");
+            if (result.getExitCode() != 0) {
+              System.out.println(
+                  "Error running wget \"http://localhost:"
+                      + port
+                      + " -0 -\": Stdout: "
+                      + result.getStdout()
+                      + " Stderr: "
+                      + result.getStderr());
+            }
+            return result.getExitCode() == 0;
+          } catch (Exception e) {
+            fail("Failed executing \"wget http://localhost:" + port + "-O" + "-\" in container", e);
+            return false;
+          }
+        },
+        10,
+        TimeUnit.SECONDS,
+        "Error querying service with wget, waited 10 seconds.");
     List<String> podNames =
         Splitter.on(" ")
             .splitToList(
                 kubeCluster.execKubectl(
                     "-n "
-                        + ns
+                        + account1Ns
                         + " get pod -o=jsonpath='{.items[*].metadata.name}' -l=pointer="
                         + selectorValue));
     assertEquals(
@@ -969,21 +1089,21 @@ public class DeployManifestIT extends BaseTest {
   public void shouldDeployRedBlackReplicaSet() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "red-black";
-    System.out.println("> Using namespace: " + ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String selectorValue = appName + "traffichere";
 
     Map<String, Object> service =
         KubeTestUtils.loadYaml("classpath:manifests/service.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", SERVICE_1_NAME)
             .withValue("spec.selector", ImmutableMap.of("pointer", selectorValue))
             .withValue("spec.type", "NodePort")
             .asMap();
-    kubeCluster.execKubectl("-n " + ns + " apply -f -", service);
+    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", service);
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", appName)
             .withValue("spec.selector.matchLabels", ImmutableMap.of("label1", "value1"))
             .withValue("spec.template.metadata.labels", ImmutableMap.of("label1", "value1"))
@@ -1001,42 +1121,61 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.trafficManagement.enabled", true)
             .withValue("deployManifest.trafficManagement.options.strategy", "redblack")
             .withValue("deployManifest.trafficManagement.options.enableTraffic", true)
-            .withValue("deployManifest.trafficManagement.options.namespace", ns)
+            .withValue("deployManifest.trafficManagement.options.namespace", account1Ns)
             .withValue(
                 "deployManifest.trafficManagement.options.services",
                 Collections.singleton("service " + appName))
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "replicaSet " + appName + "-v000");
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "replicaSet " + appName + "-v001");
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "replicaSet " + appName + "-v001");
     body =
         KubeTestUtils.loadJson("classpath:requests/disable_manifest.json")
             .withValue("disableManifest.app", appName)
             .withValue("disableManifest.manifestName", "replicaSet " + appName + "-v000")
-            .withValue("disableManifest.location", ns)
+            .withValue("disableManifest.location", account1Ns)
             .withValue("disableManifest.account", ACCOUNT1_NAME)
             .asList();
-    KubeTestUtils.disableManifest(baseUrl(), body, ns, "replicaSet " + appName + "-v000");
+    KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
 
     // ------------------------- then --------------------------
     String port =
         kubeCluster.execKubectl(
             "-n "
-                + ns
+                + account1Ns
                 + " get service "
                 + SERVICE_1_NAME
                 + " -o=jsonpath='{.spec.ports[0].nodePort}'");
-    Container.ExecResult result =
-        kubeCluster.execInContainer("wget", "http://localhost:" + port, "-O", " -");
-    assertEquals(
-        0,
-        result.getExitCode(),
-        "stdout: " + result.getStdout() + " stderr: " + result.getStderr());
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          try {
+            Container.ExecResult result =
+                kubeCluster.execInContainer("wget", "http://localhost:" + port, "-O", "-");
+            if (result.getExitCode() != 0) {
+              System.out.println(
+                  "Error running wget \"http://localhost:"
+                      + port
+                      + " -0 -\": Stdout: "
+                      + result.getStdout()
+                      + " Stderr: "
+                      + result.getStderr());
+            }
+            return result.getExitCode() == 0;
+          } catch (Exception e) {
+            fail("Failed executing \"wget http://localhost:" + port + "-O" + "-\" in container", e);
+            return false;
+          }
+        },
+        10,
+        TimeUnit.SECONDS,
+        "Error querying service with wget, waited 10 seconds.");
     List<String> podNames =
         Splitter.on(" ")
             .splitToList(
                 kubeCluster.execKubectl(
                     "-n "
-                        + ns
+                        + account1Ns
                         + " get pod -o=jsonpath='{.items[*].metadata.name}' -l=pointer="
                         + selectorValue));
     assertEquals(

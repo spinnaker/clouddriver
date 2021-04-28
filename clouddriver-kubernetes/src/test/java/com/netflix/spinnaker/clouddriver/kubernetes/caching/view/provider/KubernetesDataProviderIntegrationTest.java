@@ -588,7 +588,8 @@ final class KubernetesDataProviderIntegrationTest {
                     .map(
                         file ->
                             ManifestFetcher.getManifest(
-                                KubernetesDataProviderIntegrationTest.class, file))
+                                    KubernetesDataProviderIntegrationTest.class, file)
+                                .get(0))
                     .filter(m -> invocation.getArgument(1, List.class).contains(m.getKind()))
                     .collect(toImmutableList()));
     return jobExecutor;
@@ -610,7 +611,9 @@ final class KubernetesDataProviderIntegrationTest {
             new ConfigFileService(new CloudConfigResourceService()),
             new AccountResourcePropertyRegistry.Factory(resourcePropertyRegistry),
             new KubernetesKindRegistry.Factory(new GlobalKubernetesKindRegistry()),
-            kindMap);
+            kindMap,
+            new GlobalResourcePropertyRegistry(
+                ImmutableList.of(), new KubernetesUnregisteredCustomResourceHandler()));
     return new KubernetesNamedAccountCredentials(managedAccount, credentialFactory);
   }
 
