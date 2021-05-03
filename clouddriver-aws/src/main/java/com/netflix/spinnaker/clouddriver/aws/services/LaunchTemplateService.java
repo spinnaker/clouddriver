@@ -248,7 +248,7 @@ public class LaunchTemplateService {
     networkInterfaceRequest.setGroups(description.getSecurityGroups());
 
     // Nitro Enclave options
-    if (asgConfiguration.getEnableEnclave() != null) {
+    if (description.getEnableEnclave() != null) {
       request.setEnclaveOptions(
           new LaunchTemplateEnclaveOptionsRequest()
               .withEnabled(asgConfiguration.getEnableEnclave()));

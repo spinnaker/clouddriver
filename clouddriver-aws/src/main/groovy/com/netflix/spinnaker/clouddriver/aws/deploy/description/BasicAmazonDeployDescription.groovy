@@ -137,7 +137,7 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
    * This is a Launch Template only feature
    * * https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave.html
    */
-  Boolean enableEnclave = false
+  Boolean enableEnclave
 
   /**
    * Launch template placement details, see {@link com.amazonaws.services.ec2.model.LaunchTemplatePlacementRequest}.
