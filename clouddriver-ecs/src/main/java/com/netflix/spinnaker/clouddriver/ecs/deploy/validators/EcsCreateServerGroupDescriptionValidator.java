@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors;
 import com.netflix.spinnaker.clouddriver.ecs.EcsOperation;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
+import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -56,6 +57,16 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
 
     validateCredentials(createServerGroupDescription, errors, "credentials");
     validateCapacity(errors, createServerGroupDescription.getCapacity());
+
+    if (createServerGroupDescription.getSubnetTypes() != null
+        && createServerGroupDescription.getSubnetTypes().size() > 0) {
+      if (StringUtils.isNotBlank(createServerGroupDescription.getSubnetType())) {
+        errors.rejectValue(
+            "subnetTypes",
+            errorKey + "." + "subnetTypes" + "." + "invalid",
+            "SubnetType (string) cannot be specified when SubnetTypes (list) is specified. Please use SubnetTypes (list)");
+      }
+    }
 
     if (createServerGroupDescription.getAvailabilityZones() != null) {
       if (createServerGroupDescription.getAvailabilityZones().size() != 1) {
@@ -101,8 +112,31 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
       rejectValue(errors, "placementStrategySequence", "not.nullable");
     }
 
-    if (createServerGroupDescription.getApplication() == null) {
-      rejectValue(errors, "application", "not.nullable");
+    Moniker moniker = createServerGroupDescription.getMoniker();
+    if (moniker == null) {
+      if (createServerGroupDescription.getApplication() == null) {
+        rejectValue(errors, "application", "not.nullable");
+      }
+    } else {
+      if (moniker.getApp() == null) {
+        rejectValue(errors, "moniker.app", "not.nullable");
+      }
+
+      if (StringUtils.isNotBlank(createServerGroupDescription.getApplication())
+          && !StringUtils.equals(createServerGroupDescription.getApplication(), moniker.getApp())) {
+        rejectValue(errors, "moniker.app", "invalid");
+      }
+
+      if (StringUtils.isNotBlank(createServerGroupDescription.getFreeFormDetails())
+          && !StringUtils.equals(
+              createServerGroupDescription.getFreeFormDetails(), moniker.getDetail())) {
+        rejectValue(errors, "moniker.detail", "invalid");
+      }
+
+      if (StringUtils.isNotBlank(createServerGroupDescription.getStack())
+          && !StringUtils.equals(createServerGroupDescription.getStack(), moniker.getStack())) {
+        rejectValue(errors, "moniker.stack", "invalid");
+      }
     }
 
     if (createServerGroupDescription.getEcsClusterName() == null) {
@@ -177,20 +211,20 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
 
   private void validateComputeOptions(
       CreateServerGroupDescription createServerGroupDescription, ValidationErrors errors) {
-    if (createServerGroupDescription.getCapacityProviderStrategies() != null
-        && !createServerGroupDescription.getCapacityProviderStrategies().isEmpty()) {
+    if (createServerGroupDescription.getCapacityProviderStrategy() != null
+        && !createServerGroupDescription.getCapacityProviderStrategy().isEmpty()) {
       if (!StringUtils.isBlank(createServerGroupDescription.getLaunchType())) {
         errors.rejectValue(
             "launchType",
             errorKey + "." + "launchType" + "." + "invalid",
-            "LaunchType cannot be specified when CapacityProviderStrategies are specified.");
+            "LaunchType cannot be specified when CapacityProviderStrategy are specified.");
       }
-    } else if (createServerGroupDescription.getCapacityProviderStrategies() == null
+    } else if (createServerGroupDescription.getCapacityProviderStrategy() == null
         && StringUtils.isBlank(createServerGroupDescription.getLaunchType())) {
       errors.rejectValue(
           "launchType",
           errorKey + "." + "launchType" + "." + "invalid",
-          "LaunchType or CapacityProviderStrategies must be specified.");
+          "LaunchType or CapacityProviderStrategy must be specified.");
     }
   }
 

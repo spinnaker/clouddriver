@@ -36,24 +36,21 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
 
   private static final String DOCKER_IMAGE = "rancher/k3s:v1.17.11-k3s1";
   private static final String KUBECFG_IN_CONTAINER = "/etc/rancher/k3s/k3s.yaml";
-  private static final int STARTUP_NAMESPACES = 30;
 
-  private static final Map<String, KubernetesCluster> instances = new HashMap<>();
+  private static KubernetesCluster INSTANCE;
 
   private Path kubecfgPath;
-  private final String accountName;
-  private final Map<String, Boolean> availableNamespaces = new HashMap<>();
+  private final Map<String, List<String>> namespacesByAccount = new HashMap<>();
 
-  public static KubernetesCluster getInstance(String accountName) {
-    return instances.computeIfAbsent(accountName, KubernetesCluster::new);
+  public static KubernetesCluster getInstance() {
+    if (INSTANCE == null) {
+      INSTANCE = new KubernetesCluster();
+    }
+    return INSTANCE;
   }
 
-  private KubernetesCluster(String accountName) {
+  private KubernetesCluster() {
     super(DOCKER_IMAGE);
-    this.accountName = accountName;
-    for (int i = 0; i < STARTUP_NAMESPACES; i++) {
-      this.availableNamespaces.put("testns" + i, true);
-    }
 
     // arguments to docker run
     Map<String, String> tmpfs = new HashMap<>();
@@ -75,15 +72,13 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
     return kubecfgPath;
   }
 
-  public String getAvailableNamespace() {
-    for (Map.Entry<String, Boolean> entry : availableNamespaces.entrySet()) {
-      if (entry.getValue()) {
-        entry.setValue(false);
-        return entry.getKey();
-      }
-    }
-    fail("Ran out of available test namespaces, consider increasing STARTUP_NAMESPACES");
-    return null;
+  public String createNamespace(String accountName) throws IOException, InterruptedException {
+    List<String> existing =
+        namespacesByAccount.computeIfAbsent(accountName, k -> new ArrayList<>());
+    String newNamespace = String.format("%s-testns%02d", accountName, existing.size());
+    execKubectl("create ns " + newNamespace);
+    existing.add(newNamespace);
+    return newNamespace;
   }
 
   public String execKubectl(String args) throws IOException, InterruptedException {
@@ -97,11 +92,7 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
     List<String> cmd = new ArrayList<>();
     cmd.add("sh");
     cmd.add("-c");
-    cmd.add(
-        "${PROJECT_ROOT}/clouddriver-kubernetes/src/integration/resources/kubectl-wrapper.sh --kubeconfig="
-            + kubecfgPath
-            + " "
-            + args);
+    cmd.add("${KUBECTL_PATH} --kubeconfig=" + kubecfgPath + " " + args);
     builder.command(cmd);
     builder.redirectErrorStream(true);
     Process process = builder.start();
@@ -132,14 +123,11 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
   public void start() {
     super.start();
     String containerName = getContainerInfo().getName().replaceAll("/", "");
-    System.setProperty(this.accountName + "_containername", containerName);
+    System.setProperty("containername", containerName);
     try {
       this.kubecfgPath = copyKubecfgFromCluster(containerName);
       fixKubeEndpoint(this.kubecfgPath);
-      for (String ns : availableNamespaces.keySet()) {
-        execKubectl("create ns " + ns);
-      }
-    } catch (IOException | InterruptedException e) {
+    } catch (IOException e) {
       throw new RuntimeException(
           "Unable to initialize kubectl or kubeconfig.yml files, or unable to create initial namespaces",
           e);
@@ -158,12 +146,7 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
 
   private Path copyKubecfgFromCluster(String containerName) throws IOException {
     Path myKubeconfig =
-        Paths.get(
-            System.getenv("PROJECT_ROOT"),
-            "clouddriver-kubernetes",
-            "build",
-            "kubeconfigs",
-            "kubecfg-" + containerName + ".yml");
+        Paths.get(System.getenv("KUBECONFIGS_HOME"), "kubecfg-" + containerName + ".yml");
     Files.createDirectories(myKubeconfig.getParent());
     copyFileFromContainer(KUBECFG_IN_CONTAINER, myKubeconfig.toAbsolutePath().toString());
     return myKubeconfig;

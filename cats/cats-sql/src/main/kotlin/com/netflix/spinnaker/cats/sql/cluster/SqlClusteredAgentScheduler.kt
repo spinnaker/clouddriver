@@ -22,9 +22,11 @@ import com.netflix.spinnaker.cats.agent.AgentLock
 import com.netflix.spinnaker.cats.agent.AgentScheduler
 import com.netflix.spinnaker.cats.agent.AgentSchedulerAware
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation
+import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation.elapsedTimeMs
 import com.netflix.spinnaker.cats.cluster.AgentIntervalProvider
 import com.netflix.spinnaker.cats.cluster.NodeIdentity
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider
+import com.netflix.spinnaker.cats.cluster.ShardingFilter
 import com.netflix.spinnaker.cats.module.CatsModuleAware
 import com.netflix.spinnaker.cats.sql.SqlUtil
 import com.netflix.spinnaker.config.ConnectionPools
@@ -66,7 +68,8 @@ class SqlClusteredAgentScheduler(
   ),
   lockPollingScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
     ThreadFactoryBuilder().setNameFormat(SqlClusteredAgentScheduler::class.java.simpleName + "-%d").build()
-  )
+  ),
+  private val shardingFilter: ShardingFilter
 ) : CatsModuleAware(), AgentScheduler<AgentLock>, Runnable {
 
   private val log = LoggerFactory.getLogger(javaClass)
@@ -150,6 +153,7 @@ class SqlClusteredAgentScheduler(
   }
 
   private fun findCandidateAgentLocks(): Map<String, AgentExecutionAction> {
+    cleanupZombieAgents()
     val skip = HashMap(activeAgents).entries
     val maxConcurrentAgents = dynamicConfigService.getConfig(Int::class.java, "sql.agent.max-concurrent-agents", 100)
     val availableAgents = maxConcurrentAgents - skip.size
@@ -170,10 +174,14 @@ class SqlClusteredAgentScheduler(
     ).split(",").map { it.trim() }
 
     val candidateAgentLocks = agents
+      .filter { shardingFilter.filter(it.value.agent) }
       .filter { !activeAgents.containsKey(it.key) }
       .filter { enabledAgents.matcher(it.key).matches() }
       .filterNot { disabledAgents.contains(it.key) }
       .toMutableMap()
+
+    log.debug("Agents running: {}, agents disabled: {}. Picking next agents to run from: {}",
+      activeAgents.keys, disabledAgents, candidateAgentLocks.keys)
 
     withPool(POOL_NAME) {
       val existingLocks = jooq.select(field("agent_name"), field("lock_expiry"))
@@ -207,16 +215,33 @@ class SqlClusteredAgentScheduler(
       }
     }
 
+    log.debug("Next agents to run: {}, max: {}", candidateAgentLocks.keys, availableAgents)
+
     val trimmedCandidates = mutableMapOf<String, AgentExecutionAction>()
-    candidateAgentLocks
-      .forEach { k, v ->
+    candidateAgentLocks.entries
+      .shuffled()
+      .forEach {
         if (trimmedCandidates.size >= availableAgents) {
+          log.warn(
+            "Dropping caching agent: {}. Wanted to run {} agents, but a max of {} was configured and there are " +
+              "already {} currently running. Consider increasing sql.agent.max-concurrent-agents",
+          it.key, candidateAgentLocks.size, maxConcurrentAgents, skip)
           return@forEach
         }
-        trimmedCandidates[k] = v
+        trimmedCandidates[it.key] = it.value
       }
 
     return trimmedCandidates
+  }
+
+  private fun cleanupZombieAgents() {
+    val zombieAgentThreshold = dynamicConfigService.getConfig(Long::class.java, "sql.agent.zombie-threshold-ms", 3600000)
+    activeAgents
+      .filter { it.value.currentTime < System.currentTimeMillis() - zombieAgentThreshold }
+      .forEach {
+        log.warn("Found zombie agent {}, removing it", it.key)
+        activeAgents.remove(it.key, it.value)
+    }
   }
 
   private fun tryAcquireSingle(agentType: String, now: Long, timeout: Long): Boolean {
@@ -294,14 +319,14 @@ private class AgentExecutionAction(
 ) {
 
   fun execute(): Status {
+    val startTimeMs = System.currentTimeMillis()
     return try {
       executionInstrumentation.executionStarted(agent)
-      val startTime = System.currentTimeMillis()
       agentExecution.executeAgent(agent)
-      executionInstrumentation.executionCompleted(agent, System.currentTimeMillis() - startTime)
+      executionInstrumentation.executionCompleted(agent, elapsedTimeMs(startTimeMs))
       Status.SUCCESS
     } catch (t: Throwable) {
-      executionInstrumentation.executionFailed(agent, t)
+      executionInstrumentation.executionFailed(agent, t, elapsedTimeMs(startTimeMs))
       Status.FAILURE
     }
   }

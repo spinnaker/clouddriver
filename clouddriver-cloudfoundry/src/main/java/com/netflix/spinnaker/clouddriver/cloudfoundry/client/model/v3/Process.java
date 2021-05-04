@@ -21,6 +21,7 @@ import lombok.*;
 
 @Data
 public class Process {
+  private String type;
   private String guid;
   private int instances;
   private int memoryInMb;
@@ -39,5 +40,9 @@ public class Process {
   public static class HealthCheckData {
 
     @Nullable private String endpoint;
+
+    @Nullable private Integer timeout;
+
+    @Nullable private Integer invocationTimeout;
   }
 }

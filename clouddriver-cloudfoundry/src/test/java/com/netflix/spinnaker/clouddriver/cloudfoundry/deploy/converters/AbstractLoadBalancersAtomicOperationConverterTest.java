@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.RouteId;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.LoadBalancersDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryDomain;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryLoadBalancer;
@@ -43,6 +44,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
@@ -90,18 +92,20 @@ class AbstractLoadBalancersAtomicOperationConverterTest {
   private final CloudFoundryCredentials cloudFoundryCredentials =
       new CloudFoundryCredentials(
           "test",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
+          "managerUri",
+          "metricsUri",
+          "api.host",
+          "username",
+          "password",
+          "environment",
           false,
           500,
           cacheRepository,
           null,
           ForkJoinPool.commonPool(),
-          emptyMap()) {
+          emptyMap(),
+          new OkHttpClient(),
+          new CloudFoundryConfigurationProperties.ClientConfig()) {
         public CloudFoundryClient getClient() {
           return cloudFoundryClient;
         }

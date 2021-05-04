@@ -267,11 +267,19 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
           cachedServerGroups[serverGroupKey].with {
             attributes.name = serverGroupName
             def isDisabled = !loadBalancer.getSplit().getAllocations().containsKey(serverGroupName);
-            attributes.serverGroup = new AppengineServerGroup(serverGroup,
-                                                              accountName,
-                                                              credentials.region,
-                                                              loadBalancerName,
-                                                              isDisabled)
+            if (attributes.serverGroup == null) {
+              attributes.serverGroup = new AppengineServerGroup(serverGroup,
+                accountName,
+                credentials.region,
+                loadBalancerName,
+                isDisabled)
+            } else {
+              attributes.serverGroup.update(serverGroup,
+                accountName,
+                credentials.region,
+                loadBalancerName,
+                isDisabled)
+            }
             relationships[APPLICATIONS.ns].add(applicationKey)
             relationships[CLUSTERS.ns].add(clusterKey)
             relationships[INSTANCES.ns].addAll(instanceKeys)
@@ -407,7 +415,7 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
   }
 
   @Override
-  Collection<Map<String, ?>> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     def keys = providerCache.getIdentifiers(ON_DEMAND.ns)
     keys = keys.findResults {
       def parse = Keys.parse(it)

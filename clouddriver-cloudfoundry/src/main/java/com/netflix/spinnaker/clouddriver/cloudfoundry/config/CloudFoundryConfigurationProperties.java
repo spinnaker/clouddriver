@@ -19,12 +19,10 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.config;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.*;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -46,6 +44,8 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
 
   private int apiRequestParallelism = 100;
 
+  @NestedConfigurationProperty private ClientConfig client = new ClientConfig();
+
   @Override
   public void destroy() {
     this.accounts = new ArrayList<>();
@@ -54,6 +54,7 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
   @Getter
   @Setter
   @ToString(exclude = "password")
+  @EqualsAndHashCode
   public static class ManagedAccount implements CredentialsDefinition {
     private String name;
     private String api;
@@ -71,5 +72,13 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
 
     private Permissions.Builder permissions = new Permissions.Builder();
     private Map<String, Set<String>> spaceFilter = Collections.emptyMap();
+  }
+
+  @Data
+  public static class ClientConfig {
+    private int connectionTimeout = 10000;
+    private int writeTimeout = 10000;
+    private int readTimeout = 10000;
+    private int maxRetries = 3;
   }
 }

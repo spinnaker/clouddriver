@@ -35,14 +35,16 @@ import org.springframework.test.context.TestPropertySource;
 public abstract class BaseTest {
 
   public static final String APP1_NAME = "testApp1";
+  public static final String APP2_NAME = "testApp2";
   public static final String ACCOUNT1_NAME = "account1";
+  public static final String ACCOUNT2_NAME = "account2";
 
   @LocalServerPort int port;
 
   public static final KubernetesCluster kubeCluster;
 
   static {
-    kubeCluster = KubernetesCluster.getInstance(ACCOUNT1_NAME);
+    kubeCluster = KubernetesCluster.getInstance();
     kubeCluster.start();
     RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
   }

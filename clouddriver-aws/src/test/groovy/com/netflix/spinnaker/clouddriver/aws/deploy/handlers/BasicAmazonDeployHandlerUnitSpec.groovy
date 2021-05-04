@@ -22,7 +22,10 @@ import com.amazonaws.services.autoscaling.model.BlockDeviceMapping
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
 import com.amazonaws.services.autoscaling.model.Ebs
 import com.amazonaws.services.autoscaling.model.LaunchConfiguration
+import com.amazonaws.services.autoscaling.model.LaunchTemplate
+import com.amazonaws.services.autoscaling.model.LaunchTemplateOverrides
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification
+import com.amazonaws.services.autoscaling.model.MixedInstancesPolicy
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.DescribeImagesRequest
 import com.amazonaws.services.ec2.model.DescribeImagesResult
@@ -45,8 +48,9 @@ import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
-import com.netflix.spinnaker.clouddriver.aws.deploy.AsgReferenceCopier
-import com.netflix.spinnaker.clouddriver.aws.deploy.AutoScalingWorker
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AsgReferenceCopier
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AutoScalingWorker
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AutoScalingWorker.AsgConfiguration
 import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils
 import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.BasicAmazonDeployDescription
@@ -146,7 +150,10 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "handler invokes a deploy feature for each specified region"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgConfig ->
+      deployCallCounts++
+      "foo"
+    }
     def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
     description.availabilityZones = ["us-west-1": [], "us-east-1": []]
     description.credentials = TestCredential.named('baz')
@@ -162,9 +169,13 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   void "classic load balancer names are derived from prior execution results"() {
     setup:
+    def classicLbs = []
     def setlbCalls = 0
-    AutoScalingWorker.metaClass.deploy = {}
-    AutoScalingWorker.metaClass.setClassicLoadBalancers = { setlbCalls++ }
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      setlbCalls++
+      classicLbs.addAll(asgCfg.classicLoadBalancers as Collection<String>)
+      "foo"
+    }
     def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
     description.availabilityZones = ["us-east-1": []]
     description.credentials = TestCredential.named('baz')
@@ -174,14 +185,17 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
     then:
     setlbCalls
+    classicLbs == ['lb']
     1 * elbV1.describeLoadBalancers(_) >> new DescribeLoadBalancersResult().withLoadBalancerDescriptions(new LoadBalancerDescription().withLoadBalancerName("lb"))
     1 * amazonEC2.describeVpcClassicLink() >> new DescribeVpcClassicLinkResult()
   }
 
   void "handles classic load balancers"() {
-
     def classicLbs = []
-    AutoScalingWorker.metaClass.setClassicLoadBalancers = { Collection<String> lbs -> classicLbs.addAll(lbs) }
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      classicLbs.addAll(asgCfg.classicLoadBalancers as Collection<String>)
+      "foo"
+    }
     def description = new BasicAmazonDeployDescription(amiName: "ami-12345", loadBalancers: ["lb"])
     description.availabilityZones = ["us-east-1": []]
     description.credentials = TestCredential.named('baz')
@@ -218,7 +232,10 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "handles application load balancers"() {
 
     def targetGroupARNs = []
-    AutoScalingWorker.metaClass.setTargetGroupArns = { Collection<String> arns -> targetGroupARNs.addAll(arns) }
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      targetGroupARNs.addAll(asgCfg.targetGroupArns as Collection<String>)
+      "foo"
+    }
     def description = new BasicAmazonDeployDescription(amiName: "ami-12345", targetGroups: ["tg"])
     description.availabilityZones = ["us-east-1": []]
     description.credentials = TestCredential.named('baz')
@@ -250,8 +267,8 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   void "should populate classic link VPC Id when classic link is enabled"() {
     def actualClassicLinkVpcId
-    AutoScalingWorker.metaClass.deploy = {
-      actualClassicLinkVpcId = classicLinkVpcId
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      actualClassicLinkVpcId = asgCfg.classicLinkVpcId
       "foo"
     }
     def description = new BasicAmazonDeployDescription(
@@ -274,8 +291,8 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   void "should not populate classic link VPC Id when there is a subnetType"() {
     def actualClassicLinkVpcId
-    AutoScalingWorker.metaClass.deploy = {
-      actualClassicLinkVpcId = classicLinkVpcId
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      actualClassicLinkVpcId = asgCfg.classicLinkVpcId
       "foo"
     }
     def description = new BasicAmazonDeployDescription(
@@ -292,42 +309,52 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     actualClassicLinkVpcId == null
   }
 
-  void "should not modify unlimited cpu credits if not applicable"() {
-    setup:
-    def unlimitedCreditsInput = null
-    InstanceTypeUtils.metaClass.static.isBurstingSupported = { String type -> return false }
-
-    expect:
-    handler.getUnlimitedCpuCredits(unlimitedCreditsInput, "") == unlimitedCreditsInput
-  }
-
-  void "should set unlimited cpu credits to false if applicable but not specified"() {
-    setup:
-    def unlimitedCreditsInput = null
-    InstanceTypeUtils.metaClass.static.isBurstingSupported = { String type -> return true }
-
-    expect:
-    handler.getUnlimitedCpuCredits(unlimitedCreditsInput, "") == false
-  }
-
   void "should not modify unlimited cpu credits if applicable, and specified"() {
     setup:
-    InstanceTypeUtils.metaClass.static.isBurstingSupported = { String type -> return true }
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: "t2.large", subnetType: "internal")
+    description.availabilityZones = ["us-west-1": [], "us-east-1": []]
+    description.credentials = TestCredential.named('baz')
+    description.unlimitedCpuCredits = unlimitedCreditsInput
 
-    expect:
-    handler.getUnlimitedCpuCredits(unlimitedCreditsInput, "") == unlimitedCreditsInput
+    and:
+    def unlimitedCpuCreditsPassed = null
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      unlimitedCpuCreditsPassed = asgCfg.unlimitedCpuCredits
+      "foo"
+    }
+
+    when:
+    handler.handle(description, [])
+
+    then:
+    unlimitedCpuCreditsPassed == unlimitedCreditsInput
 
     where:
     unlimitedCreditsInput << [true, false]
   }
 
-  void "should send instance class block devices to AutoScalingWorker when matched and none are specified"() {
+  void "should set unlimited cpu credits to the default false only if applicable to all instance types"() {
+
+    expect:
+    handler.getDefaultUnlimitedCpuCredits(instanceTypes as Set) == expectedDefault
+
+    where:
+    instanceTypes               || expectedDefault
+    ["t2.small"]                ||  false
+    ["c3.large"]                ||  null
+    ["t2.large", "t3.large"]    ||  false
+    ["t2.small", "c3.large"]    ||  null
+    ["m4.large", "c3.large"]    ||  null
+  }
+
+  void "should send instance class block devices to AutoScalingWorker when matched and none are specified and absence of source ASG"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
     def setBlockDevices = []
-    AutoScalingWorker.metaClass.setBlockDevices = { List<AmazonBlockDevice> blockDevices ->
-      setBlockDevices = blockDevices
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      deployCallCounts++
+      setBlockDevices = asgCfg.blockDevices
+      "foo"
     }
     def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
     description.instanceType = "m3.medium"
@@ -349,10 +376,11 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "should favour explicit description block devices over default config"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
     List<AmazonBlockDevice> setBlockDevices = []
-    AutoScalingWorker.metaClass.setBlockDevices = { List<AmazonBlockDevice> blockDevices ->
-      setBlockDevices = blockDevices
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      setBlockDevices = asgCfg.blockDevices
+      deployCallCounts++
+      "foo"
     }
     def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
     description.instanceType = "m3.medium"
@@ -377,10 +405,11 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "should favour ami block device mappings over explicit description block devices and default config, if useAmiBlockDeviceMappings is set"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
     List<AmazonBlockDevice> setBlockDevices = []
-    AutoScalingWorker.metaClass.setBlockDevices = { List<AmazonBlockDevice> blockDevices ->
-      setBlockDevices = blockDevices
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      deployCallCounts++
+      setBlockDevices = asgCfg.blockDevices
+      "foo"
     }
     def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
     description.instanceType = "m3.medium"
@@ -416,7 +445,10 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "should resolve amiId from amiName"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      deployCallCounts++
+      "foo"
+    }
 
     def description = new BasicAmazonDeployDescription(amiName: "the-greatest-ami-in-the-world", availabilityZones: ['us-west-1': []])
     description.credentials = TestCredential.named('baz')
@@ -438,22 +470,22 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   }
 
   @Unroll
-  void "should copy block devices from source provider if not specified explicitly"() {
+  void "should copy block devices from source provider using a launch configuration if not specified explicitly and instance types match"() {
     given:
     def asgService = Mock(AsgService) {
-      (launchConfig ? 1 : 0) * getLaunchConfiguration(_) >> {
+      expectedCallsToAws * getLaunchConfiguration(_) >> {
         return new LaunchConfiguration()
           .withBlockDeviceMappings(new BlockDeviceMapping().withDeviceName("OLD_DEVICE")
         )
       }
     }
     def sourceRegionScopedProvider = Mock(RegionScopedProvider) {
-      (launchConfig ? 1 : 0) * getAsgService() >> { return asgService }
+      expectedCallsToAws * getAsgService() >> { return asgService }
       1 * getAutoScaling() >> {
         return Mock(AmazonAutoScaling) {
           1 * describeAutoScalingGroups(_) >> {
             return new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
-              new AutoScalingGroup().withLaunchConfigurationName(launchConfig))
+              new AutoScalingGroup().withLaunchConfigurationName("launchConfig"))
           }
         }
       }
@@ -468,14 +500,14 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     targetDescription.blockDevices*.deviceName == expectedBlockDevices
 
     where:
-    description                                                                                   | launchConfig   || expectedBlockDevices
-    new BasicAmazonDeployDescription()                                                            | "launchConfig" || ["OLD_DEVICE"]
-    new BasicAmazonDeployDescription(blockDevices: [])                                            | "launchConfig" || []
-    new BasicAmazonDeployDescription(blockDevices: [new AmazonBlockDevice(deviceName: "DEVICE")]) | "launchConfig" || ["DEVICE"]
+    description                                                                                   | expectedCallsToAws || expectedBlockDevices
+    new BasicAmazonDeployDescription()                                                            |       2            || ["OLD_DEVICE"]
+    new BasicAmazonDeployDescription(blockDevices: [])                                            |       0            || []
+    new BasicAmazonDeployDescription(blockDevices: [new AmazonBlockDevice(deviceName: "DEVICE")]) |       0            || ["DEVICE"]
   }
 
   @Unroll
-  void "should copy block devices from source provider using a launch template if not specified explicitly"() {
+  void "should copy block devices from source provider using a launch template if not specified explicitly and instance types match"() {
     given:
     def launchTemplateVersion = new LaunchTemplateVersion(
       launchTemplateName: "lt",
@@ -563,18 +595,18 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "copy source block devices #copySourceBlockDevices feature flags"() {
     given:
     if (copySourceBlockDevices != null) {
-      description.copySourceCustomBlockDeviceMappings = copySourceBlockDevices
+      description.copySourceCustomBlockDeviceMappings = copySourceBlockDevices // default copySourceCustomBlockDeviceMappings is true
     }
-    int expectedCalls = description.copySourceCustomBlockDeviceMappings ? 1 : 0
+    int expectedCallsToAws = description.copySourceCustomBlockDeviceMappings ? 2 : 0
     def asgService = Mock(AsgService) {
-      (expectedCalls) * getLaunchConfiguration(_) >> {
+      (expectedCallsToAws) * getLaunchConfiguration(_) >> {
         return new LaunchConfiguration()
           .withBlockDeviceMappings(new BlockDeviceMapping().withDeviceName("OLD_DEVICE")
         )
       }
     }
     def sourceRegionScopedProvider = Mock(RegionScopedProvider) {
-      (expectedCalls) * getAsgService() >> { return asgService }
+      (expectedCallsToAws) * getAsgService() >> { return asgService }
       1 * getAutoScaling() >> {
         return Mock(AmazonAutoScaling) {
           1 * describeAutoScalingGroups(_) >> {
@@ -599,7 +631,6 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     new BasicAmazonDeployDescription() | true                   || ["OLD_DEVICE"]
     new BasicAmazonDeployDescription() | false                  || null
   }
-
 
   void 'should fail if useSourceCapacity requested, and source not available'() {
     given:
@@ -744,32 +775,6 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   }
 
   @Unroll
-  void "should convert block device mappings to AmazonBlockDevices"() {
-    expect:
-    handler.convertBlockDevices([sourceDevice]) == [targetDevice]
-
-    where:
-    sourceDevice                                                                                                          || targetDevice
-    new BlockDeviceMapping().withDeviceName("Device1").withVirtualName("virtualName")                                     || new AmazonBlockDevice("Device1", "virtualName", null, null, null, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withIops(500))                                   || new AmazonBlockDevice("Device1", null, null, null, null, 500, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withDeleteOnTermination(true))                   || new AmazonBlockDevice("Device1", null, null, null, true, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withVolumeSize(1024))                            || new AmazonBlockDevice("Device1", null, 1024, null, null, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withVolumeType("volumeType"))                    || new AmazonBlockDevice("Device1", null, null, "volumeType", null, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snapshotId"))                    || new AmazonBlockDevice("Device1", null, null, null, null, null, "snapshotId", null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs())                                                 || new AmazonBlockDevice("Device1", null, null, null, null, null, null, null)
-
-    // if snapshot is not provided, we should set encryption correctly
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withEncrypted(null))                             || new AmazonBlockDevice("Device1", null, null, null, null, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withEncrypted(true))                             || new AmazonBlockDevice("Device1", null, null, null, null, null, null, true)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withEncrypted(false))                            || new AmazonBlockDevice("Device1", null, null, null, null, null, null, false)
-
-    // if snapshot is provided, then we should use the snapshot's encryption value
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snap-123").withEncrypted(null))  || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snap-123").withEncrypted(true))  || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snap-123").withEncrypted(false)) || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
-  }
-
-  @Unroll
   void "should throw exception when instance type does not match image virtualization type"() {
     setup:
     def description = new BasicAmazonDeployDescription(amiName: "a-terrible-ami", availabilityZones: ['us-west-1': []])
@@ -824,16 +829,32 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
       blockDevices: descriptionBlockDevices
     )
     def launchConfiguration = new LaunchConfiguration()
+      .withLaunchConfigurationName('lc')
       .withInstanceType(sourceInstanceType)
       .withBlockDeviceMappings(sourceBlockDevices?.collect {
       new BlockDeviceMapping().withVirtualName(it.virtualName).withDeviceName(it.deviceName)
     })
+    def sourceAsg = new AutoScalingGroup()
+      .withLaunchConfigurationName(launchConfiguration.getLaunchConfigurationName())
+
+    def asgService = Mock(AsgService) {
+      getLaunchConfiguration(_) >> launchConfiguration
+    }
+    def sourceRegionScopedProvider = Stub(RegionScopedProvider) {
+      getAsgService() >> asgService
+      getAutoScaling() >> Stub(AmazonAutoScaling) {
+        describeAutoScalingGroups(_) >> {
+          new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
+            sourceAsg)
+        }
+      }
+    }
 
     when:
-    def blockDeviceMappings = handler.buildBlockDeviceMappings(description, new BasicAmazonDeployHandler.LaunchSetting(launchConfiguration: launchConfiguration))
+    def blockDeviceMappings = handler.buildBlockDeviceMappingsFromSourceAsg(sourceRegionScopedProvider, sourceAsg, description)
 
     then:
-    convertBlockDeviceMappings(blockDeviceMappings) == convertBlockDeviceMappings(expectedTargetBlockDevices)
+    blockDeviceMappings == expectedTargetBlockDevices
 
     where:
     sourceInstanceType | targetInstanceType | sourceBlockDevices                              | descriptionBlockDevices || expectedTargetBlockDevices
@@ -842,6 +863,86 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     "c3.xlarge"        | "c4.xlarge"        | bD("c3.xlarge")                                 | null                    || bD("c4.xlarge")                                 // was using default block devices, continue to use default block devices for targetInstanceType
     "c3.xlarge"        | "c4.xlarge"        | [new AmazonBlockDevice(deviceName: "/dev/xxx")] | null                    || [new AmazonBlockDevice(deviceName: "/dev/xxx")] // custom block devices should be preserved
     "c3.xlarge"        | "r4.100xlarge"     | bD("c3.xlarge")                                 | null                    || [deployDefaults.unknownInstanceTypeBlockDevice] // no mapping for r4.100xlarge, use the default for unknown instance types
+  }
+
+  @Unroll
+  void "should regenerate block device mappings conditionally, for source ASG with mixed instances policy"() {
+    setup:
+    def launchTemplateVersion = new LaunchTemplateVersion(
+      launchTemplateName: "lt",
+      launchTemplateId: "id",
+      versionNumber: 0,
+      launchTemplateData: new ResponseLaunchTemplateData(
+        instanceType: sourceInstanceType,
+        blockDeviceMappings: sourceBlockDevices?.collect {
+          new LaunchTemplateBlockDeviceMapping().withVirtualName(it.virtualName).withDeviceName(it.deviceName)
+        }))
+    def mixedInstancesPolicy = new MixedInstancesPolicy()
+      .withLaunchTemplate(new LaunchTemplate()
+        .withLaunchTemplateSpecification(new LaunchTemplateSpecification()
+          .withLaunchTemplateId(launchTemplateVersion.launchTemplateId)
+          .withLaunchTemplateName(launchTemplateVersion.launchTemplateName)
+          .withVersion(launchTemplateVersion.versionNumber.toString()))
+        .withOverrides(sourceLtOverrides.collect{
+          new LaunchTemplateOverrides().withInstanceType(it.instanceType).withWeightedCapacity(it.wgtCap)
+        }))
+
+    def sourceAsg = new AutoScalingGroup().withMixedInstancesPolicy(mixedInstancesPolicy)
+
+    and:
+    def launchTemplateService = Mock(LaunchTemplateService) {
+      getLaunchTemplateVersion({it.launchTemplateId == launchTemplateVersion.launchTemplateId} as LaunchTemplateSpecification) >> Optional.of(launchTemplateVersion)
+    }
+
+    def sourceRegionScopedProvider = Mock(RegionScopedProvider) {
+      getLaunchTemplateService() >> launchTemplateService
+      getAutoScaling() >> Stub(AmazonAutoScaling) {
+        describeAutoScalingGroups(_) >> {
+          new DescribeAutoScalingGroupsResult().withAutoScalingGroups(sourceAsg)
+        }
+      }
+    }
+
+    and:
+    def description = new BasicAmazonDeployDescription(
+      instanceType: descInstanceType,
+      launchTemplateOverridesForInstanceType: descLtOverrides.collect{
+        new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(
+          instanceType: it.instanceType,
+          weightedCapacity: it.wgtCap)},
+      blockDevices: descBlockDevices
+    )
+
+    when:
+    def blockDeviceMappings = handler.buildBlockDeviceMappingsFromSourceAsg(sourceRegionScopedProvider, sourceAsg, description)
+
+    then:
+    blockDeviceMappings == expectedTargetBlockDevices
+
+    where:
+    sourceInstanceType| descInstanceType|         sourceLtOverrides                    |         descLtOverrides                    |     sourceBlockDevices    | descBlockDevices   || expectedTargetBlockDevices
+    "c3.xlarge"       | "c4.xlarge"     | [[instanceType: "c3.large", wgtCap: "2"],
+                                           [instanceType: "c3.xlarge", wgtCap: "4"]]   | [[instanceType: "c4.large", wgtCap: "2"],
+                                                                                          [instanceType: "c4.xlarge", wgtCap: "4"]] | bD("c3.xlarge")           | bD("c3.xlarge")    || bD("c3.xlarge")                                 // use the explicitly provided block devices even if instance type has changed
+    "c3.xlarge"       | "c4.xlarge"     | [[instanceType: "c3.large", wgtCap: "2"],
+                                           [instanceType: "c3.xlarge", wgtCap: "4"]]   | [[instanceType: "c4.large", wgtCap: "2"],
+                                                                                          [instanceType: "c4.xlarge", wgtCap: "4"]] | bD("c3.xlarge")           | []                 || []                                              // use the explicitly provided block devices even if an empty list
+    "c3.xlarge"       | "c4.xlarge"     | [[instanceType: "c3.large", wgtCap: "2"],
+                                           [instanceType: "c3.xlarge", wgtCap: "4"]]   | [[instanceType: "c4.large", wgtCap: "2"],
+                                                                                          [instanceType: "c4.xlarge", wgtCap: "4"]] | bD("c3.xlarge")           | null               || bD("c4.xlarge")                                 // source ASG used default block devices, so use default block devices for top-level instance type in description i.e. descInstanceType
+    "c3.xlarge"       | "c4.xlarge"     | [[instanceType: "c3.large", wgtCap: "2"],
+                                           [instanceType: "c3.xlarge", wgtCap: "4"]]   | [[instanceType: "c4.large", wgtCap: "2"],
+                                                                                          [instanceType: "c4.xlarge", wgtCap: "4"]] | [new AmazonBlockDevice(
+                                                                                                                                      deviceName: "/dev/xxx")]  | null               || [new AmazonBlockDevice(deviceName: "/dev/xxx")] // custom block devices should be preserved
+    "c3.xlarge"       | "c4.100xlarge"  | [[instanceType: "c3.large", wgtCap: "2"],
+                                           [instanceType: "c3.xlarge", wgtCap: "4"]]   | [[instanceType: "c4.large", wgtCap: "2"],
+                                                                                          [instanceType: "c4.100xlarge", wgtCap: "4"]] | bD("c3.xlarge")        | null               || [deployDefaults.unknownInstanceTypeBlockDevice] // source ASG used default bD, so use default bD but no mapping for c4.200xlarge, use the default for unknown instance types
+    "c3.xlarge"       | "c3.xlarge"     | [[instanceType: "c3.large", wgtCap: "2"],
+                                           [instanceType: "c3.xlarge", wgtCap: "4"]]   | [[instanceType: "c3.large", wgtCap: "2"],
+                                                                                          [instanceType: "c3.xlarge", wgtCap: "4"]] | bD("c3.xlarge")           | null               || bD("c3.xlarge")                                 // allowed instance types match, use source ASG's block devices
+    "c3.xlarge"       | "r4.xlarge"     | [[instanceType: "c3.large", wgtCap: "2"],
+                                           [instanceType: "c3.xlarge", wgtCap: "4"]]   | [[instanceType: "c3.large", wgtCap: "2"],
+                                                                                          [instanceType: "c3.xlarge", wgtCap: "4"]] | bD("c3.xlarge")           | null               || bD("c3.xlarge")                                 // allowed instance types match, use source ASG's block devices
   }
 
   @Unroll
@@ -925,11 +1026,5 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   private Collection<AmazonBlockDevice> bD(String instanceType) {
     return blockDeviceConfig.getBlockDevicesForInstanceType(instanceType)
-  }
-
-  private Collection<Map> convertBlockDeviceMappings(Collection<AmazonBlockDevice> blockDevices) {
-    return blockDevices.collect {
-      [deviceName: it.deviceName, virtualName: it.virtualName]
-    }.sort { it.deviceName }
   }
 }

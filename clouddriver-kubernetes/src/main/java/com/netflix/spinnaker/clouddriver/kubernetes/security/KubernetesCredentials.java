@@ -38,7 +38,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResou
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.RawResourcesEndpointConfig;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.AccountResourcePropertyRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPatchOptions;
@@ -50,6 +52,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesNamerRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesCustomResourceHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor.KubectlException;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor.KubectlNotFoundException;
@@ -82,6 +86,7 @@ public class KubernetesCredentials {
   private final Registry registry;
   private final Clock clock;
   private final KubectlJobExecutor jobExecutor;
+  private final GlobalResourcePropertyRegistry globalResourcePropertyRegistry;
 
   @Include @Getter @Nonnull private final String accountName;
 
@@ -89,9 +94,9 @@ public class KubernetesCredentials {
 
   @Include @Getter private final ImmutableList<String> omitNamespaces;
 
-  @Include private final ImmutableSet<KubernetesKind> kinds;
+  @Include @Getter private final ImmutableSet<KubernetesKind> kinds;
 
-  @Include private final ImmutableSet<KubernetesKind> omitKinds;
+  @Include @Getter private final ImmutableSet<KubernetesKind> omitKinds;
 
   @Include @Getter private final List<CustomKubernetesResource> customResources;
 
@@ -110,6 +115,8 @@ public class KubernetesCredentials {
   @Include @Getter private final boolean onlySpinnakerManaged;
 
   @Include @Getter private final boolean cacheAllApplicationRelationships;
+
+  @Include @Getter private final RawResourcesEndpointConfig rawResourcesEndpointConfig;
 
   @Include private final boolean checkPermissionsOnStartup;
 
@@ -142,7 +149,8 @@ public class KubernetesCredentials {
       KubernetesKindRegistry.Factory kindRegistryFactory,
       KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
       String kubeconfigFile,
-      Namer<KubernetesManifest> manifestNamer) {
+      Namer<KubernetesManifest> manifestNamer,
+      GlobalResourcePropertyRegistry globalResourcePropertyRegistry) {
     this.registry = registry;
     this.clock = registry.clock();
     this.jobExecutor = jobExecutor;
@@ -196,6 +204,8 @@ public class KubernetesCredentials {
     this.debug = managedAccount.isDebug();
     this.namer = manifestNamer;
     this.cacheAllApplicationRelationships = managedAccount.isCacheAllApplicationRelationships();
+    this.rawResourcesEndpointConfig = managedAccount.getRawResourcesEndpointConfig();
+    this.globalResourcePropertyRegistry = globalResourcePropertyRegistry;
   }
 
   /**
@@ -309,14 +319,23 @@ public class KubernetesCredentials {
       return ImmutableMap.of();
     }
     try {
-      return list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
-          .map(
-              manifest ->
-                  KubernetesCacheDataConverter.getResource(
-                      manifest, V1beta1CustomResourceDefinition.class))
-          .map(KubernetesKindProperties::fromCustomResourceDefinition)
-          .collect(
-              toImmutableMap(KubernetesKindProperties::getKubernetesKind, Function.identity()));
+      ImmutableMap<KubernetesKind, KubernetesKindProperties> crds =
+          list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
+              .map(
+                  manifest ->
+                      KubernetesCacheDataConverter.getResource(
+                          manifest, V1beta1CustomResourceDefinition.class))
+              .map(KubernetesKindProperties::fromCustomResourceDefinition)
+              .collect(
+                  toImmutableMap(KubernetesKindProperties::getKubernetesKind, Function.identity()));
+
+      List<KubernetesHandler> crdHandlers =
+          crds.keySet().stream()
+              .map(KubernetesCustomResourceHandler::new)
+              .collect(toImmutableList());
+      this.globalResourcePropertyRegistry.updateCrdProperties(crdHandlers);
+
+      return crds;
     } catch (KubectlException e) {
       // not logging here -- it will generate a lot of noise in cases where crds aren't
       // available/registered in the first place
@@ -735,6 +754,7 @@ public class KubernetesCredentials {
     private final AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory;
     private final KubernetesKindRegistry.Factory kindRegistryFactory;
     private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+    private final GlobalResourcePropertyRegistry globalResourcePropertyRegistry;
 
     public KubernetesCredentials build(
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
@@ -748,7 +768,8 @@ public class KubernetesCredentials {
           kindRegistryFactory,
           kubernetesSpinnakerKindMap,
           getKubeconfigFile(configFileService, managedAccount),
-          manifestNamer);
+          manifestNamer,
+          globalResourcePropertyRegistry);
     }
 
     private String getKubeconfigFile(

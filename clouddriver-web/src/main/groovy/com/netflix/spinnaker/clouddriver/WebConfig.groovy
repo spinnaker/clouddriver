@@ -31,6 +31,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.ControllerAdvice
@@ -89,13 +90,5 @@ public class WebConfig extends WebMvcConfigurerAdapter {
       .defaultContentType(MediaType.APPLICATION_JSON_UTF8)
       .favorPathExtension(false)
       .ignoreAcceptHeader(true)
-  }
-
-  @ControllerAdvice
-  static class IllegalArgumentExceptionHandler {
-    @ExceptionHandler(IllegalArgumentException)
-    public void handle(HttpServletResponse response, IllegalArgumentException ex) {
-      response.sendError(HttpStatus.BAD_REQUEST.value(), ex.getMessage())
-    }
   }
 }

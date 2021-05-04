@@ -52,6 +52,7 @@ class DockerRegistryClient {
     long clientTimeoutMillis
     int paginateSize
     String catalogFile
+    String repositoriesRegex
     boolean insecureRegistry
     DockerOkClientProvider okClientProvider
 
@@ -105,6 +106,12 @@ class DockerRegistryClient {
       return this
     }
 
+    Builder repositoriesRegex(String regex) {
+      this.repositoriesRegex = regex
+      return this
+    }
+
+
     Builder insecureRegistry(boolean insecureRegistry) {
       this.insecureRegistry = insecureRegistry
       return this
@@ -121,11 +128,11 @@ class DockerRegistryClient {
         throw new IllegalArgumentException('Error, at most one of "password", "passwordFile", "passwordCommand" or "dockerconfigFile" can be specified')
       }
       if (password || passwordCommand) {
-        return new DockerRegistryClient(address, email, username, password, passwordCommand, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+        return new DockerRegistryClient(address, email, username, password, passwordCommand, clientTimeoutMillis, paginateSize, catalogFile, repositoriesRegex, insecureRegistry, okClientProvider)
       } else if (passwordFile) {
-        return new DockerRegistryClient(address, email, username, passwordFile, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+        return new DockerRegistryClient(address, email, username, passwordFile, clientTimeoutMillis, paginateSize, catalogFile, repositoriesRegex,  insecureRegistry, okClientProvider)
       } else {
-        return new DockerRegistryClient(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+        return new DockerRegistryClient(address, clientTimeoutMillis, paginateSize, catalogFile, repositoriesRegex, insecureRegistry, okClientProvider)
       }
     }
 
@@ -140,6 +147,7 @@ class DockerRegistryClient {
   DockerRegistryService registryService
   GsonConverter converter
   String catalogFile
+  String repositoriesRegex
 
   final static String userAgent = DockerUserAgent.getUserAgent()
   final int paginateSize
@@ -152,6 +160,7 @@ class DockerRegistryClient {
                        long clientTimeoutMillis,
                        int paginateSize,
                        String catalogFile,
+                       String repositoriesRegex,
                        boolean insecureRegistry,
                        DockerOkClientProvider okClientProvider) {
 
@@ -167,6 +176,7 @@ class DockerRegistryClient {
     this.converter = new GsonConverter(new GsonBuilder().create())
     this.address = address
     this.catalogFile = catalogFile
+    this.repositoriesRegex = repositoriesRegex
   }
 
   DockerRegistryClient(String address,
@@ -177,11 +187,27 @@ class DockerRegistryClient {
                        long clientTimeoutMillis,
                        int paginateSize,
                        String catalogFile,
+                       String repositoriesRegex,
                        boolean insecureRegistry,
                        DockerOkClientProvider okClientProvider) {
-    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+    this(address, clientTimeoutMillis, paginateSize, catalogFile, repositoriesRegex, insecureRegistry, okClientProvider)
     this.tokenService = new DockerBearerTokenService(username, password, passwordCommand)
     this.email = email
+  }
+
+  DockerRegistryClient(String address,
+                       int paginateSize,
+                       String catalogFile,
+                       String repositoriesRegex,
+                       DockerRegistryService dockerRegistryService,
+                       DockerBearerTokenService dockerBearerTokenService) {
+    this.paginateSize = paginateSize
+    this.converter = new GsonConverter(new GsonBuilder().create())
+    this.address = address
+    this.catalogFile = catalogFile
+    this.repositoriesRegex = repositoriesRegex
+    this.tokenService = dockerBearerTokenService
+    this.registryService = dockerRegistryService;
   }
 
   DockerRegistryClient(String address,
@@ -191,9 +217,10 @@ class DockerRegistryClient {
                        long clientTimeoutMillis,
                        int paginateSize,
                        String catalogFile,
+                       String repositoriesRegex,
                        boolean insecureRegistry,
                        DockerOkClientProvider okClientProvider) {
-    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+    this(address, clientTimeoutMillis, paginateSize, catalogFile, repositoriesRegex, insecureRegistry, okClientProvider)
     this.tokenService = new DockerBearerTokenService(username, passwordFile)
     this.email = email
   }
@@ -210,6 +237,13 @@ class DockerRegistryClient {
       "Docker-Distribution-API-Version: registry/2.0"
     ])
     Response getManifest(@Path(value="name", encode=false) String name, @Path(value="reference", encode=false) String reference, @Header("Authorization") String token, @Header("User-Agent") String agent)
+
+    @GET("/v2/{name}/manifests/{reference}")
+    @Headers([
+      "Docker-Distribution-API-Version: registry/2.0",
+      "Accept: application/vnd.docker.distribution.manifest.v2+json"
+    ])
+    Response getSchemaV2Manifest(@Path(value="name", encode=false) String name, @Path(value="reference", encode=false) String reference, @Header("Authorization") String token, @Header("User-Agent") String agent)
 
     @GET("/v2/_catalog")
     @Headers([
@@ -229,6 +263,12 @@ class DockerRegistryClient {
       "Docker-Distribution-API-Version: registry/2.0"
     ])
     Response checkVersion(@Header("Authorization") String token, @Header("User-Agent") String agent)
+
+    @GET("/v2/{repository}/blobs/{digest}")
+    @Headers([
+      "Docker-Distribution-API-Version: registry/2.0"
+    ])
+    Response getDigestContent(@Path(value="repository", encode=false) String repository, @Path(value="digest", encode=false) String digest, @Header("Authorization") String token, @Header("User-Agent") String agent)
   }
 
   public String getDigest(String name, String tag) {
@@ -238,6 +278,21 @@ class DockerRegistryClient {
       it.name == "Docker-Content-Digest"
     }
     return digest?.value
+  }
+
+  public String getConfigDigest(String name, String tag) {
+    def response = getSchemaV2Manifest(name, tag)
+    def manifestMap = converter.fromBody(response.body, Map) as Map
+    return manifestMap?.config?.digest
+  }
+
+  public Map getDigestContent(String name, String digest) {
+    def response =   request({
+      registryService.getDigestContent(name, digest, tokenService.basicAuthHeader, userAgent)
+    }, { token ->
+      registryService.getDigestContent(name, digest, token, userAgent)
+    }, name)
+    return converter.fromBody(response.body, Map)
   }
 
   private Map tagDateCache = [:]
@@ -258,6 +313,14 @@ class DockerRegistryClient {
       registryService.getManifest(name, tag, tokenService.basicAuthHeader, userAgent)
     }, { token ->
       registryService.getManifest(name, tag, token, userAgent)
+    }, name)
+  }
+
+  private getSchemaV2Manifest(String name, String tag) {
+    request({
+      registryService.getSchemaV2Manifest(name, tag, tokenService.basicAuthHeader, userAgent)
+    }, { token ->
+      registryService.getSchemaV2Manifest(name, tag, token, userAgent)
     }, name)
   }
 
@@ -343,6 +406,9 @@ class DockerRegistryClient {
     def nextPath = findNextLink(response?.headers)
     def catalog = (DockerRegistryCatalog) converter.fromBody(response.body, DockerRegistryCatalog)
 
+    if(repositoriesRegex) {
+      catalog.repositories = catalog.repositories.findAll { it ==~ repositoriesRegex }
+    }
     if (nextPath) {
       def nextCatalog = getCatalog(nextPath)
       catalog.repositories.addAll(nextCatalog.repositories)

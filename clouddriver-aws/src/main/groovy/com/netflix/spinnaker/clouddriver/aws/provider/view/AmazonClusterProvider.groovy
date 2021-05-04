@@ -88,10 +88,9 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
     def serverGroup = serverGroupById.values().first()
 
     String imageId
-
-    Map<String, Object> launchTemplateSpec = asg["launchTemplate"] as Map
-    String launchTemplateName = launchTemplateSpec?.get('launchTemplateName')
-    if (launchTemplateName != null) {
+    Map<String, Object> ltSpec = serverGroup.getLaunchTemplateSpecification()
+    if (ltSpec) {
+      String launchTemplateName = ltSpec.get('launchTemplateName')
       String launchTemplateKey = Keys.getLaunchTemplateKey(launchTemplateName, account, region)
       CacheData launchTemplate = cacheView.get(LAUNCH_TEMPLATES.ns, launchTemplateKey)
       updateServerGroupLaunchSettings(serverGroupById, [launchTemplate])
@@ -272,18 +271,19 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
   }
 
   private Map<String, Set<AmazonCluster>> getClusters0(String applicationName, boolean includeDetails) {
-    CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName))
-    if (application == null) {
-      return null
-    }
-
     Collection<AmazonCluster> clusters
 
     if (includeDetails && cacheView.supportsGetAllByApplication()) {
       clusters = allClustersByApplication(applicationName)
     } else {
-      clusters = translateClusters(resolveRelationshipData(application, CLUSTERS.ns), includeDetails)
+      Collection<String> clusterKeys = cacheView.filterIdentifiers(CLUSTERS.ns, Keys.getClusterKey("*", applicationName, "*"))
+      Collection<CacheData> clusterData = cacheView.getAll(CLUSTERS.ns, clusterKeys)
+      clusters = translateClusters(clusterData, includeDetails)
     }
+    if (!clusters) {
+      return null
+    }
+
     mapResponse(clusters)
   }
 
@@ -308,7 +308,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
       [(sg.id): serverGroup]
     }
 
-    // expand and set launch templates
+    // expand and set launch templates or mixed instances policy
     updateServerGroupLaunchSettings(serverGroups, launchTemplateData)
 
     // expand and set launch configs
@@ -390,9 +390,8 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
     Collection<CacheData> launchTemplates = cacheView.getAll(LAUNCH_TEMPLATES.ns, templates.keySet())
     launchTemplates.each { launchTemplate ->
       def serverGroupId = templates[launchTemplate.id]
+      populateServerGroupWithLtOrMip(serverGroups[serverGroupId], launchTemplate)
       String imageId = launchTemplate.relationships[IMAGES.ns]?.first()
-      def launchTemplateSpec = serverGroups[serverGroupId].asg?.launchTemplate as Map
-      serverGroups[serverGroupId].launchTemplate = getLaunchTemplateVersion(launchTemplate, launchTemplateSpec.version as String)
       if (imageId) {
         if (!allImages.containsKey(imageId)) {
           allImages.put(imageId, [])
@@ -460,10 +459,6 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
     relationships ? cacheView.getAll(relationship, relationships, cacheFilter) : []
   }
 
-  private Collection<CacheData> resolveRelationshipData(CacheData source, String relationship) {
-    resolveRelationshipData(source, relationship) { true }
-  }
-
   private Collection<CacheData> resolveRelationshipData(CacheData source, String relationship, Closure<Boolean> relFilter, CacheFilter cacheFilter = null) {
     Collection<String> filteredRelationships = source.relationships[relationship]?.findAll(relFilter)
     filteredRelationships ? cacheView.getAll(relationship, filteredRelationships, cacheFilter) : []
@@ -496,13 +491,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
 
   @Override
   Set<AmazonCluster> getClusters(String applicationName, String account) {
-    CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName), RelationshipCacheFilter.include(CLUSTERS.ns))
-    if (application == null) {
-      return [] as Set
-    }
-    Collection<String> clusterKeys = application.relationships[CLUSTERS.ns].findAll {
-      Keys.parse(it).account == account
-    }
+    Collection<String> clusterKeys = cacheView.filterIdentifiers(CLUSTERS.ns, Keys.getClusterKey("*", applicationName, account))
     Collection<CacheData> clusters = cacheView.getAll(CLUSTERS.ns, clusterKeys)
     translateClusters(clusters, true) as Set<AmazonCluster>
   }
@@ -538,7 +527,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
   /**
    * Gets a launch template by version
    */
-  private static Map<String, Object> getLaunchTemplateVersion(CacheData launchTemplate, String version) {
+  private static Map<String, Object> getLaunchTemplateForVersion(CacheData launchTemplate, String version) {
     if (!launchTemplate) {
       return null
     }
@@ -561,7 +550,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
   }
 
   /**
-   * Updates server groups launch config or template
+   * Updates server groups launch config or launch template or mixed instances policy
    */
   private static void updateServerGroupLaunchSettings(Map<String, AmazonServerGroup> serverGroups, Collection<CacheData> launchData) {
     for (ld in launchData) {
@@ -569,13 +558,55 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
         ld.relationships[SERVER_GROUPS.ns].each {
           def serverGroup = serverGroups[it]
           if (serverGroup != null) {
-            if (serverGroup.asg?.launchTemplate) {
-              def launchTemplateSpec = serverGroup.asg.launchTemplate as Map
-              serverGroup.launchTemplate = getLaunchTemplateVersion(ld, launchTemplateSpec.version as String)
+            if (serverGroup.getLaunchTemplateSpecification()) {
+              populateServerGroupWithLtOrMip(serverGroup, ld)
             } else {
               serverGroup.launchConfig = ld.attributes
             }
           }
+        }
+      }
+    }
+  }
+
+  /**
+   * Populate server group launch template or mixed instances policy to surface launch settings with launch template.
+   */
+  private static void populateServerGroupWithLtOrMip(AmazonServerGroup serverGroup, CacheData launchData) {
+
+    // get launch template for version specified
+    def ltVersionStr = serverGroup.getLaunchTemplateSpecification()["version"] as String
+    Map ec2Lt = getLaunchTemplateForVersion(launchData, ltVersionStr)
+
+    if (serverGroup.asg?.launchTemplate) {
+      serverGroup.launchTemplate = ec2Lt
+    } else if (serverGroup.asg?.mixedInstancesPolicy) {
+      def mip = serverGroup.asg.mixedInstancesPolicy
+
+      // single instance type case
+      if (!mip["launchTemplate"]["overrides"]) {
+        serverGroup.mixedInstancesPolicy = new AmazonServerGroup.MixedInstancesPolicySettings().tap {
+          allowedInstanceTypes = [ec2Lt["launchTemplateData"]["instanceType"]]
+          instancesDiversification = serverGroup.asg.mixedInstancesPolicy["instancesDistribution"]
+          launchTemplates = [ec2Lt]
+        }
+      } else {
+        // multiple instance types case
+        def overrides = mip["launchTemplate"]["overrides"]
+        def types = []
+        overrides.each {
+          types.add(it["instanceType"])
+        }
+
+        // launchTemplate#instanceType is ignored when it is overridden. So, remove it to prevent accidental misuse / ambiguity.
+        Map ec2LtMinusType = getLaunchTemplateForVersion(launchData, ltVersionStr)
+        ec2LtMinusType["launchTemplateData"].remove("instanceType")
+
+        serverGroup.mixedInstancesPolicy = new AmazonServerGroup.MixedInstancesPolicySettings().tap {
+          allowedInstanceTypes = types.sort()
+          instancesDiversification = serverGroup.asg.mixedInstancesPolicy["instancesDistribution"]
+          launchTemplates = [ ec2LtMinusType ]
+          launchTemplateOverridesForInstanceType = overrides
         }
       }
     }
