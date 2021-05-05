@@ -241,7 +241,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
       }
 
       if (description.useAmiBlockDeviceMappings) {
-        description.blockDevices = AsgConfigHelper.transformBlockDeviceMapping(ami.blockDeviceMappings)
+        description.blockDevices = AsgConfigHelper.convertBlockDevices(ami.blockDeviceMappings)
       }
 
       if (description.spotPrice == "") {
