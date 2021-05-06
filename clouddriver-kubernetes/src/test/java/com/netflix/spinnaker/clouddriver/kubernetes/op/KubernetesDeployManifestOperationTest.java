@@ -21,11 +21,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
@@ -51,6 +53,7 @@ import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -255,6 +258,63 @@ final class KubernetesDeployManifestOperationTest {
         .containsExactlyInAnyOrder("myconfig-v000", "my-name-v000");
   }
 
+  @Test
+  void deploysBindingOptionalArtifactMultiNamespace() {
+    KubernetesDeployManifestDescription description =
+        baseDeployDescription("deploy/replicaset-volumes.yml");
+    description.setEnableArtifactBinding(true);
+    description.setOptionalArtifacts(
+        ImmutableList.of(
+            Artifact.builder()
+                .name("myconfig")
+                .type("kubernetes/configMap")
+                .location("other-namespace")
+                .reference("myconfig-v002")
+                .build(),
+            Artifact.builder()
+                .name("myconfig")
+                .type("kubernetes/configMap")
+                .location("my-namespace")
+                .reference("myconfig-v001")
+                .build()));
+    OperationResult result = deploy(description);
+
+    assertThat(result.getBoundArtifacts().size()).isEqualTo(1);
+    assertThat(result.getBoundArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v001");
+    assertThat(result.getCreatedArtifacts().size()).isEqualTo(1);
+    assertThat(result.getCreatedArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("my-name-v000");
+  }
+
+  @Test
+  void deploysBindingUnmodifiedConfigMap() {
+    String manifestFile = "deploy/replicaset-configmap.yml";
+    KubernetesDeployManifestDescription description = baseDeployDescription(manifestFile);
+    KubernetesManifest existingConfigMap =
+        ManifestFetcher.getManifest(KubernetesDeployManifestOperationTest.class, manifestFile)
+            .get(1);
+    existingConfigMap.setName("myconfig-v001");
+    Map<KubernetesKind, Artifact> existingArtifacts =
+        ImmutableMap.of(
+            KubernetesKind.CONFIG_MAP,
+            Artifact.builder()
+                .type("kubernetes/configMap")
+                .name("myconfig")
+                .version("v001")
+                .reference("myconfig-v001")
+                .metadata(ImmutableMap.of("lastAppliedConfiguration", existingConfigMap))
+                .build());
+    OperationResult result = deploy(description, existingArtifacts);
+
+    assertThat(result.getBoundArtifacts().size()).isEqualTo(1);
+    assertThat(result.getBoundArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("myconfig-v001");
+    assertThat(result.getCreatedArtifacts().size()).isEqualTo(2);
+    assertThat(result.getCreatedArtifacts().stream().map(Artifact::getReference))
+        .containsExactlyInAnyOrder("my-name-v000", "myconfig-v001");
+  }
+
   private static KubernetesDeployManifestDescription baseDeployDescription(String manifest) {
     KubernetesDeployManifestDescription deployManifestDescription =
         new KubernetesDeployManifestDescription()
@@ -335,6 +395,29 @@ final class KubernetesDeployManifestOperationTest {
             any(String.class),
             any(KubernetesCredentials.class)))
         .thenReturn(ImmutableList.of());
+    ResourceVersioner resourceVersioner = new ResourceVersioner(artifactProvider);
+    return new KubernetesDeployManifestOperation(description, resourceVersioner)
+        .operate(ImmutableList.of());
+  }
+
+  private static OperationResult deploy(
+      KubernetesDeployManifestDescription description,
+      Map<KubernetesKind, Artifact> artifactsByKind) {
+    ArtifactProvider artifactProvider = mock(ArtifactProvider.class);
+    when(artifactProvider.getArtifacts(
+            any(KubernetesKind.class),
+            any(String.class),
+            any(String.class),
+            any(KubernetesCredentials.class)))
+        .thenReturn(ImmutableList.of());
+    for (Map.Entry<KubernetesKind, Artifact> entry : artifactsByKind.entrySet()) {
+      when(artifactProvider.getArtifacts(
+              eq(entry.getKey()),
+              any(String.class),
+              any(String.class),
+              any(KubernetesCredentials.class)))
+          .thenReturn(ImmutableList.of(entry.getValue()));
+    }
     ResourceVersioner resourceVersioner = new ResourceVersioner(artifactProvider);
     return new KubernetesDeployManifestOperation(description, resourceVersioner)
         .operate(ImmutableList.of());

@@ -20,6 +20,7 @@ import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.KubeTestUtils;
 import io.restassured.response.Response;
@@ -35,6 +36,7 @@ import org.testcontainers.containers.Container;
 public class DeployManifestIT extends BaseTest {
 
   private static final String DEPLOYMENT_1_NAME = "deployment1";
+  private static final String REPLICASET_1_NAME = "rs1";
   private static final String SERVICE_1_NAME = "service1";
   private static String account1Ns;
 
@@ -421,6 +423,76 @@ public class DeployManifestIT extends BaseTest {
         imageWithTag,
         imageDeployed,
         "Expected correct " + DEPLOYMENT_1_NAME + " image to be deployed");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a replicaSet manifest without image tag\n"
+          + "  And required docker artifact present\n"
+          + "When sending deploy manifest request two times\n"
+          + "Then there are two replicaSet versions deployed\n===")
+  @Test
+  public void shouldStepReplicaSetVersion() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String appName = "step-rs";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    String imageNoTag = "index.docker.io/library/alpine";
+    String imageWithTag = "index.docker.io/library/alpine:3.12";
+
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", REPLICASET_1_NAME)
+            .withValue("spec.template.spec.containers[0].image", imageNoTag)
+            .withValue(
+                "spec.template.spec.containers[0].command",
+                ImmutableList.of("tail", "-f", "/dev/null"))
+            .asList();
+    Map<String, Object> artifact =
+        KubeTestUtils.loadJson("classpath:requests/artifact.json")
+            .withValue("name", imageNoTag)
+            .withValue("type", "docker/image")
+            .withValue("reference", imageWithTag)
+            .withValue("version", imageWithTag.substring(imageNoTag.length() + 1))
+            .asMap();
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .withValue("deployManifest.requiredArtifacts[0]", artifact)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "replicaSet " + REPLICASET_1_NAME + "-v000");
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "replicaSet " + REPLICASET_1_NAME + "-v001");
+
+    // ------------------------- then --------------------------
+    String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
+    String readyPods =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get rs "
+                + REPLICASET_1_NAME
+                + "-v001 -o=jsonpath='{.status.readyReplicas}'");
+    assertEquals(
+        "1",
+        readyPods,
+        "Expected one ready pod for " + REPLICASET_1_NAME + "-v001 replicaSet. Pods:\n" + pods);
+    String imageDeployed =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get rs "
+                + REPLICASET_1_NAME
+                + "-v001 -o=jsonpath='{.spec.template.spec.containers[0].image}'");
+    assertEquals(
+        imageWithTag,
+        imageDeployed,
+        "Expected correct " + REPLICASET_1_NAME + "-v001 image to be deployed");
   }
 
   @DisplayName(
