@@ -332,9 +332,15 @@ public class AsgConfigHelper {
         .collect(Collectors.toList());
   }
 
+  /**
+   * Transform AWS EC2 BlockDeviceMapping to {@link AmazonBlockDevice}. Used to convert the AMI
+   * BlockDevices information into AmazonBlockDevice
+   *
+   * @param blockDeviceMappings AWS EC2 BlockDeviceMappings
+   * @return list of AmazonBlockDevice
+   */
   protected static List<AmazonBlockDevice> convertBlockDevices(
       List<com.amazonaws.services.ec2.model.BlockDeviceMapping> blockDeviceMappings) {
-    blockDeviceMappings.forEach(b -> log.info(b.getDeviceName()));
     return blockDeviceMappings.stream()
         .map(
             bdm -> {
@@ -351,6 +357,9 @@ public class AsgConfigHelper {
                 amzBd.setSize(ebs.getVolumeSize());
                 amzBd.setVolumeType(ebs.getVolumeType());
                 amzBd.setSnapshotId(ebs.getSnapshotId());
+                if (ebs.getKmsKeyId() != null) {
+                  amzBd.setKmsKeyId(ebs.getKmsKeyId());
+                }
                 if (ebs.getSnapshotId() == null) {
                   // only set encryption if snapshotId isn't provided. AWS will error out otherwise
                   amzBd.setEncrypted(ebs.getEncrypted());
