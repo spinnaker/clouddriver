@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Netflix, Inc.
+ * Copyright 2021 Armory, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,14 @@ import com.netflix.spinnaker.clouddriver.deploy.GlobalDescriptionValidator;
 import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors;
 import java.util.List;
 import java.util.Optional;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class CompositeDescriptionValidator<T> extends DescriptionValidator<T> {
 
   private final String cloudProvider;
-  private final DescriptionValidator<T> validator;
+  @Getter private final DescriptionValidator<T> validator;
   private final List<GlobalDescriptionValidator> globalValidators;
 
   public CompositeDescriptionValidator(
