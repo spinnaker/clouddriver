@@ -45,5 +45,6 @@ public interface GlobalDescriptionValidator extends SpinnakerExtensionPoint {
    * Validates the {@code description} and adds any validation errors to the {@code errors}
    * parameter.
    */
-  <T> void validate(List<T> priorDescriptions, T description, ValidationErrors errors);
+  <T> void validate(
+      String operationName, List<T> priorDescriptions, T description, ValidationErrors errors);
 }

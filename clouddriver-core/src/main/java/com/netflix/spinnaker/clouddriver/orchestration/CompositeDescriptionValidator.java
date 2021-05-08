@@ -27,14 +27,17 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class CompositeDescriptionValidator<T> extends DescriptionValidator<T> {
 
+  private final String operationName;
   private final String cloudProvider;
   @Getter private final DescriptionValidator<T> validator;
   private final List<GlobalDescriptionValidator> globalValidators;
 
   public CompositeDescriptionValidator(
+      String operationName,
       String cloudProvider,
       DescriptionValidator<T> validator,
       List<GlobalDescriptionValidator> extensibleValidators) {
+    this.operationName = operationName;
     this.cloudProvider = cloudProvider;
     this.validator = validator;
     this.globalValidators = extensibleValidators;
@@ -46,7 +49,7 @@ public class CompositeDescriptionValidator<T> extends DescriptionValidator<T> {
       globalValidators.forEach(
           v -> {
             if (v.handles(description)) {
-              v.validate(priorDescriptions, description, errors);
+              v.validate(operationName, priorDescriptions, description, errors);
             }
           });
     }
@@ -56,9 +59,9 @@ public class CompositeDescriptionValidator<T> extends DescriptionValidator<T> {
               .map(it -> it.getClass().getSimpleName())
               .orElse("UNKNOWN");
       log.warn(
-          "No validator found for operation {} and cloud provider {}",
-          operationName,
-          cloudProvider);
+          String.format(
+              "No validator found for operation %s and cloud provider %s",
+              operationName, cloudProvider));
     } else {
       validator.validate(priorDescriptions, description, errors);
     }
