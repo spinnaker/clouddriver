@@ -23,7 +23,6 @@ import com.netflix.spinnaker.clouddriver.deploy.GlobalDescriptionValidator
 import com.netflix.spinnaker.clouddriver.exceptions.CloudProviderNotFoundException
 import com.netflix.spinnaker.kork.exceptions.UserException
 import groovy.util.logging.Slf4j
-import org.apache.commons.lang3.StringUtils
 import org.springframework.beans.factory.NoSuchBeanDefinitionException
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -94,7 +93,7 @@ class AnnotationsBasedAtomicOperationsRegistry extends ApplicationContextAtomicO
     try {
       DescriptionValidator descriptionValidator = super.getAtomicOperationDescriptionValidator(validator, cloudProvider)
       if (descriptionValidator) {
-        return new CompositeDescriptionValidator(cloudProvider, descriptionValidator, globalDescriptionValidators)
+        return new CompositeDescriptionValidator(DescriptionValidator.getOperationName(validator), cloudProvider, descriptionValidator, globalDescriptionValidators)
       }
     } catch (NoSuchBeanDefinitionException e) {}
 
@@ -109,7 +108,7 @@ class AnnotationsBasedAtomicOperationsRegistry extends ApplicationContextAtomicO
 
     DescriptionValidator descriptionValidator = validators ? (DescriptionValidator) validators[0] : null
 
-    return new CompositeDescriptionValidator(StringUtils.removeEnd(validator, "Validator"), cloudProvider, descriptionValidator, globalDescriptionValidators);
+    return new CompositeDescriptionValidator(DescriptionValidator.getOperationName(validator), cloudProvider, descriptionValidator, globalDescriptionValidators);
   }
 
   protected Class<? extends Annotation> getCloudProviderAnnotation(String cloudProvider) {
