@@ -357,8 +357,9 @@ public class KubernetesCredentials {
     }
   }
 
-  public List<String> getDeclaredNamespaces() {
-    List<String> result;
+  @Nonnull
+  public ImmutableList<String> getDeclaredNamespaces() {
+    ImmutableList<String> result;
     if (!namespaces.isEmpty()) {
       result = namespaces;
     } else {
@@ -367,7 +368,9 @@ public class KubernetesCredentials {
 
     if (!omitNamespaces.isEmpty()) {
       result =
-          result.stream().filter(n -> !omitNamespaces.contains(n)).collect(Collectors.toList());
+          result.stream()
+              .filter(n -> !omitNamespaces.contains(n))
+              .collect(ImmutableList.toImmutableList());
     }
 
     return result;
