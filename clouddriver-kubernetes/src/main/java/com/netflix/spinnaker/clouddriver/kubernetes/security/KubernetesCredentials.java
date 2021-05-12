@@ -358,14 +358,8 @@ public class KubernetesCredentials {
   }
 
   @Nonnull
-  public ImmutableList<String> getDeclaredNamespaces() {
-    ImmutableList<String> result;
-    if (!namespaces.isEmpty()) {
-      result = namespaces;
-    } else {
-      result = liveNamespaceSupplier.get();
-    }
-
+  public ImmutableList<String> filterNamespaces(@Nonnull ImmutableList<String> namespaces) {
+    ImmutableList<String> result = namespaces;
     if (!omitNamespaces.isEmpty()) {
       result =
           result.stream()
@@ -374,6 +368,18 @@ public class KubernetesCredentials {
     }
 
     return result;
+  }
+
+  @Nonnull
+  public ImmutableList<String> getDeclaredNamespaces() {
+    ImmutableList<String> result;
+    if (!namespaces.isEmpty()) {
+      result = namespaces;
+    } else {
+      result = liveNamespaceSupplier.get();
+    }
+
+    return filterNamespaces(result);
   }
 
   public boolean isMetricsEnabled() {
