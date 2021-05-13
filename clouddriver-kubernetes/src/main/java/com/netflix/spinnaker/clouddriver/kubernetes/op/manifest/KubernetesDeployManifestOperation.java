@@ -134,7 +134,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
                   credentials.getNamer().applyMoniker(manifest, moniker);
                   manifest.setName(artifact.getReference());
 
-                  return new ManifestArtifactHolder(manifest, artifact);
+                  return new ManifestArtifactHolder(manifest, artifact, strategy);
                 })
             .collect(Collectors.toList());
 
@@ -143,8 +143,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     toDeploy.forEach(
         holder -> {
           KubernetesResourceProperties properties = findResourceProperties(holder.manifest);
-          KubernetesManifestStrategy strategy =
-              KubernetesManifestAnnotater.getStrategy(holder.manifest);
+          KubernetesManifestStrategy strategy = holder.strategy;
           KubernetesHandler deployer = properties.getHandler();
           getTask()
               .updateStatus(
@@ -370,5 +369,6 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
   private static class ManifestArtifactHolder {
     @Nonnull private KubernetesManifest manifest;
     @Nonnull private Artifact artifact;
+    @Nonnull private KubernetesManifestStrategy strategy;
   }
 }
