@@ -386,6 +386,7 @@ public class KubernetesCredentials {
       result = liveNamespaceSupplier.getIfPresent();
       if (result == null) {
         // There's nothing in the cache, so return an empty list
+        log.warn("No cached namespaces for account {}", accountName);
         result = ImmutableList.of();
       }
     }
