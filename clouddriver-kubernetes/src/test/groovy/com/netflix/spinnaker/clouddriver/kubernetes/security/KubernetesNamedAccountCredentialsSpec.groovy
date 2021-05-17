@@ -90,13 +90,11 @@ class KubernetesNamedAccountCredentialsSpec extends Specification {
 
   void 'getting namespaces makes no calls to kubernetes'() {
     given: 'an account that does not specify namespaces'
-      def file1 = Files.createTempFile("test", "")
-      file1.append("some content")
       def account1Def = new KubernetesConfigurationProperties.ManagedAccount()
       account1Def.setName("test")
       account1Def.setCacheThreads(1)
       account1Def.getPermissions().add(Authorization.READ, "test@test.com")
-      account1Def.setKubeconfigFile(file1.toString())
+      account1Def.setServiceAccount(true);
       def account1 = new KubernetesNamedAccountCredentials(account1Def, credentialFactory)
 
     when: 'retrieving namespaces for the account'
@@ -104,8 +102,5 @@ class KubernetesNamedAccountCredentialsSpec extends Specification {
 
     then: 'no calls to kubernetes occurred'
       0 * mockKubectlJobExecutor._
-
-    cleanup:
-      Files.delete(file1)
   }
 }
