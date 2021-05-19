@@ -51,7 +51,7 @@ public class KubernetesJobProvider implements JobProvider<KubernetesJobStatus> {
   KubernetesJobProvider(
       AccountCredentialsProvider accountCredentialsProvider,
       KubernetesManifestProvider manifestProvider,
-      @Value("${kubernetes.jobs.detailed-pod-status:false}") boolean detailedPodStatus) {
+      @Value("${kubernetes.jobs.detailed-pod-status:true}") boolean detailedPodStatus) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.manifestProvider = manifestProvider;
     this.detailedPodStatus = detailedPodStatus;
