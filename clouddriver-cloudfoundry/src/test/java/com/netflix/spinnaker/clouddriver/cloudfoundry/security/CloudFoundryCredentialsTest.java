@@ -20,7 +20,8 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.security;
 import static java.util.Collections.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -28,12 +29,15 @@ import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
+import okhttp3.OkHttpClient;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 public class CloudFoundryCredentialsTest {
@@ -43,50 +47,14 @@ public class CloudFoundryCredentialsTest {
 
   @Test
   void emptySpaceFilterShouldConvertToEmptyList() {
-    CloudFoundryCredentials credentials =
-        new CloudFoundryCredentials(
-            "test",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            false,
-            500,
-            cacheRepository,
-            null,
-            ForkJoinPool.commonPool(),
-            emptyMap());
+    CloudFoundryCredentials credentials = getStubCloudFoundryCredentials();
 
     assertThat(credentials.getFilteredSpaces()).isEqualTo(emptyList());
   }
 
   @Test
   void singleOrgSpaceFilterShouldConvert() {
-    CloudFoundryCredentials credentials =
-        new CloudFoundryCredentials(
-            "test",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            false,
-            500,
-            cacheRepository,
-            null,
-            ForkJoinPool.commonPool(),
-            emptyMap()) {
-          public CloudFoundryClient getClient() {
-            return cloudFoundryClient;
-          }
-
-          public CloudFoundryClient getCredentials() {
-            return cloudFoundryClient;
-          }
-        };
+    CloudFoundryCredentials credentials = getStubCloudFoundryCredentials();
 
     Map<String, Set<String>> spaceFilter = ImmutableMap.of("org", emptySet());
 
@@ -113,29 +81,7 @@ public class CloudFoundryCredentialsTest {
 
   @Test
   void singleOrgSingleSpaceSpaceFilterShouldConvert() {
-    CloudFoundryCredentials credentials =
-        new CloudFoundryCredentials(
-            "test",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            false,
-            500,
-            cacheRepository,
-            null,
-            ForkJoinPool.commonPool(),
-            emptyMap()) {
-          public CloudFoundryClient getClient() {
-            return cloudFoundryClient;
-          }
-
-          public CloudFoundryClient getCredentials() {
-            return cloudFoundryClient;
-          }
-        };
+    CloudFoundryCredentials credentials = getStubCloudFoundryCredentials();
 
     Map<String, Set<String>> spaceFilter = ImmutableMap.of("org", Set.of("space1"));
 
@@ -162,29 +108,7 @@ public class CloudFoundryCredentialsTest {
 
   @Test
   void fakeOrgFakeSpaceSpaceFilterShouldThrowError() {
-    CloudFoundryCredentials credentials =
-        new CloudFoundryCredentials(
-            "test",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            false,
-            500,
-            cacheRepository,
-            null,
-            ForkJoinPool.commonPool(),
-            emptyMap()) {
-          public CloudFoundryClient getClient() {
-            return cloudFoundryClient;
-          }
-
-          public CloudFoundryClient getCredentials() {
-            return cloudFoundryClient;
-          }
-        };
+    CloudFoundryCredentials credentials = getStubCloudFoundryCredentials();
 
     Map<String, Set<String>> spaceFilter = ImmutableMap.of("org", Set.of("space1"));
 
@@ -195,5 +119,33 @@ public class CloudFoundryCredentialsTest {
     assertThat(e)
         .hasMessageContaining(
             "The spaceFilter had Orgs and/or Spaces but CloudFoundry returned no spaces as a result. Spaces must not be null or empty when a spaceFilter is included.");
+  }
+
+  @NotNull
+  private CloudFoundryCredentials getStubCloudFoundryCredentials() {
+    return new CloudFoundryCredentials(
+        "test",
+        "managerUri",
+        "metricsUri",
+        "api.host",
+        "username",
+        "password",
+        "environment",
+        false,
+        500,
+        cacheRepository,
+        null,
+        ForkJoinPool.commonPool(),
+        emptyMap(),
+        new OkHttpClient(),
+        new CloudFoundryConfigurationProperties.ClientConfig()) {
+      public CloudFoundryClient getClient() {
+        return cloudFoundryClient;
+      }
+
+      public CloudFoundryClient getCredentials() {
+        return cloudFoundryClient;
+      }
+    };
   }
 }

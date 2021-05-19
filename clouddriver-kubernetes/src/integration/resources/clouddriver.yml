@@ -9,7 +9,7 @@ kubernetes:
   primaryAccount: account1
   accounts:
     - name: account1
-      cacheIntervalSeconds: 10
+      cacheIntervalSeconds: 5
       requiredGroupMembership: []
       providerVersion: V2
       permissions: {}
@@ -17,37 +17,12 @@ kubernetes:
       configureImagePullSecrets: true
       cacheThreads: 3
       namespaces:
-        - testns00
-        - testns01
-        - testns02
-        - testns03
-        - testns04
-        - testns05
-        - testns06
-        - testns07
-        - testns08
-        - testns09
-        - testns10
-        - testns11
-        - testns12
-        - testns13
-        - testns14
-        - testns15
-        - testns16
-        - testns17
-        - testns18
-        - testns19
-        - testns20
-        - testns21
-        - testns22
-        - testns23
-        - testns24
-        - testns25
-        - testns26
-        - testns27
-        - testns28
-        - testns29
-        - testns30
+        - default
+        - account1-testns00
+        - account1-testns01
+        - account1-testns02
+        - account1-testns03
+        - account1-testns04
       omitNamespaces: []
       kinds:
         - pod
@@ -56,6 +31,7 @@ kubernetes:
         - service
         - configmap
         - secret
+        - networkpolicy
       omitKinds: []
       customResources: []
       cachingPolicies: []
@@ -63,18 +39,26 @@ kubernetes:
       oAuthScopes: []
       onlySpinnakerManaged: true
       metrics: false
-      kubeconfigFile: ${KUBECONFIGS_HOME}/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
+      kubeconfigFile: ${KUBECONFIGS_HOME}/kubecfg-${containername}.yml  # File is automatically created during initialization
     - name: account2
-      cacheIntervalSeconds: 30
+      cacheIntervalSeconds: 5
       requiredGroupMembership: []
       providerVersion: V2
       permissions: {}
       dockerRegistries: []
       configureImagePullSecrets: true
       cacheThreads: 1
-      namespaces: []
+      namespaces:
+        - account2-testns00
       omitNamespaces: []
-      kinds: []
+      kinds:
+        - pod
+        - replicaset
+        - deployment
+        - service
+        - configmap
+        - secret
+        - networkpolicy
       omitKinds: []
       customResources: []
       cachingPolicies: []
@@ -82,9 +66,10 @@ kubernetes:
       oAuthScopes: []
       onlySpinnakerManaged: true
       metrics: false
-      kubeconfigFile: ${KUBECONFIGS_HOME}/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
+      kubeconfigFile: ${KUBECONFIGS_HOME}/kubecfg-${containername}.yml  # File is automatically created during initialization
 
-logging.level.com.netflix.spinnaker.cats.sql.cluster: DEBUG
+logging.level.com.netflix.spinnaker.cats.sql.cluster: INFO
+logging.level.com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter: WARN
 
 sql:
   enabled: true

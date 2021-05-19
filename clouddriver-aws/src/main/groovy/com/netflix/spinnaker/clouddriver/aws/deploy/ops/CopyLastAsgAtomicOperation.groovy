@@ -135,7 +135,7 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
         String iamInstanceProfile
         String imageId
         String instanceType
-        String spotPrice
+        String spotMaxPrice
         String keyName
         String kernelId
         String ramdiskId
@@ -168,9 +168,10 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
           ebsOptimized = launchTemplateData.ebsOptimized
           iamInstanceProfile = launchTemplateData.iamInstanceProfile?.name
           instanceMonitoring = launchTemplateData.monitoring?.enabled
-          spotPrice = launchTemplateData.instanceMarketOptions?.spotOptions?.maxPrice
+          spotMaxPrice = launchTemplateData.instanceMarketOptions?.spotOptions?.maxPrice
+          newDescription.enableEnclave = description.enableEnclave != null ? description.enableEnclave :  launchTemplateData.enclaveOptions?.getEnabled()
           newDescription.requireIMDSv2 = description.requireIMDSv2 != null ? description.requireIMDSv2 : launchTemplateData.metadataOptions?.httpTokens == "required"
-          newDescription.associateIPv6Address = description.associateIPv6Address 
+          newDescription.associateIPv6Address = description.associateIPv6Address
           if (!launchTemplateData.networkInterfaces?.empty && launchTemplateData.networkInterfaces*.associatePublicIpAddress?.any()) {
             associatePublicIpAddress = true
           }
@@ -196,7 +197,7 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
           kernelId = ancestorLaunchConfiguration.kernelId
           userData = ancestorLaunchConfiguration.userData
           ramdiskId = ancestorLaunchConfiguration.ramdiskId
-          spotPrice = ancestorLaunchConfiguration.spotPrice
+          spotMaxPrice = ancestorLaunchConfiguration.spotPrice
           ebsOptimized = ancestorLaunchConfiguration.ebsOptimized
           instanceType = ancestorLaunchConfiguration.instanceType
           securityGroups = ancestorLaunchConfiguration.securityGroups
@@ -246,6 +247,7 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
         newDescription.tags = description.tags != null ? description.tags : ancestorAsg.tags.collectEntries {
           [(it.getKey()): it.getValue()]
         }
+        newDescription.blockDevices
 
         /*
           Copy over the ancestor user data only if the UserDataProviders behavior is disabled and no user data is provided
@@ -257,7 +259,7 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
         }
 
         if (description.spotPrice == null) {
-          newDescription.spotPrice = spotPrice
+          newDescription.spotPrice = spotMaxPrice
         } else if (description.spotPrice) {
           newDescription.spotPrice = description.spotPrice
         } else { // ""

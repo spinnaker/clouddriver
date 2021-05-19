@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.asg
 
-
 import com.netflix.spinnaker.clouddriver.aws.deploy.asg.asgbuilders.*
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.BasicAmazonDeployDescription
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonAsgLifecycleHook
@@ -87,6 +86,7 @@ class AutoScalingWorker {
     List<String> availabilityZones
     List<AmazonBlockDevice> blockDevices
     Map<String, String> tags
+    Map<String, String> blockDeviceTags
     List<AmazonAsgLifecycleHook> lifecycleHooks
     int minInstances
     int maxInstances
@@ -99,6 +99,29 @@ class AutoScalingWorker {
     Boolean unlimitedCpuCredits
     BasicAmazonDeployDescription.LaunchTemplatePlacement placement
     List<BasicAmazonDeployDescription.LaunchTemplateLicenseSpecification> licenseSpecifications
+
+    /** Mixed Instances Policy properties **/
+    String onDemandAllocationStrategy
+    Integer onDemandBaseCapacity
+    Integer onDemandPercentageAboveBaseCapacity
+    String spotAllocationStrategy
+    Integer spotInstancePools
+    List<BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType> launchTemplateOverridesForInstanceType
+
+    /**
+     * Helper function to determine if the ASG should be created with mixed instances policy, when launch templates are enabled
+     * @return boolean true if mixed instances policy parameters are found, false otherwise
+     */
+    boolean shouldUseMixedInstancesPolicy() {
+      def shouldUseMip = false
+      BasicAmazonDeployDescription.getMixedInstancesPolicyFieldNames().any {
+        if (this."$it") {
+          shouldUseMip = true
+        }
+      }
+      return shouldUseMip
+    }
+    Boolean enableEnclave
   }
 
   /**
@@ -144,16 +167,18 @@ class AutoScalingWorker {
     if (shouldSetLaunchTemplate(asgConfig)) {
 
       // process the IPv6 setting conditionally
-      if(asgConfig.getAssociateIPv6Address() == null) {
+      if (asgConfig.getAssociateIPv6Address() == null) {
         def asgConfigEnv = asgConfig.getCredentials().getEnvironment()
         def autoEnableIPv6 = dynamicConfigService.getConfig(Boolean.class, "aws.features.launch-templates.ipv6.${asgConfigEnv}", false)
         asgConfig.setAssociateIPv6Address(autoEnableIPv6)
       }
 
-      // get ASG builder for launch template
-      asgBuilder = regionScopedProvider.getAsgBuilderForLaunchTemplate()
+      if (asgConfig.shouldUseMixedInstancesPolicy()) {
+        asgBuilder = regionScopedProvider.getAsgBuilderForMixedInstancesPolicy()
+      } else {
+        asgBuilder = regionScopedProvider.getAsgBuilderForLaunchTemplate()
+      }
     } else {
-      // get ASG builder for launch configuration
       asgBuilder = regionScopedProvider.getAsgBuilderForLaunchConfiguration()
     }
 

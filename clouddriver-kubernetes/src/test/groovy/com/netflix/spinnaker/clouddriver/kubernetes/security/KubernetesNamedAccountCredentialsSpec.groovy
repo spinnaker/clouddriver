@@ -21,9 +21,11 @@ import com.google.common.collect.ImmutableList
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.description.AccountResourcePropertyRegistry
+import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesManifestNamer
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesNamerRegistry
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregisteredCustomResourceHandler
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.fiat.model.Authorization
 import com.netflix.spinnaker.kork.configserver.ConfigFileService
@@ -37,14 +39,19 @@ class KubernetesNamedAccountCredentialsSpec extends Specification {
   AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory = Mock(AccountResourcePropertyRegistry.Factory)
   KubernetesKindRegistry.Factory kindRegistryFactory = Mock(KubernetesKindRegistry.Factory)
   KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap = new KubernetesSpinnakerKindMap(ImmutableList.of())
+  GlobalResourcePropertyRegistry globalResourcePropertyRegistry = new GlobalResourcePropertyRegistry(ImmutableList.of(), new KubernetesUnregisteredCustomResourceHandler())
+
+  KubectlJobExecutor mockKubectlJobExecutor = Mock(KubectlJobExecutor)
+
   KubernetesCredentials.Factory credentialFactory = new KubernetesCredentials.Factory(
     new NoopRegistry(),
     namerRegistry,
-    Mock(KubectlJobExecutor),
+    mockKubectlJobExecutor,
     configFileService,
     resourcePropertyRegistryFactory,
     kindRegistryFactory,
-    kubernetesSpinnakerKindMap
+    kubernetesSpinnakerKindMap,
+    globalResourcePropertyRegistry
   )
 
 
@@ -79,5 +86,21 @@ class KubernetesNamedAccountCredentialsSpec extends Specification {
     cleanup:
       Files.delete(file1)
       Files.delete(file2)
+  }
+
+  void 'getting namespaces makes no calls to kubernetes'() {
+    given: 'an account that does not specify namespaces'
+      def account1Def = new KubernetesConfigurationProperties.ManagedAccount()
+      account1Def.setName("test")
+      account1Def.setCacheThreads(1)
+      account1Def.getPermissions().add(Authorization.READ, "test@test.com")
+      account1Def.setServiceAccount(true);
+      def account1 = new KubernetesNamedAccountCredentials(account1Def, credentialFactory)
+
+    when: 'retrieving namespaces for the account'
+      account1.getNamespaces()
+
+    then: 'no calls to kubernetes occurred'
+      0 * mockKubectlJobExecutor._
   }
 }
