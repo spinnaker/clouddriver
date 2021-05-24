@@ -336,6 +336,20 @@ public class LaunchTemplateService {
             .withGroups(asgConfig.getSecurityGroups())
             .withDeviceIndex(0));
 
+<<<<<<< HEAD
+=======
+    // Nitro Enclave options
+    if (asgConfig.getEnableEnclave() != null) {
+      request.setEnclaveOptions(
+          new LaunchTemplateEnclaveOptionsRequest().withEnabled(asgConfig.getEnableEnclave()));
+    }
+
+    // block device mappings
+    if (asgConfig.getBlockDevices() != null && !asgConfig.getBlockDevices().isEmpty()) {
+      request.setBlockDeviceMappings(buildDeviceMapping(asgConfig.getBlockDevices()));
+    }
+
+>>>>>>> 07186a01e (fix(6430): Adding missing block device mappings for new launch templates (#5370))
     return request;
   }
 
