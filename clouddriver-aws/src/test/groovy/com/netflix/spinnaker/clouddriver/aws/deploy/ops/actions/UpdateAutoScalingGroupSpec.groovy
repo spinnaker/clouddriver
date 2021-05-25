@@ -255,17 +255,17 @@ class UpdateAutoScalingGroupSpec extends Specification {
     // verify clean up and exception message
     if (newLtVersionNum) {
       if (deleteLtVersionFailed) {
-        1 * ltService.deleteLaunchTemplateVersion(ltVersion.launchTemplateId, ltVersion.getVersionNumber()) >> { throw new RuntimeException("Launch template version delete failed!") }
+        1 * ltService.deleteLaunchTemplateVersion(ltVersion.launchTemplateId, newLtVersionNum) >> { throw new RuntimeException("Failed to delete launch template version $newLtVersionNum for launch template ID $ltVersion.launchTemplateId because of error 'unexpectedError'") }
       } else {
-        1 * ltService.deleteLaunchTemplateVersion(ltVersion.launchTemplateId, ltVersion.getVersionNumber())
+        1 * ltService.deleteLaunchTemplateVersion(ltVersion.launchTemplateId, newLtVersionNum)
       }
     }
     ex.message == exceptionMsgExpected
 
     where:
     newLtVersionNum | deleteLtVersionFailed |  exceptionMsgExpected
-          null      |          _            | "Failed to update server group test-v001. Error message(s): Update ASG failed!"
-          3L        |         true          | "Failed to update server group test-v001. Error message(s): Update ASG failed!Launch template version delete failed!"
-          3L        |         false         | "Failed to update server group test-v001. Error message(s): Update ASG failed!"
+          null      |          _            | "Failed to update server group test-v001.Error: Update ASG failed!\n"
+          3L        |         true          | "Failed to update server group test-v001.Error: Update ASG failed!\nFailed to clean up launch template version! Error: Failed to delete launch template version 3 for launch template ID lt-1 because of error 'unexpectedError'"
+          3L        |         false         | "Failed to update server group test-v001.Error: Update ASG failed!\n"
   }
 }

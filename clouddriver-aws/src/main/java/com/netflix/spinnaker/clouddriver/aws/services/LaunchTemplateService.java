@@ -149,6 +149,12 @@ public class LaunchTemplateService {
                 .withLaunchTemplateId(sourceLtVersion.getLaunchTemplateId())
                 .withLaunchTemplateData(data));
 
+    log.info(
+        String.format(
+            "Created new launch template version %s for launch template ID %s",
+            result.getLaunchTemplateVersion().getVersionNumber(),
+            result.getLaunchTemplateVersion().getLaunchTemplateId()));
+
     return result.getLaunchTemplateVersion();
   }
 
@@ -176,6 +182,9 @@ public class LaunchTemplateService {
       DeleteLaunchTemplateVersionsResponseErrorItem responseErrorItem =
           result.getUnsuccessfullyDeletedLaunchTemplateVersions().get(0);
       ResponseError failureResponseError = responseErrorItem.getResponseError();
+
+      // certain error codes can be considered success when they match the desired end state.
+      // this also acts as a safety net in retry scenarios.
       List<String> codesConsideredSuccess =
           List.of("launchTemplateIdDoesNotExist", "launchTemplateVersionDoesNotExist");
 
@@ -183,7 +192,7 @@ public class LaunchTemplateService {
           && !codesConsideredSuccess.contains(failureResponseError.getCode())) {
         throw new RuntimeException(
             String.format(
-                "Failed to delete launch template version %s for launch template ID %s because of %s",
+                "Failed to delete launch template version %s for launch template ID %s because of error '%s'",
                 responseErrorItem.getVersionNumber(),
                 responseErrorItem.getLaunchTemplateId(),
                 failureResponseError.getCode()));

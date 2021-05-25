@@ -322,7 +322,7 @@ class LaunchTemplateServiceSpec extends Specification {
     and:
     def ex = thrown(RuntimeException)
     errorCode
-      ? ex.message == "Failed to delete launch template version 2 for launch template ID lt-1 because of " + errorCode
+      ? ex.message == "Failed to delete launch template version 2 for launch template ID lt-1 because of error '" + errorCode + "'"
       : ex == null
 
     where:

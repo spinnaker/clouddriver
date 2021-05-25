@@ -39,6 +39,7 @@ import com.netflix.spinnaker.clouddriver.saga.flow.SagaAction;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -84,91 +85,53 @@ public class UpdateAutoScalingGroup
         getAutoScalingGroup(description.getAsgName(), regionScopedProvider);
     boolean isAsgBackedByMip = autoScalingGroup.getMixedInstancesPolicy() != null;
 
+    String ltId = command.launchTemplateVersion.getLaunchTemplateId();
+    String ltVersion = String.valueOf(command.launchTemplateVersion.getVersionNumber());
+
     if (isAsgBackedByMip) {
       // update existing MIP
       final MixedInstancesPolicy existingMipInAsg = autoScalingGroup.getMixedInstancesPolicy();
 
-      MixedInstancesPolicy mip =
-          new MixedInstancesPolicy()
-              .withLaunchTemplate(
-                  new LaunchTemplate()
-                      .withLaunchTemplateSpecification(
-                          new LaunchTemplateSpecification()
-                              .withLaunchTemplateId(
-                                  command.launchTemplateVersion.getLaunchTemplateId())
-                              .withVersion(
-                                  String.valueOf(command.launchTemplateVersion.getVersionNumber())))
-                      .withOverrides(
-                          command.launchTemplateOverrides != null
-                              ? command.launchTemplateOverrides
-                              : existingMipInAsg.getLaunchTemplate().getOverrides()))
-              .withInstancesDistribution(
-                  new InstancesDistribution()
-                      .withOnDemandAllocationStrategy(
-                          description.getOnDemandAllocationStrategy() != null
-                              ? description.getOnDemandAllocationStrategy()
-                              : existingMipInAsg
-                                  .getInstancesDistribution()
-                                  .getOnDemandAllocationStrategy())
-                      .withOnDemandBaseCapacity(
-                          description.getOnDemandBaseCapacity() != null
-                              ? description.getOnDemandBaseCapacity()
-                              : existingMipInAsg
-                                  .getInstancesDistribution()
-                                  .getOnDemandBaseCapacity())
-                      .withOnDemandPercentageAboveBaseCapacity(
-                          description.getOnDemandPercentageAboveBaseCapacity() != null
-                              ? description.getOnDemandPercentageAboveBaseCapacity()
-                              : existingMipInAsg
-                                  .getInstancesDistribution()
-                                  .getOnDemandPercentageAboveBaseCapacity())
-                      .withSpotAllocationStrategy(
-                          description.getSpotAllocationStrategy() != null
-                              ? description.getSpotAllocationStrategy()
-                              : existingMipInAsg
-                                  .getInstancesDistribution()
-                                  .getSpotAllocationStrategy())
-                      .withSpotInstancePools(
-                          description.getSpotInstancePools() != null
-                              ? description.getSpotInstancePools()
-                              : existingMipInAsg.getInstancesDistribution().getSpotInstancePools())
-                      .withSpotMaxPrice(
-                          StringUtils.isNotBlank(description.getSpotPrice())
-                              ? description.getSpotPrice()
-                              : existingMipInAsg.getInstancesDistribution().getSpotMaxPrice()));
+      final InstancesDistribution existingDist = existingMipInAsg.getInstancesDistribution();
+      final MixedInstancesPolicy mip =
+          getMixedInstancesPolicy(
+              ltId,
+              ltVersion,
+              Optional.ofNullable(command.launchTemplateOverrides)
+                  .orElse(existingMipInAsg.getLaunchTemplate().getOverrides()),
+              Optional.ofNullable(description.getOnDemandAllocationStrategy())
+                  .orElse(existingDist.getOnDemandAllocationStrategy()),
+              Optional.ofNullable(description.getOnDemandBaseCapacity())
+                  .orElse(existingDist.getOnDemandBaseCapacity()),
+              Optional.ofNullable(description.getOnDemandPercentageAboveBaseCapacity())
+                  .orElse(existingDist.getOnDemandPercentageAboveBaseCapacity()),
+              Optional.ofNullable(description.getSpotAllocationStrategy())
+                  .orElse(existingDist.getSpotAllocationStrategy()),
+              Optional.ofNullable(description.getSpotInstancePools())
+                  .orElse(existingDist.getSpotInstancePools()),
+              Optional.ofNullable(description.getSpotPrice())
+                  .orElse(existingDist.getSpotMaxPrice()));
 
       updateReq.withMixedInstancesPolicy(mip);
     } else {
       if (command.isReqToUpgradeAsgToMixedInstancesPolicy) {
-        // create new MIP
-        MixedInstancesPolicy mip =
-            new MixedInstancesPolicy()
-                .withLaunchTemplate(
-                    new LaunchTemplate()
-                        .withLaunchTemplateSpecification(
-                            new LaunchTemplateSpecification()
-                                .withLaunchTemplateId(
-                                    command.launchTemplateVersion.getLaunchTemplateId())
-                                .withVersion(
-                                    String.valueOf(
-                                        command.launchTemplateVersion.getVersionNumber())))
-                        .withOverrides(command.launchTemplateOverrides))
-                .withInstancesDistribution(
-                    new InstancesDistribution()
-                        .withOnDemandAllocationStrategy(description.getOnDemandAllocationStrategy())
-                        .withOnDemandBaseCapacity(description.getOnDemandBaseCapacity())
-                        .withOnDemandPercentageAboveBaseCapacity(
-                            description.getOnDemandPercentageAboveBaseCapacity())
-                        .withSpotAllocationStrategy(description.getSpotAllocationStrategy())
-                        .withSpotInstancePools(description.getSpotInstancePools())
-                        .withSpotMaxPrice(description.getSpotPrice()));
+        // convert launch template to MIP
+        final MixedInstancesPolicy mip =
+            getMixedInstancesPolicy(
+                ltId,
+                ltVersion,
+                command.launchTemplateOverrides,
+                description.getOnDemandAllocationStrategy(),
+                description.getOnDemandBaseCapacity(),
+                description.getOnDemandPercentageAboveBaseCapacity(),
+                description.getSpotAllocationStrategy(),
+                description.getSpotInstancePools(),
+                description.getSpotPrice());
 
         updateReq.withMixedInstancesPolicy(mip);
       } else {
         updateReq.withLaunchTemplate(
-            new LaunchTemplateSpecification()
-                .withLaunchTemplateId(command.launchTemplateVersion.getLaunchTemplateId())
-                .withVersion(String.valueOf(command.launchTemplateVersion.getVersionNumber())));
+            new LaunchTemplateSpecification().withLaunchTemplateId(ltId).withVersion(ltVersion));
       }
     }
 
@@ -176,9 +139,10 @@ public class UpdateAutoScalingGroup
       regionScopedProvider.getAutoScaling().updateAutoScalingGroup(updateReq);
     } catch (Exception e) {
       StringBuilder exceptionMsg =
-          new StringBuilder("Failed to update server group " + description.getAsgName() + ".");
+          new StringBuilder(
+              String.format("Failed to update server group %s.", description.getAsgName()));
       if (StringUtils.isNotBlank(e.getMessage())) {
-        exceptionMsg.append(" Error message(s): " + e.getMessage());
+        exceptionMsg.append(String.format("Error: %s\n", e.getMessage()));
       }
 
       try {
@@ -189,14 +153,15 @@ public class UpdateAutoScalingGroup
         // Not cleaning up will result in Internal Server Error for Clouddriver API requests and
         // subsequent Deck errors.
         if (command.getNewLaunchTemplateVersionNumber() != null) {
-          log.info("Cleaning up to keep the operation atomic.");
+          saga.log("[SAGA_ACTION] Cleaning up to keep the operation atomic.");
           cleanUpOnFailure(
               regionScopedProvider.getLaunchTemplateService(),
               command.getLaunchTemplateVersion().getLaunchTemplateId(),
               command.getNewLaunchTemplateVersionNumber());
         }
       } catch (Exception ex) {
-        exceptionMsg.append(ex.getMessage());
+        exceptionMsg.append(
+            "Failed to clean up launch template version! Error: " + ex.getMessage());
       }
       throw new LaunchTemplateException(exceptionMsg.toString(), e);
     }
@@ -212,6 +177,34 @@ public class UpdateAutoScalingGroup
       throw new LaunchTemplateException(
           String.format("Failed to get server group %s.", autoScalingGroupName), e);
     }
+  }
+
+  private MixedInstancesPolicy getMixedInstancesPolicy(
+      String ltId,
+      String ltVersion,
+      List<LaunchTemplateOverrides> overrides,
+      String odAllocStrategy,
+      Integer odBaseCap,
+      Integer odPercentAboveBaseCap,
+      String spotAllocStrategy,
+      Integer spotPools,
+      String spotMaxPrice) {
+    return new MixedInstancesPolicy()
+        .withLaunchTemplate(
+            new LaunchTemplate()
+                .withLaunchTemplateSpecification(
+                    new LaunchTemplateSpecification()
+                        .withLaunchTemplateId(ltId)
+                        .withVersion(ltVersion))
+                .withOverrides(overrides))
+        .withInstancesDistribution(
+            new InstancesDistribution()
+                .withOnDemandAllocationStrategy(odAllocStrategy)
+                .withOnDemandBaseCapacity(odBaseCap)
+                .withOnDemandPercentageAboveBaseCapacity(odPercentAboveBaseCap)
+                .withSpotAllocationStrategy(spotAllocStrategy)
+                .withSpotInstancePools(spotPools)
+                .withSpotMaxPrice(spotMaxPrice));
   }
 
   private void cleanUpOnFailure(
