@@ -18,10 +18,10 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.asg;
 
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
-import com.amazonaws.services.autoscaling.model.BlockDeviceMapping;
 import com.amazonaws.services.autoscaling.model.Ebs;
 import com.amazonaws.services.autoscaling.model.LaunchConfiguration;
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification;
+import com.amazonaws.services.ec2.model.EbsBlockDevice;
 import com.amazonaws.services.ec2.model.LaunchTemplateBlockDeviceMapping;
 import com.amazonaws.services.ec2.model.LaunchTemplateEbsBlockDevice;
 import com.amazonaws.services.ec2.model.LaunchTemplateVersion;
@@ -298,14 +298,14 @@ public class AsgConfigHelper {
   }
 
   /**
-   * Transform AWS BlockDeviceMapping (found in ASG LaunchConfiguration) to {@link
-   * AmazonBlockDevice}. Used while extracting launch settings from AWS AutoScalingGroup.
+   * Transform AWS BlockDeviceMapping to {@link AmazonBlockDevice}. Used while extracting launch
+   * settings from AWS AutoScalingGroup or AMI.
    *
    * @param blockDeviceMappings AWS BlockDeviceMappings
    * @return list of AmazonBlockDevice
    */
   protected static List<AmazonBlockDevice> transformBlockDeviceMapping(
-      List<BlockDeviceMapping> blockDeviceMappings) {
+      List<com.amazonaws.services.autoscaling.model.BlockDeviceMapping> blockDeviceMappings) {
     return blockDeviceMappings.stream()
         .map(
             bdm -> {
@@ -329,6 +329,44 @@ public class AsgConfigHelper {
               }
               return amzBd;
             })
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  /**
+   * Transform AWS EC2 BlockDeviceMapping to {@link AmazonBlockDevice}. Used to convert the AMI
+   * BlockDevices information into AmazonBlockDevice
+   *
+   * @param blockDeviceMappings AWS EC2 BlockDeviceMappings
+   * @return list of AmazonBlockDevice
+   */
+  protected static List<AmazonBlockDevice> convertBlockDevices(
+      List<com.amazonaws.services.ec2.model.BlockDeviceMapping> blockDeviceMappings) {
+    return blockDeviceMappings.stream()
+        .map(
+            bdm -> {
+              AmazonBlockDevice amzBd =
+                  new AmazonBlockDevice.Builder()
+                      .deviceName(bdm.getDeviceName())
+                      .virtualName(bdm.getVirtualName())
+                      .build();
+
+              if (bdm.getEbs() != null) {
+                final EbsBlockDevice ebs = bdm.getEbs();
+                amzBd.setIops(ebs.getIops());
+                amzBd.setDeleteOnTermination(ebs.getDeleteOnTermination());
+                amzBd.setSize(ebs.getVolumeSize());
+                amzBd.setVolumeType(ebs.getVolumeType());
+                amzBd.setSnapshotId(ebs.getSnapshotId());
+                if (ebs.getKmsKeyId() != null) {
+                  amzBd.setKmsKeyId(ebs.getKmsKeyId());
+                }
+                if (ebs.getSnapshotId() == null) {
+                  // only set encryption if snapshotId isn't provided. AWS will error out otherwise
+                  amzBd.setEncrypted(ebs.getEncrypted());
+                }
+              }
+              return amzBd;
+            })
         .collect(Collectors.toList());
   }
 
@@ -339,7 +377,7 @@ public class AsgConfigHelper {
    * @param launchTemplateBlockDeviceMappings AWS LaunchTemplate BlockDeviceMappings
    * @return list of AmazonBlockDevice
    */
-  protected static List<AmazonBlockDevice> transformLaunchTemplateBlockDeviceMapping(
+  public static List<AmazonBlockDevice> transformLaunchTemplateBlockDeviceMapping(
       List<LaunchTemplateBlockDeviceMapping> launchTemplateBlockDeviceMappings) {
     return launchTemplateBlockDeviceMappings.stream()
         .map(
@@ -364,6 +402,6 @@ public class AsgConfigHelper {
               }
               return amzBd;
             })
-        .collect(Collectors.toList());
+        .collect(Collectors.toUnmodifiableList());
   }
 }

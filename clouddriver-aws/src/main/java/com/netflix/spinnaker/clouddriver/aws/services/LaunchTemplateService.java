@@ -247,6 +247,12 @@ public class LaunchTemplateService {
     networkInterfaceRequest.setDeviceIndex(0);
     networkInterfaceRequest.setGroups(description.getSecurityGroups());
 
+    // Nitro Enclave options
+    if (description.getEnableEnclave() != null) {
+      request.setEnclaveOptions(
+          new LaunchTemplateEnclaveOptionsRequest().withEnabled(description.getEnableEnclave()));
+    }
+
     return request.withNetworkInterfaces(networkInterfaceRequest);
   }
 
@@ -335,6 +341,17 @@ public class LaunchTemplateService {
             .withIpv6AddressCount(asgConfig.getAssociateIPv6Address() ? 1 : 0)
             .withGroups(asgConfig.getSecurityGroups())
             .withDeviceIndex(0));
+
+    // Nitro Enclave options
+    if (asgConfig.getEnableEnclave() != null) {
+      request.setEnclaveOptions(
+          new LaunchTemplateEnclaveOptionsRequest().withEnabled(asgConfig.getEnableEnclave()));
+    }
+
+    // block device mappings
+    if (asgConfig.getBlockDevices() != null && !asgConfig.getBlockDevices().isEmpty()) {
+      request.setBlockDeviceMappings(buildDeviceMapping(asgConfig.getBlockDevices()));
+    }
 
     return request;
   }
