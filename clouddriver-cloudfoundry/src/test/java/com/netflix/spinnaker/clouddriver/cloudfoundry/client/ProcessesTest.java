@@ -58,7 +58,7 @@ public class ProcessesTest {
     when(processesService.updateProcess(any(), any()))
         .thenAnswer(invocation -> Calls.response(Response.success(new Process())));
 
-    processes.updateProcess("guid1", "command1", "http", "/endpoint");
+    processes.updateProcess("guid1", "command1", "http", "/endpoint", 1);
     verify(processesService)
         .updateProcess(
             "guid1",
@@ -66,14 +66,18 @@ public class ProcessesTest {
                 "command1",
                 new Process.HealthCheck()
                     .setType("http")
-                    .setData(new Process.HealthCheckData().setEndpoint("/endpoint"))));
+                    .setData(
+                        new Process.HealthCheckData()
+                            .setEndpoint("/endpoint")
+                            .setInvocationTimeout(1)
+                            .setTimeout(1))));
 
-    processes.updateProcess("guid1", "command1", "http", null);
+    processes.updateProcess("guid1", "command1", "http", null, null);
     verify(processesService)
         .updateProcess(
             "guid1", new UpdateProcess("command1", new Process.HealthCheck().setType("http")));
 
-    processes.updateProcess("guid1", "command1", null, null);
+    processes.updateProcess("guid1", "command1", null, null, 1);
     verify(processesService).updateProcess("guid1", new UpdateProcess("command1", null));
   }
 

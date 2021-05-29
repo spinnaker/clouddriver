@@ -73,5 +73,7 @@ public class DeployCloudFoundryServerGroupDescription
     @Nullable private String command;
 
     private List<ProcessRequest> processes = Collections.emptyList();
+
+    @Nullable private Integer timeout;
   }
 }

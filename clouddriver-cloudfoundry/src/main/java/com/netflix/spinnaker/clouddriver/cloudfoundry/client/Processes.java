@@ -67,12 +67,17 @@ public class Processes {
       String guid,
       @Nullable String command,
       @Nullable String healthCheckType,
-      @Nullable String healthCheckEndpoint)
+      @Nullable String healthCheckEndpoint,
+      @Nullable Integer timeout)
       throws CloudFoundryApiException {
     final Process.HealthCheck healthCheck =
         healthCheckType != null ? new Process.HealthCheck().setType(healthCheckType) : null;
     if (healthCheckEndpoint != null && !healthCheckEndpoint.isEmpty() && healthCheck != null) {
-      healthCheck.setData(new Process.HealthCheckData().setEndpoint(healthCheckEndpoint));
+      healthCheck.setData(
+          new Process.HealthCheckData()
+              .setEndpoint(healthCheckEndpoint)
+              .setTimeout(timeout)
+              .setInvocationTimeout(timeout));
     }
     if (command != null && command.isEmpty()) {
       throw new IllegalArgumentException(
