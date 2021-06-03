@@ -136,6 +136,11 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  public void setGenerateName(String name) {
+    getMetadata().put("generateName", name);
+  }
+
+  @JsonIgnore
   @Nonnull
   public String getNamespace() {
     String namespace = (String) getMetadata().get("namespace");
