@@ -45,6 +45,6 @@ final class KubernetesManifestTest {
     // To be explicit, make sure the name is null
     assertNull(manifest.getName());
 
-    assertThat(manifest.getFullResourceName()).isEqualTo("job null");
+    assertThat(manifest.getFullResourceName()).isEqualTo("job " + GENERATE_NAME);
   }
 }
