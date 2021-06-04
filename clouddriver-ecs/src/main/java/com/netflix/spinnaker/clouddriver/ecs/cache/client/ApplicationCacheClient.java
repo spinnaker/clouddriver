@@ -63,7 +63,7 @@ public class ApplicationCacheClient extends AbstractCacheClient<Application> {
     EcsApplication application = new EcsApplication(appName, attributes, clusterNames);
 
     Set<String> services = getServiceRelationships(cacheData);
-    log.info("Found {} services for app {}", services.size(), appName);
+    log.debug("Found {} services for app {}", services.size(), appName);
     services.forEach(
         key -> {
           Map<String, String> parsedKey = Keys.parse(key);
