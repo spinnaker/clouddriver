@@ -146,9 +146,7 @@ public class KubernetesDeleteManifestOperationTest {
   }
 
   @Test()
-  // Show that setting cascading flag to true in the pipeline
-  // leaves OrphanDependents as null, not false
-  public void cascadingTrueOptionTest() throws IOException {
+  public void cascadingTrueSetOrphanDependentsFalseTest() throws IOException {
     String pipelineJSON =
         "{ "
             + " \"account\": \"kubernetes-account\","
@@ -162,13 +160,11 @@ public class KubernetesDeleteManifestOperationTest {
     KubernetesDeleteManifestDescription description = buildDeleteManifestDescription(pipeline);
 
     V1DeleteOptions deleteOptions = deleteAndCaptureDeleteOptions(description);
-    assertNull(deleteOptions.getOrphanDependents());
+    assertFalse(deleteOptions.getOrphanDependents());
   }
 
   @Test()
-  // Show that setting cascading flag to false in the pipeline does not do anything
-  // OrphanDependents is still null
-  public void cascadingFalseOptionTest() throws IOException {
+  public void cascadingFalseSetOrphanDependentsTrueTest() throws IOException {
     String pipelineJSON =
         "{ "
             + " \"account\": \"kubernetes-account\","
@@ -182,7 +178,47 @@ public class KubernetesDeleteManifestOperationTest {
     KubernetesDeleteManifestDescription description = buildDeleteManifestDescription(pipeline);
 
     V1DeleteOptions deleteOptions = deleteAndCaptureDeleteOptions(description);
-    assertNull(deleteOptions.getOrphanDependents());
+    assertTrue(deleteOptions.getOrphanDependents());
+  }
+
+  @Test()
+  // Set both orphanDependents and cascading options and show that
+  // the orphanDependents options has precedence
+  public void showTrueOrphanDependentsPrecedenceTest() throws IOException {
+    String pipelineJSON =
+        "{ "
+            + " \"account\": \"kubernetes-account\","
+            + "  \"kinds\": [ \"deployment\" ],"
+            + "  \"options\": {"
+            + "    \"cascading\": \"true\","
+            + "    \"orphanDependents\": \"true\""
+            + "  }"
+            + "}";
+    Map<String, Object> pipeline = mapper.readValue(pipelineJSON, mapType);
+
+    KubernetesDeleteManifestDescription description = buildDeleteManifestDescription(pipeline);
+
+    V1DeleteOptions deleteOptions = deleteAndCaptureDeleteOptions(description);
+    assertTrue(deleteOptions.getOrphanDependents());
+  }
+
+  @Test()
+  public void showFalseOrphanDependentsPrecedenceTest() throws IOException {
+    String pipelineJSON =
+        "{ "
+            + " \"account\": \"kubernetes-account\","
+            + "  \"kinds\": [ \"deployment\" ],"
+            + "  \"options\": {"
+            + "    \"cascading\": \"false\","
+            + "    \"orphanDependents\": \"false\""
+            + "  }"
+            + "}";
+    Map<String, Object> pipeline = mapper.readValue(pipelineJSON, mapType);
+
+    KubernetesDeleteManifestDescription description = buildDeleteManifestDescription(pipeline);
+
+    V1DeleteOptions deleteOptions = deleteAndCaptureDeleteOptions(description);
+    assertFalse(deleteOptions.getOrphanDependents());
   }
 
   private static V1DeleteOptions deleteAndCaptureDeleteOptions(
