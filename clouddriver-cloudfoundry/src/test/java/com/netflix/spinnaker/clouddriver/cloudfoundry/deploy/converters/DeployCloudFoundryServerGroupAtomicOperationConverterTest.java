@@ -275,4 +275,13 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                     List.of(
                         new ProcessRequest().setType("web").setInstances(2).setMemory("800M"))));
   }
+
+  @Test
+  void convertRandomRoutes() {
+    DeployCloudFoundryServerGroupDescription.ApplicationAttributes applicationAttributes =
+        converter.convertManifest(Map.of("applications", List.of(Map.of("random-route", true))));
+
+    assertThat(applicationAttributes.getRandomRoute()).isTrue();
+    assertThat(applicationAttributes.getRoutes()).isNotNull();
+  }
 }

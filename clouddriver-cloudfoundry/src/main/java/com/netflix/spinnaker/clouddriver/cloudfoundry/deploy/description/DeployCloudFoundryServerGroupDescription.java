@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.Lists;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Docker;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessRequest;
@@ -26,8 +27,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import org.apache.commons.lang3.RandomStringUtils;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -60,7 +64,9 @@ public class DeployCloudFoundryServerGroupDescription
 
     @Nullable private String healthCheckHttpEndpoint;
 
-    @Nullable private List<String> routes;
+    @Getter(AccessLevel.NONE)
+    @Nullable
+    private List<String> routes;
 
     @Nullable private List<String> buildpacks;
 
@@ -73,5 +79,21 @@ public class DeployCloudFoundryServerGroupDescription
     @Nullable private String command;
 
     private List<ProcessRequest> processes = Collections.emptyList();
+
+    @Getter(AccessLevel.NONE)
+    @Nullable
+    private Boolean randomRoute;
+
+    @Nullable
+    public List<String> getRoutes() {
+      if ((routes == null || routes.isEmpty()) && getRandomRoute()) {
+        routes = Lists.newArrayList(RandomStringUtils.randomAlphabetic(5, 10));
+      }
+      return routes;
+    }
+
+    public boolean getRandomRoute() {
+      return randomRoute != null && randomRoute;
+    }
   }
 }
