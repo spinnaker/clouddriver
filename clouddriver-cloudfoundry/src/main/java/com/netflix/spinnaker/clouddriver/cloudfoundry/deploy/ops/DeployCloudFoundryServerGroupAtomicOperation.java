@@ -150,12 +150,11 @@ public class DeployCloudFoundryServerGroupAtomicOperation
   }
 
   private void setRandomRoute() {
-    String randomRoute = RandomWordGenerator.randomQualifiedNoun();
     CloudFoundryDomain defaultDomain = description.getClient().getDomains().getDefault();
     if (defaultDomain != null) {
       String routeName = null;
-      for (int i = 0; i < 3; i++) {
-        routeName = randomRoute + "." + defaultDomain.getName();
+      for (int i = 0; i < 10; i++) {
+        routeName = RandomWordGenerator.randomQualifiedNoun() + "." + defaultDomain.getName();
         RouteId routeId = description.getClient().getRoutes().toRouteId(routeName);
         CloudFoundryLoadBalancer cloudFoundryLoadBalancer =
             description.getClient().getRoutes().find(routeId, description.getSpace().getId());
