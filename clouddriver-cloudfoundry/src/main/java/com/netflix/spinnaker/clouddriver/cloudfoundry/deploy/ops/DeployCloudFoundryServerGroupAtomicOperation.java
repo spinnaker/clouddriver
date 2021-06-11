@@ -21,12 +21,14 @@ import static com.netflix.spinnaker.clouddriver.deploy.DeploymentResult.Deployme
 import static com.netflix.spinnaker.clouddriver.deploy.DeploymentResult.Deployment.Capacity;
 import static java.util.stream.Collectors.toList;
 
+import com.google.common.collect.Lists;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.artifacts.maven.MavenArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryCloudProvider;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.CloudFoundryArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.RouteId;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.CreateServiceBinding;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.CreatePackage;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Lifecycle;
@@ -35,10 +37,8 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessReq
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.CloudFoundryServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryServerGroup;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.model.ServerGroupMetaDataEnvVar;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.util.RandomWordGenerator;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
@@ -103,6 +103,13 @@ public class DeployCloudFoundryServerGroupAtomicOperation
     updateProcess(serverGroup.getId(), description);
     scaleApplication(serverGroup.getId(), description);
 
+    List<String> routes = description.getApplicationAttributes().getRoutes();
+
+    if ((routes == null || routes.isEmpty())
+        && description.getApplicationAttributes().getRandomRoute()) {
+      setRandomRoute();
+    }
+
     if (!mapRoutes(
         description,
         description.getApplicationAttributes().getRoutes(),
@@ -140,6 +147,25 @@ public class DeployCloudFoundryServerGroupAtomicOperation
     getTask().updateStatus(PHASE, "Deployed '" + description.getApplication() + "'");
 
     return deploymentResult();
+  }
+
+  private void setRandomRoute() {
+    String randomRoute = RandomWordGenerator.randomQualifiedNoun();
+    CloudFoundryDomain defaultDomain = description.getClient().getDomains().getDefault();
+    if (defaultDomain != null) {
+      String routeName = null;
+      for (int i = 0; i < 3; i++) {
+        routeName = randomRoute + "." + defaultDomain.getName();
+        RouteId routeId = description.getClient().getRoutes().toRouteId(routeName);
+        CloudFoundryLoadBalancer cloudFoundryLoadBalancer =
+            description.getClient().getRoutes().find(routeId, description.getSpace().getId());
+        if (cloudFoundryLoadBalancer == null) {
+          break;
+        }
+      }
+
+      description.getApplicationAttributes().setRoutes(Lists.newArrayList(routeName));
+    }
   }
 
   private void createServiceBindings(
