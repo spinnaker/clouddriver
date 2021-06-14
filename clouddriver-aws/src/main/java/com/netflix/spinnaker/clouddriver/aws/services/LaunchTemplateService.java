@@ -336,6 +336,11 @@ public class LaunchTemplateService {
             .withGroups(asgConfig.getSecurityGroups())
             .withDeviceIndex(0));
 
+    // block device mappings
+    if (asgConfig.getBlockDevices() != null && !asgConfig.getBlockDevices().isEmpty()) {
+      request.setBlockDeviceMappings(buildDeviceMapping(asgConfig.getBlockDevices()));
+    }
+
     return request;
   }
 
