@@ -69,7 +69,7 @@ public class DeleteCloudFoundryServiceBindingAtomicOperation implements AtomicOp
 
     if (serviceInstanceNames.size() != description.getServiceUnbindingRequests().size()) {
       throw new CloudFoundryApiException(
-          "Number of service instances found does not match the number of service binding requests.");
+          "Number of service instances found does not match the number of service unbinding requests.");
     }
 
     List<String> unbindings =
@@ -112,7 +112,7 @@ public class DeleteCloudFoundryServiceBindingAtomicOperation implements AtomicOp
       getTask()
           .updateStatus(
               PHASE,
-              "Failed to create Cloud Foundry service bindings between application '"
+              "Failed to delete Cloud Foundry service bindings between application '"
                   + description.getServerGroupName()
                   + "' and services: "
                   + serviceInstanceNames);
@@ -126,7 +126,7 @@ public class DeleteCloudFoundryServiceBindingAtomicOperation implements AtomicOp
     getTask()
         .updateStatus(
             PHASE,
-            "Created Cloud Foundry service bindings between application '"
+            "Deleted Cloud Foundry service from application '"
                 + description.getServerGroupName()
                 + "' and services: "
                 + serviceInstanceNames);
