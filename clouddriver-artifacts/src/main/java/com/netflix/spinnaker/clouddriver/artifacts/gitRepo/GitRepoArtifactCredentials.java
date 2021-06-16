@@ -64,18 +64,6 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     String repoBasename = getRepoBasename(repoReference);
     Path outputFile = Paths.get(stagingPath.toString(), repoBasename + ".tgz");
 
-<<<<<<< HEAD
-    // delete temporary files before returning
-    try (Closeable ignored = () -> FileUtils.deleteDirectory(stagingPath.toFile())) {
-      executor.clone(repoReference, remoteRef, stagingPath, repoBasename);
-
-      log.info("Creating archive for git/repo {}", repoReference);
-
-      executor.archive(
-          Paths.get(stagingPath.toString(), repoBasename), remoteRef, subPath, outputFile);
-
-      return new FileInputStream(outputFile.toFile());
-=======
     try {
       return getLockedInputStream(repoUrl, subPath, branch, stagingPath, repoBasename, outputFile);
     } catch (InterruptedException e) {
@@ -122,7 +110,6 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
               + "). Waited "
               + gitRepoFileSystem.getCloneWaitLockTimeoutSec()
               + " seconds.");
->>>>>>> 3b34c69460... fix(git/repo): Fixed concurrency issues (#5345)
     }
   }
 
