@@ -335,6 +335,7 @@ public class Applications {
                                         .name(instance.getName())
                                         .plan(instance.getPlan())
                                         .tags(instance.getTags())
+                                        .lastOperationState(instance.getLastOperation().getState())
                                         .build()))
                 .collect(toList());
 
