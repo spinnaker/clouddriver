@@ -69,11 +69,6 @@ public class CreateCloudFoundryServiceBindingAtomicOperation implements AtomicOp
         .stream()
         .forEach(s -> serviceInstanceGuids.put(s.getEntity().getName(), s.getMetadata().getGuid()));
 
-    if (serviceInstanceNames.size() != description.getServiceBindingRequests().size()) {
-      throw new CloudFoundryApiException(
-          "Number of service instances found does not match the number of service binding requests.");
-    }
-
     List<CreateServiceBinding> bindings =
         description.getServiceBindingRequests().stream()
             .map(
@@ -81,9 +76,7 @@ public class CreateCloudFoundryServiceBindingAtomicOperation implements AtomicOp
                   String serviceGuid = serviceInstanceGuids.get(s.getServiceInstanceName());
                   if (serviceGuid == null || serviceGuid.isEmpty()) {
                     throw new CloudFoundryApiException(
-                        "Unable to find service with the name: '"
-                            + s.getServiceInstanceName()
-                            + "'");
+                        "Unable to find service with the name: '" + s.getServiceInstanceName() + "'");
                   }
                   if (s.isUpdatable()) {
                     removeBindings(serviceGuid, description.getServerGroupId());
