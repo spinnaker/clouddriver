@@ -31,6 +31,12 @@ public class DeleteCloudFoundryServiceBindingDescription
     extends AbstractCloudFoundryServerGroupDescription {
 
   private CloudFoundrySpace space;
-  private List<CreateCloudFoundryServiceBindingDescription.ServiceBindingRequest>
-      serviceUnbindingRequests;
+  private List<ServiceUnbindingRequest> serviceUnbindingRequests;
+
+  @Data
+  @AllArgsConstructor
+  @NoArgsConstructor
+  public static class ServiceUnbindingRequest {
+    private String serviceInstanceName;
+  }
 }

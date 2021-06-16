@@ -131,6 +131,7 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
         new DescribeTargetGroupsRequest().withLoadBalancerArn(loadBalancer.loadBalancerArn)
       ).targetGroups
     }
+
     TargetGroupAssociations targetGroupAssociations = this.buildTargetGroupAssociations(loadBalancing, targetGroups, false)
     ListenerAssociations listenerAssociations = this.buildListenerAssociations(loadBalancing, [loadBalancer], false)
     Map<String, List<LoadBalancerAttribute>> loadBalancerAttributes = this.buildLoadBalancerAttributes(loadBalancing, [loadBalancer], false)
