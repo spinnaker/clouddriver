@@ -509,6 +509,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation
             description.getApplicationAttributes().getCommand(),
             description.getApplicationAttributes().getHealthCheckType(),
             description.getApplicationAttributes().getHealthCheckHttpEndpoint(),
+            description.getApplicationAttributes().getTimeout(),
             description.getApplicationAttributes().getTimeout());
 
     if (!description.getApplicationAttributes().getProcesses().isEmpty()) {
@@ -524,7 +525,8 @@ public class DeployCloudFoundryServerGroupAtomicOperation
                 req.getCommand(),
                 req.getHealthCheckType(),
                 req.getHealthCheckHttpEndpoint(),
-                req.getTimeout());
+                req.getTimeout(),
+                req.getHealthCheckInvocationTimeout());
       }
     }
 

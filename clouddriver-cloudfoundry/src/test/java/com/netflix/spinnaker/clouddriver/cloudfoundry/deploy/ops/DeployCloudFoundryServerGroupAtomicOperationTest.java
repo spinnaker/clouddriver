@@ -192,7 +192,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
     inOrder.verify(apps).buildCompleted(any());
     inOrder.verify(apps).findDropletGuidFromBuildId(any());
     inOrder.verify(apps).setCurrentDroplet(any(), any());
-    inOrder.verify(processes).updateProcess("serverGroupId", null, "http", "/health", 1);
+    inOrder.verify(processes).updateProcess("serverGroupId", null, "http", "/health", 180, 180);
     inOrder.verify(processes).scaleProcess(any(), any(), any(), any());
     inOrder.verify(apps, calls.get()).startApplication("serverGroupId");
   }
@@ -207,7 +207,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
     inOrder.verify(apps).createPackage(any());
     inOrder.verify(cloudFoundryClient.getServiceInstances()).createServiceBinding(any());
     inOrder.verify(apps).createBuild(any());
-    inOrder.verify(processes).updateProcess("serverGroupId", null, "http", "/health", 1);
+    inOrder.verify(processes).updateProcess("serverGroupId", null, "http", "/health", 180, 180);
     inOrder.verify(processes).scaleProcess("serverGroupId", 7, 1024, 2048);
     inOrder.verify(apps, calls.get()).startApplication("serverGroupId");
   }
@@ -282,7 +282,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
                     .setBuildpacks(io.vavr.collection.List.of("buildpack1", "buildpack2").asJava())
                     .setServices(List.of("service1"))
                     .setEnv(HashMap.of("token", "ASDF").toJavaMap())
-                    .setTimeout(1));
+                    .setTimeout(180));
     description.setClient(cloudFoundryClient);
     description.setRegion("region1");
     description.setStartApplication(b);
@@ -313,7 +313,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
                     .setBuildpacks(Collections.emptyList())
                     .setServices(List.of("service1"))
                     .setEnv(HashMap.of("token", "ASDF").toJavaMap())
-                    .setTimeout(1));
+                    .setTimeout(180));
     description.setClient(cloudFoundryClient);
     description.setRegion("region1");
     description.setStartApplication(b);
