@@ -22,9 +22,9 @@ import com.netflix.spinnaker.cats.cluster.NodeIdentity;
 import com.netflix.spinnaker.cats.cluster.ShardingFilter;
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -35,19 +35,18 @@ import org.slf4j.LoggerFactory;
 public class CachingPodsObserver implements ShardingFilter, Runnable {
 
   private static final Logger logger = LoggerFactory.getLogger(CachingPodsObserver.class);
-  private int podCount = 0;
-  private int podIndex = -1;
   private static final String REPLICA_SSET_KEY = "clouddriver:caching:replicas";
   private static final String CORE_PROVIDER =
       "com.netflix.spinnaker.clouddriver.core.provider.CoreProvider";
   private final RedisClientDelegate redisClientDelegate;
   private final NodeIdentity nodeIdentity;
   private final long replicaKeyTtl;
+  private int podCount = 0;
+  private int podIndex = -1;
   // this script adds or updates a unique id as a member of a sorted set with score equal to current
-  // time plus
-  // sharding.replica-key-ttl-seconds, deletes the members having scores less than current time(ms)
-  // and finally
-  // fetches list of all members of the sorted set which represent the live caching pods
+  // time plus sharding.replica-key-ttl-seconds, deletes the members having scores less than current
+  // time(ms) and finally fetches list of all members of the sorted set which represent the live
+  // caching pods
   private static final String HEARTBEAT_REFRESH_SCRIPT =
       "redis.call('zadd', KEYS[1], ARGV[1], ARGV[2])"
           + " redis.call('zremrangebyscore', KEYS[1], '-inf', ARGV[3])"
@@ -60,9 +59,10 @@ public class CachingPodsObserver implements ShardingFilter, Runnable {
     this.redisClientDelegate = redisClientDelegate;
     this.nodeIdentity = nodeIdentity;
     long observerIntervalSeconds =
-        dynamicConfigService.getConfig(Integer.class, "sharding.observer-interval-seconds", 30);
+        dynamicConfigService.getConfig(
+            Integer.class, "cache-sharding.heartbeat-interval-seconds", 30);
     replicaKeyTtl =
-        dynamicConfigService.getConfig(Integer.class, "sharding.replica-key-ttl-seconds", 60);
+        dynamicConfigService.getConfig(Integer.class, "cache-sharding.replica-ttl-seconds", 60);
     ScheduledExecutorService podsObserverExecutorService =
         Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder()
@@ -78,8 +78,8 @@ public class CachingPodsObserver implements ShardingFilter, Runnable {
   public void run() {
     try {
       refreshHeartbeat();
-    } catch (Exception e) {
-      logger.error("Failed to manage replicas heartbeat", e);
+    } catch (Throwable t) {
+      logger.error("Failed to manage replicas heartbeat", t);
     }
   }
 
@@ -95,8 +95,8 @@ public class CachingPodsObserver implements ShardingFilter, Runnable {
                   Collections.singletonList(REPLICA_SSET_KEY),
                   Arrays.asList(expiry, nodeIdentity.getNodeIdentity(), now));
             });
-    if (evalResponse instanceof ArrayList) {
-      ArrayList<String> replicaList = (ArrayList) evalResponse;
+    if (evalResponse instanceof List) {
+      List<String> replicaList = (List) evalResponse;
       podCount = replicaList.size();
       podIndex =
           replicaList.stream()

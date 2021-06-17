@@ -32,7 +32,7 @@ public class RedisShardingFilterConfiguration {
 
   @Bean
   @ConditionalOnExpression(
-      "${redis.enabled:true} && ${redis.scheduler.enabled:true} && ${caching.sharding-enabled:false}")
+      "${redis.enabled:true} && ${redis.scheduler.enabled:true} && ${cache-sharding.enabled:false}")
   ShardingFilter shardingFilter(
       RedisClientDelegate redisClientDelegate, DynamicConfigService dynamicConfigService) {
     return new CachingPodsObserver(
