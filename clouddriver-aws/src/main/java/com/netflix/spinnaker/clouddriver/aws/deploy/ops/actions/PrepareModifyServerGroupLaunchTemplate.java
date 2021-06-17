@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.ops.actions;
 
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
+import com.amazonaws.services.autoscaling.model.InstancesDistribution;
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.LaunchTemplateBlockDeviceMapping;
@@ -31,7 +32,9 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.netflix.spinnaker.clouddriver.aws.deploy.AmiIdResolver;
 import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig;
+import com.netflix.spinnaker.clouddriver.aws.deploy.ModifyServerGroupUtils;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ResolvedAmiResult;
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AsgConfigHelper;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyServerGroupLaunchTemplateDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.ModifyServerGroupLaunchTemplateAtomicOperation.LaunchTemplateException;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice;
@@ -54,10 +57,17 @@ import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Value;
 import lombok.experimental.NonFinal;
-import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
+/**
+ * Action to prepare the description of type ModifyServerGroupLaunchTemplateDescription for launch
+ * template and server group configuration changes. Steps: 1. populate description with config from
+ * server group's mixed instances policy 2. populate description with config from current launch
+ * template version, in preparation to create a new version
+ *
+ * <p>Step 2 of this action may be skipped if no launch template changes are requested.
+ */
 @Component
 public class PrepareModifyServerGroupLaunchTemplate
     implements SagaAction<
@@ -83,128 +93,97 @@ public class PrepareModifyServerGroupLaunchTemplate
     NetflixAmazonCredentials credentials =
         (NetflixAmazonCredentials) credentialsRepository.getOne(description.getAccount());
 
-    saga.log("Preparing launch template update: " + description);
+    saga.log(
+        "[SAGA_ACTION] Performing modifyServerGroupLaunchTemplate operation for server group "
+            + description.getAsgName());
 
     RegionScopedProvider regionScopedProvider =
         regionScopedProviderFactory.forRegion(credentials, description.getRegion());
-
     AutoScalingGroup autoScalingGroup =
         getAutoScalingGroup(description.getAsgName(), regionScopedProvider);
     LaunchTemplateVersion launchTemplateVersion =
         getLaunchTemplateVersion(autoScalingGroup, regionScopedProvider);
     ResponseLaunchTemplateData launchTemplateData = launchTemplateVersion.getLaunchTemplateData();
+    boolean isAsgBackedByMip = autoScalingGroup.getMixedInstancesPolicy() != null;
 
-    LaunchTemplateInstanceMarketOptions marketOptions =
-        launchTemplateData.getInstanceMarketOptions();
-    String maxPrice = null;
-    if (marketOptions != null && marketOptions.getSpotOptions() != null) {
-      maxPrice = marketOptions.getSpotOptions().getMaxPrice();
+    // Step #1: populate description with config from server group's mixed instances policy
+    if (autoScalingGroup.getMixedInstancesPolicy() != null) {
+      populateDescWithMipFields(description, autoScalingGroup);
     }
 
-    String spotMaxPrice = Optional.ofNullable(description.getSpotPrice()).orElse(maxPrice);
-    if (spotMaxPrice != null && spotMaxPrice.equals("")) {
-      // a spotMaxPrice of "" indicates that it should be removed regardless of value on source
-      // launch template
-      description.setSpotPrice(null);
+    // Determine if step #2(populate description with config from current launch template version)
+    // can be skipped
+    boolean asgUsesSpotLt = launchTemplateData.getInstanceMarketOptions() != null;
+
+    /**
+     * A valid request should include fields mapped to either launch template or AWS ASG config or
+     * both. ModifyServerGroupLaunchTemplateValidator rejects requests with only metadata fields
+     * i.e. no launch template or ASG config changes.
+     */
+    final Set<String> nonMetadataFieldsSet =
+        ModifyServerGroupUtils.getNonMetadataFieldsSetInReq(description);
+    boolean isReqToModifyMipFieldsOnly =
+        nonMetadataFieldsSet.stream()
+            .allMatch(
+                f ->
+                    ModifyServerGroupLaunchTemplateDescription.getMixedInstancesPolicyFieldNames()
+                        .contains(f));
+
+    // Selectively skip launch template modification in some cases when NO launch template changes
+    // are required:
+    // 1. ASG with MIP + isReqToModifyMixedInstancesPolicyOnlyFields (including spotMaxPrice)
+    // 2. ASG with OD LT + isReqToModifyMixedInstancesPolicyOnlyFields (including spotMaxPrice)
+    //    Reason is to prevent an error like ->
+    //    AmazonAutoScalingException: Incompatible launch template:
+    //        You cannot use a launch template that is set to request Spot Instances
+    //        (InstanceMarketOptions) when you configure an Auto Scaling group with a mixed
+    // instances policy.
+    //        Add a different launch template to the group and try again.
+    if (isReqToModifyMipFieldsOnly && (isAsgBackedByMip || !asgUsesSpotLt)) {
+      saga.log(
+          "[SAGA_ACTION] Skipping PrepareModifyServerGroupLaunchTemplate as only mixed instances policy will be updated.");
+
+      return new Result(
+          ModifyServerGroupLaunchTemplate.ModifyServerGroupLaunchTemplateCommand.builder()
+              .description(description)
+              .isReqToModifyLaunchTemplate(false)
+              .isAsgBackedByMixedInstancesPolicy(isAsgBackedByMip)
+              .isReqToUpgradeAsgToMixedInstancesPolicy(!isAsgBackedByMip)
+              .sourceVersion(launchTemplateVersion)
+              .build(),
+          Collections.emptyList());
     }
 
-    description.setSpotPrice(spotMaxPrice);
-    if (description.getImageId() == null) {
-      saga.log("Resolving Image Id for " + description.getAmiName());
-      // resolve imageId
-      Optional<String> imageId =
-          getImageId(
-              description.getAmiName(),
-              description.getRegion(),
-              credentials.getAccountId(),
-              regionScopedProvider.getAmazonEC2());
-      description.setImageId(
-          imageId.orElseThrow(
-              () ->
-                  new LaunchTemplateException(
-                          String.format(
-                              "Failed to resolve image id for %s", description.getAmiName()))
-                      .setRetryable(StringUtils.isNotBlank(description.getAmiName()))));
-    }
+    saga.log("[SAGA_ACTION] Preparing for launch template modification");
+    populateDescWithLaunchTemplateVersion(
+        saga,
+        description,
+        launchTemplateVersion,
+        credentials.getAccountId(),
+        regionScopedProvider.getAmazonEC2(),
+        autoScalingGroup);
 
-    Set<String> securityGroups = new HashSet<>();
-    if (description.getSecurityGroups() != null) {
-      securityGroups.addAll(description.getSecurityGroups());
-    }
-
-    Boolean includePreviousGroups =
-        Optional.ofNullable(description.getSecurityGroupsAppendOnly())
-            .orElseGet(securityGroups::isEmpty);
-    if (includePreviousGroups) {
-      securityGroups.addAll(
-          launchTemplateData.getNetworkInterfaces().stream()
-              .filter(i -> i.getDeviceIndex() == 0)
-              .findFirst()
-              .map(LaunchTemplateInstanceNetworkInterfaceSpecification::getGroups)
-              .orElse(Collections.emptyList()));
-    }
-    description.setSecurityGroups(new ArrayList<>(securityGroups));
-
-    // if we are changing instance types and don't have explicitly supplied block device mappings
-    String instanceType =
-        Optional.ofNullable(description.getInstanceType())
-            .orElseGet(launchTemplateData::getInstanceType);
-    LaunchTemplateIamInstanceProfileSpecification iamInstanceProfile =
-        launchTemplateData.getIamInstanceProfile();
-    String iamRole = null;
-    if (iamInstanceProfile != null) {
-      iamRole = iamInstanceProfile.getName();
-    }
-
-    description.setIamRole(Optional.ofNullable(description.getIamRole()).orElse(iamRole));
-    description.setKeyPair(
-        Optional.ofNullable(description.getIamRole()).orElseGet(launchTemplateData::getKeyName));
-    description.setRamdiskId(
-        Optional.ofNullable(description.getRamdiskId())
-            .orElseGet(launchTemplateData::getRamDiskId));
-
-    List<AmazonBlockDevice> blockDevices = description.getBlockDevices();
-    if (blockDevices == null
-        && instanceType != null
-        && !instanceType.equals(launchTemplateData.getInstanceType())) {
-      // set default mapping for instance type if we are changing instance types and don't have
-      // explicitly supplied block device mappings
-      List<AmazonBlockDevice> devices =
-          blockDeviceConfig.getBlockDevicesForInstanceType(instanceType);
-      if (!description.isCopySourceCustomBlockDeviceMappings()) {
-        description.setBlockDevices(devices);
-      } else {
-        // if prior version used default mapping do use default mapping on new version as well
-        List<AmazonBlockDevice> defaultDevices =
-            blockDeviceConfig.getBlockDevicesForInstanceType(launchTemplateData.getInstanceType());
-        if (matchingBlockDevices(launchTemplateData.getBlockDeviceMappings(), defaultDevices)) {
-          description.setBlockDevices(devices);
-        }
-      }
-    }
+    boolean isReqToModifyAtleastOneMipOnlyField =
+        nonMetadataFieldsSet.stream()
+            .anyMatch(
+                f ->
+                    ModifyServerGroupLaunchTemplateDescription
+                        .getMixedInstancesPolicyOnlyFieldNames()
+                        .contains(f));
 
     return new Result(
         ModifyServerGroupLaunchTemplate.ModifyServerGroupLaunchTemplateCommand.builder()
             .description(description)
+            .isReqToModifyLaunchTemplate(true)
+            .isAsgBackedByMixedInstancesPolicy(isAsgBackedByMip)
+            .isReqToUpgradeAsgToMixedInstancesPolicy(
+                !isAsgBackedByMip
+                    && isReqToModifyAtleastOneMipOnlyField) // upgrade to MIP if request includes at
+            // least 1 MIP field (along with 1 or
+            // more launch template fields)
             .sourceVersion(launchTemplateVersion)
             .build(),
         Collections.emptyList());
-  }
-
-  private Optional<String> getImageId(
-      String amiName, String region, String accountId, AmazonEC2 ec2) {
-    if (amiName != null) {
-      try {
-        ResolvedAmiResult ami =
-            AmiIdResolver.resolveAmiIdFromAllSources(ec2, region, amiName, accountId);
-        return Optional.ofNullable(ami.getAmiId());
-      } catch (Exception e) {
-        throw new LaunchTemplateException(
-            String.format("Failed to resolve image id for %s", amiName), e);
-      }
-    }
-
-    return Optional.empty();
   }
 
   private AutoScalingGroup getAutoScalingGroup(
@@ -220,12 +199,18 @@ public class PrepareModifyServerGroupLaunchTemplate
   private LaunchTemplateVersion getLaunchTemplateVersion(
       AutoScalingGroup autoScalingGroup, RegionScopedProvider regionScopedProvider) {
     LaunchTemplateSpecification launchTemplateSpec =
-        Optional.ofNullable(autoScalingGroup.getLaunchTemplate())
+        Optional.ofNullable(
+                autoScalingGroup.getMixedInstancesPolicy() != null
+                    ? autoScalingGroup
+                        .getMixedInstancesPolicy()
+                        .getLaunchTemplate()
+                        .getLaunchTemplateSpecification()
+                    : autoScalingGroup.getLaunchTemplate())
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
                         String.format(
-                            "Server group %s is not backed by a launch template",
+                            "Server group is not backed by a launch template.\n%s",
                             autoScalingGroup)));
 
     return regionScopedProvider
@@ -238,11 +223,181 @@ public class PrepareModifyServerGroupLaunchTemplate
                         "Requested launch template %s does not exist.", launchTemplateSpec)));
   }
 
+  private void populateDescWithMipFields(
+      ModifyServerGroupLaunchTemplateDescription modifyDesc, AutoScalingGroup autoScalingGroup) {
+    final InstancesDistribution distInAsg =
+        autoScalingGroup.getMixedInstancesPolicy().getInstancesDistribution();
+
+    modifyDesc.setOnDemandAllocationStrategy(
+        Optional.ofNullable(modifyDesc.getOnDemandAllocationStrategy())
+            .orElse(distInAsg.getOnDemandAllocationStrategy()));
+    modifyDesc.setOnDemandBaseCapacity(
+        Optional.ofNullable(modifyDesc.getOnDemandBaseCapacity())
+            .orElse(distInAsg.getOnDemandBaseCapacity()));
+    modifyDesc.setOnDemandPercentageAboveBaseCapacity(
+        Optional.ofNullable(modifyDesc.getOnDemandPercentageAboveBaseCapacity())
+            .orElse(distInAsg.getOnDemandPercentageAboveBaseCapacity()));
+    modifyDesc.setSpotAllocationStrategy(
+        Optional.ofNullable(modifyDesc.getSpotAllocationStrategy())
+            .orElse(distInAsg.getSpotAllocationStrategy()));
+    modifyDesc.setSpotInstancePools(
+        Optional.ofNullable(modifyDesc.getSpotInstancePools())
+            .orElse(
+                // return the spotInstancePools in ASG iff it is compatible with the
+                // spotAllocationStrategy
+                modifyDesc.getSpotAllocationStrategy().equals("lowest-price")
+                    ? distInAsg.getSpotInstancePools()
+                    : null));
+    modifyDesc.setLaunchTemplateOverridesForInstanceType(
+        Optional.ofNullable(modifyDesc.getLaunchTemplateOverridesForInstanceType())
+            .orElse(
+                AsgConfigHelper.getDescriptionOverrides(
+                    autoScalingGroup
+                        .getMixedInstancesPolicy()
+                        .getLaunchTemplate()
+                        .getOverrides())));
+
+    modifyDesc.setSpotPrice(getSpotMaxPrice(modifyDesc.getSpotPrice(), autoScalingGroup, null));
+  }
+
+  private void populateDescWithLaunchTemplateVersion(
+      Saga saga,
+      ModifyServerGroupLaunchTemplateDescription modifyDesc,
+      LaunchTemplateVersion sourceLtVersion,
+      String accountId,
+      AmazonEC2 amazonEC2,
+      AutoScalingGroup autoScalingGroup) {
+    ResponseLaunchTemplateData sourceLtData = sourceLtVersion.getLaunchTemplateData();
+
+    modifyDesc.setSpotPrice(
+        getSpotMaxPrice(modifyDesc.getSpotPrice(), autoScalingGroup, sourceLtData));
+    modifyDesc.setImageId(
+        getImageId(saga, amazonEC2, accountId, modifyDesc).orElse(sourceLtData.getImageId()));
+
+    Set<String> securityGroups = new HashSet<>();
+    if (modifyDesc.getSecurityGroups() != null) {
+      securityGroups.addAll(modifyDesc.getSecurityGroups());
+    }
+
+    Boolean includePreviousGroups =
+        Optional.ofNullable(modifyDesc.getSecurityGroupsAppendOnly())
+            .orElseGet(securityGroups::isEmpty);
+    if (includePreviousGroups) {
+      securityGroups.addAll(
+          sourceLtData.getNetworkInterfaces().stream()
+              .filter(i -> i.getDeviceIndex() == 0)
+              .findFirst()
+              .map(LaunchTemplateInstanceNetworkInterfaceSpecification::getGroups)
+              .orElse(Collections.emptyList()));
+    }
+    modifyDesc.setSecurityGroups(new ArrayList<>(securityGroups));
+
+    LaunchTemplateIamInstanceProfileSpecification iamInstanceProfileInLt =
+        sourceLtData.getIamInstanceProfile();
+    String iamRoleInLt = null;
+    if (iamInstanceProfileInLt != null) {
+      iamRoleInLt = iamInstanceProfileInLt.getName();
+    }
+    modifyDesc.setIamRole(Optional.ofNullable(modifyDesc.getIamRole()).orElse(iamRoleInLt));
+    modifyDesc.setKeyPair(
+        Optional.ofNullable(modifyDesc.getKeyPair()).orElseGet(sourceLtData::getKeyName));
+    modifyDesc.setRamdiskId(
+        Optional.ofNullable(modifyDesc.getRamdiskId()).orElseGet(sourceLtData::getRamDiskId));
+    modifyDesc.setBlockDevices(getBlockDeviceMapping(modifyDesc, sourceLtData));
+  }
+
+  private List<AmazonBlockDevice> getBlockDeviceMapping(
+      ModifyServerGroupLaunchTemplateDescription modifyDesc,
+      ResponseLaunchTemplateData ltDataOldVersion) {
+
+    // if block device mappings are explicitly specified, use them
+    if (modifyDesc.getBlockDevices() != null) {
+      return modifyDesc.getBlockDevices();
+    }
+
+    // modify mapping iff instance type has changed.
+    // for multiple instance types case, use the top-level instance type as it is used to derive
+    // defaults in {@link BasicAmazonDeployHandler}
+    if (modifyDesc.getInstanceType() != null
+        && !modifyDesc.getInstanceType().equals(ltDataOldVersion.getInstanceType())) {
+      final List<AmazonBlockDevice> defaultBdmForNewType =
+          blockDeviceConfig.getBlockDevicesForInstanceType(modifyDesc.getInstanceType());
+      // if copy from source flag is unset, use default mapping for the modified instance type
+      if (!modifyDesc.isCopySourceCustomBlockDeviceMappings()) {
+        return defaultBdmForNewType;
+      } else {
+        // if prior version used default mapping do use default mapping on new version as well
+        List<AmazonBlockDevice> defaultBdmForOldType =
+            blockDeviceConfig.getBlockDevicesForInstanceType(ltDataOldVersion.getInstanceType());
+        if (matchingBlockDevices(ltDataOldVersion.getBlockDeviceMappings(), defaultBdmForOldType)) {
+          return defaultBdmForNewType;
+        }
+      }
+    }
+    return null;
+  }
+
+  private Optional<String> getImageId(
+      Saga saga,
+      AmazonEC2 ec2,
+      String accountId,
+      ModifyServerGroupLaunchTemplateDescription modifyDesc) {
+    if (modifyDesc.getImageId() != null) {
+      return Optional.of(modifyDesc.getImageId());
+    }
+
+    String amiNameInReq = modifyDesc.getAmiName();
+    if (amiNameInReq != null) {
+      saga.log("Resolving Image Id for " + amiNameInReq);
+      try {
+        ResolvedAmiResult ami =
+            AmiIdResolver.resolveAmiIdFromAllSources(
+                ec2, modifyDesc.getRegion(), amiNameInReq, accountId);
+        return Optional.ofNullable(ami.getAmiId());
+      } catch (Exception e) {
+        throw new LaunchTemplateException(
+                String.format("Failed to resolve image id for %s", amiNameInReq), e)
+            .setRetryable(true);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  private String getSpotMaxPrice(
+      String spotMaxPriceInReq,
+      AutoScalingGroup autoScalingGroup,
+      ResponseLaunchTemplateData ltData) {
+    if (spotMaxPriceInReq != null) {
+      return spotMaxPriceInReq.trim().equals("") ? null : spotMaxPriceInReq;
+    }
+
+    Optional<String> spotMaxPriceForAsg = Optional.empty();
+    if (autoScalingGroup.getMixedInstancesPolicy() != null) {
+      spotMaxPriceForAsg =
+          Optional.ofNullable(
+              autoScalingGroup
+                  .getMixedInstancesPolicy()
+                  .getInstancesDistribution()
+                  .getSpotMaxPrice());
+    } else {
+      LaunchTemplateInstanceMarketOptions marketOptions = ltData.getInstanceMarketOptions();
+      if (marketOptions != null && marketOptions.getSpotOptions() != null) {
+        spotMaxPriceForAsg = Optional.ofNullable(marketOptions.getSpotOptions().getMaxPrice());
+      }
+    }
+    if (spotMaxPriceForAsg.isPresent()) {
+      return spotMaxPriceForAsg.get().trim().equals("") ? null : spotMaxPriceForAsg.get();
+    }
+
+    return null;
+  }
+
   private boolean matchingBlockDevices(
       List<LaunchTemplateBlockDeviceMapping> mappings,
-      List<AmazonBlockDevice> blockDevicesForInstanceType) {
+      List<AmazonBlockDevice> defaultBlockDevicesForInstanceType) {
     for (LaunchTemplateBlockDeviceMapping mapping : mappings) {
-      if (blockDevicesForInstanceType.stream()
+      if (defaultBlockDevicesForInstanceType.stream()
           .anyMatch(deviceForType -> !matchesDevice(deviceForType, mapping))) {
         return false;
       }
@@ -315,7 +470,6 @@ public class PrepareModifyServerGroupLaunchTemplate
   @Value
   public static class PrepareModifyServerGroupLaunchTemplateCommand implements SagaCommand {
     @Nonnull private ModifyServerGroupLaunchTemplateDescription description;
-
     @NonFinal private EventMetadata metadata;
 
     @Override
