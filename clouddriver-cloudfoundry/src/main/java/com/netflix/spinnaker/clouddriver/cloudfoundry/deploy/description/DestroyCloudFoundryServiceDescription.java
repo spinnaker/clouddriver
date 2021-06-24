@@ -16,11 +16,15 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description;
 
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class DestroyCloudFoundryServiceDescription extends AbstractCloudFoundryServiceDescription {
+public class DestroyCloudFoundryServiceDescription
+    extends AbstractCloudFoundryServerGroupDescription {
   private String serviceInstanceName;
+  private CloudFoundrySpace space;
+  private boolean removeBindings;
 }

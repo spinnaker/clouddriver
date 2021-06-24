@@ -16,8 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client;
 
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.collectPageResources;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.safelyCall;
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.*;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ConfigFeatureFlag.ConfigFlag.SERVICE_INSTANCE_SHARING;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.State.*;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.Type.*;
@@ -57,6 +56,12 @@ public class ServiceInstances {
   private final ServiceInstanceService api;
   private final ConfigService configApi;
   private final Spaces spaces;
+
+  public List<Resource<ServiceBinding>> findAllServiceBindingsByServiceName(String serviceName) {
+    String serviceGuid = findServiceByServiceName(serviceName).getMetadata().getGuid();
+    return collectPageResources(
+        "service bindings", pg -> api.getBindingsForServiceInstance(serviceGuid, pg, null));
+  }
 
   public void createServiceBinding(CreateServiceBinding createServiceBinding) {
     try {
