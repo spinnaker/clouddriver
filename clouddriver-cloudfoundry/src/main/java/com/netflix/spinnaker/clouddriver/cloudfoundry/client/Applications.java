@@ -31,6 +31,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.ApplicationServ
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ApplicationEnv;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.MapRoute;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceBinding;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Package;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
@@ -329,13 +330,23 @@ public class Applications {
                     vcap ->
                         vcap.getValue().stream()
                             .map(
-                                instance ->
-                                    CloudFoundryServiceInstance.builder()
-                                        .serviceInstanceName(vcap.getKey())
-                                        .name(instance.getName())
-                                        .plan(instance.getPlan())
-                                        .tags(instance.getTags())
-                                        .build()))
+                                instance -> {
+                                  CloudFoundryServiceInstance.CloudFoundryServiceInstanceBuilder
+                                      cloudFoundryServiceInstanceBuilder =
+                                          CloudFoundryServiceInstance.builder()
+                                              .serviceInstanceName(vcap.getKey())
+                                              .name(instance.getName())
+                                              .plan(instance.getPlan())
+                                              .tags(instance.getTags());
+                                  if (instance.getLastOperation() != null
+                                      && instance.getLastOperation().getState() != null) {
+                                    cloudFoundryServiceInstanceBuilder
+                                        .status(instance.getLastOperation().getState().toString())
+                                        .lastOperationDescription(
+                                            instance.getLastOperation().getDescription());
+                                  }
+                                  return cloudFoundryServiceInstanceBuilder.build();
+                                }))
                 .collect(toList());
 
     Map<String, Object> environmentVars =
@@ -659,5 +670,9 @@ public class Applications {
                                 CloudFoundryServerGroup.State.valueOf(application.getState())))
                     .map(appState -> ProcessStats.State.RUNNING)
                     .orElse(ProcessStats.State.DOWN));
+  }
+
+  public List<Resource<ServiceBinding>> getServiceBindingsByApp(String appGuid) {
+    return collectPageResources("service bindings", pg -> api.getServiceBindings(appGuid));
   }
 }
