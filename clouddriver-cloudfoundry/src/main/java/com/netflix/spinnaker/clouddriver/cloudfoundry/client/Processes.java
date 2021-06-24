@@ -71,18 +71,18 @@ public class Processes {
       @Nullable Integer healthCheckTimeout,
       @Nullable Integer healthCheckInvocationTimeout)
       throws CloudFoundryApiException {
-    final Process.HealthCheck healthCheck =
-        healthCheckType != null ? new Process.HealthCheck().setType(healthCheckType) : null;
-    if (healthCheck != null
-        && ((healthCheckEndpoint != null && !healthCheckEndpoint.isEmpty())
-            || ((healthCheckTimeout != null && healthCheckTimeout > 0))
-            || ((healthCheckInvocationTimeout != null && healthCheckInvocationTimeout > 0)))) {
-      healthCheck.setData(
-          new Process.HealthCheckData()
-              .setEndpoint(healthCheckEndpoint)
-              .setTimeout(healthCheckTimeout)
-              .setInvocationTimeout(healthCheckInvocationTimeout));
-    }
+
+    Process.HealthCheck healthCheck =
+        new Process.HealthCheck.HealthCheckBuilder()
+            .type(healthCheckType)
+            .data(
+                new Process.HealthCheckData.HealthCheckDataBuilder()
+                    .endpoint(healthCheckEndpoint)
+                    .timeout(healthCheckTimeout)
+                    .invocationTimeout(healthCheckInvocationTimeout)
+                    .build())
+            .build();
+
     if (command != null && command.isEmpty()) {
       throw new IllegalArgumentException(
           "Buildpack commands cannot be empty. Please specify a custom command or set it to null to use the original buildpack command.");

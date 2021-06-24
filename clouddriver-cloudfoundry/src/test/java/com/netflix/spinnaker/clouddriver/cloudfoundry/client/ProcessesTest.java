@@ -64,21 +64,41 @@ public class ProcessesTest {
             "guid1",
             new UpdateProcess(
                 "command1",
-                new Process.HealthCheck()
-                    .setType("http")
-                    .setData(
-                        new Process.HealthCheckData()
-                            .setEndpoint("/endpoint")
-                            .setInvocationTimeout(180)
-                            .setTimeout(180))));
+                new Process.HealthCheck.HealthCheckBuilder()
+                    .type("http")
+                    .data(
+                        new Process.HealthCheckData.HealthCheckDataBuilder()
+                            .endpoint("/endpoint")
+                            .invocationTimeout(180)
+                            .timeout(180)
+                            .build())
+                    .build()));
 
     processes.updateProcess("guid1", "command1", "http", null, null, null);
     verify(processesService)
         .updateProcess(
-            "guid1", new UpdateProcess("command1", new Process.HealthCheck().setType("http")));
+            "guid1",
+            new UpdateProcess(
+                "command1",
+                new Process.HealthCheck.HealthCheckBuilder()
+                    .type("http")
+                    .data(new Process.HealthCheckData.HealthCheckDataBuilder().build())
+                    .build()));
 
-    processes.updateProcess("guid1", "command1", null, null, 180, 180);
-    verify(processesService).updateProcess("guid1", new UpdateProcess("command1", null));
+    processes.updateProcess("guid1", "command1", "http", "/endpoint", 180, null);
+    verify(processesService)
+        .updateProcess(
+            "guid1",
+            new UpdateProcess(
+                "command1",
+                new Process.HealthCheck.HealthCheckBuilder()
+                    .type("http")
+                    .data(
+                        new Process.HealthCheckData.HealthCheckDataBuilder()
+                            .endpoint("/endpoint")
+                            .timeout(180)
+                            .build())
+                    .build()));
   }
 
   @Test
