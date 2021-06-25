@@ -14,24 +14,29 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
+package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description;
 
-import javax.annotation.Nullable;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
+@EqualsAndHashCode(callSuper = true)
 @AllArgsConstructor
-public class ProcessRequest {
-  @Nullable private String type;
-  @Nullable private String command;
-  @Nullable private String diskQuota;
-  @Nullable private String healthCheckType;
-  @Nullable private String healthCheckHttpEndpoint;
-  @Nullable private Integer healthCheckInvocationTimeout;
-  @Nullable private Integer instances;
-  @Nullable private String memory;
-  @Nullable private Integer timeout;
+@NoArgsConstructor
+public class DeleteCloudFoundryServiceBindingDescription
+    extends AbstractCloudFoundryServerGroupDescription {
+
+  private CloudFoundrySpace space;
+  private List<ServiceUnbindingRequest> serviceUnbindingRequests;
+
+  @Data
+  @AllArgsConstructor
+  @NoArgsConstructor
+  public static class ServiceUnbindingRequest {
+    private String serviceInstanceName;
+  }
 }
