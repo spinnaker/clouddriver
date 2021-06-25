@@ -160,36 +160,38 @@ public class DeployCloudFoundryServerGroupAtomicOperation
 
     // find guids for services
     description
-      .getClient()
-      .getServiceInstances()
-      .findAllServicesBySpaceAndNames(serverGroup.getSpace(), serviceNames)
-      .stream()
-      .forEach(s -> serviceInstanceGuids.put(s.getEntity().getName(), s.getMetadata().getGuid()));
+        .getClient()
+        .getServiceInstances()
+        .findAllServicesBySpaceAndNames(serverGroup.getSpace(), serviceNames)
+        .stream()
+        .forEach(s -> serviceInstanceGuids.put(s.getEntity().getName(), s.getMetadata().getGuid()));
 
     // try and create service binding request for each service
     List<CreateServiceBinding> bindings =
-      serviceNames
-        .map(
-          s -> {
-            String serviceGuid = serviceInstanceGuids.get(s);
-            if (serviceGuid == null || serviceGuid.isEmpty()) {
-              getTask()
-                .updateStatus(
-                  PHASE,
-                  "Failed to create Cloud Foundry service bindings between application '"
-                    + description.getServerGroupName()
-                    + "' and services: "
-                    + serviceNames);
+        serviceNames
+            .map(
+                s -> {
+                  String serviceGuid = serviceInstanceGuids.get(s);
+                  if (serviceGuid == null || serviceGuid.isEmpty()) {
+                    getTask()
+                        .updateStatus(
+                            PHASE,
+                            "Failed to create Cloud Foundry service bindings between application '"
+                                + description.getServerGroupName()
+                                + "' and services: "
+                                + serviceNames);
 
-              throw new CloudFoundryApiException(
-                "Unable to find service with the name: '" + s.getServiceInstanceName() + "' in "
-                  + serverGroup.getSpace());
-            }
+                    throw new CloudFoundryApiException(
+                        "Unable to find service with the name: '"
+                            + s.getServiceInstanceName()
+                            + "' in "
+                            + serverGroup.getSpace());
+                  }
 
-            return new CreateServiceBinding(
-              serviceGuid, serverGroup.getId(), Collections.emptyMap());
-          })
-        .collect(Collectors.toList());
+                  return new CreateServiceBinding(
+                      serviceGuid, serverGroup.getId(), Collections.emptyMap());
+                })
+            .collect(Collectors.toList());
 
     bindings.forEach(b -> description.getClient().getServiceInstances().createServiceBinding(b));
 

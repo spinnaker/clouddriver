@@ -76,7 +76,9 @@ public class CreateCloudFoundryServiceBindingAtomicOperation implements AtomicOp
                   String serviceGuid = serviceInstanceGuids.get(s.getServiceInstanceName());
                   if (serviceGuid == null || serviceGuid.isEmpty()) {
                     throw new CloudFoundryApiException(
-                        "Unable to find service with the name: '" + s.getServiceInstanceName() + "'");
+                        "Unable to find service with the name: '"
+                            + s.getServiceInstanceName()
+                            + "'");
                   }
                   if (s.isUpdatable()) {
                     removeBindings(serviceGuid, description.getServerGroupId());
