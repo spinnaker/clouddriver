@@ -66,7 +66,6 @@ public class CreateCloudFoundryServiceBindingAtomicOperation implements AtomicOp
         .getClient()
         .getServiceInstances()
         .findAllServicesBySpaceAndNames(description.getSpace(), serviceInstanceNames)
-        .stream()
         .forEach(s -> serviceInstanceGuids.put(s.getEntity().getName(), s.getMetadata().getGuid()));
 
     List<CreateServiceBinding> bindings =

@@ -46,6 +46,7 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.*;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
@@ -163,12 +164,11 @@ public class DeployCloudFoundryServerGroupAtomicOperation
         .getClient()
         .getServiceInstances()
         .findAllServicesBySpaceAndNames(serverGroup.getSpace(), serviceNames)
-        .stream()
         .forEach(s -> serviceInstanceGuids.put(s.getEntity().getName(), s.getMetadata().getGuid()));
 
     // try and create service binding request for each service
     List<CreateServiceBinding> bindings =
-        serviceNames
+        serviceNames.stream()
             .map(
                 s -> {
                   String serviceGuid = serviceInstanceGuids.get(s);
@@ -183,7 +183,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation
 
                     throw new CloudFoundryApiException(
                         "Unable to find service with the name: '"
-                            + s.getServiceInstanceName()
+                            + s
                             + "' in "
                             + serverGroup.getSpace());
                   }
