@@ -62,13 +62,10 @@ public class DeleteCloudFoundryServiceBindingAtomicOperation implements AtomicOp
 
     description
         .getClient()
-        .getApplications()
-        .getServiceBindingsByApp(description.getServerGroupId())
+        .getServiceInstances()
+        .findAllServicesBySpaceAndNames(description.getSpace(), serviceInstanceNames)
         .stream()
-        .forEach(
-            s ->
-                serviceInstanceGuids.put(
-                    s.getEntity().getName(), s.getEntity().getServiceInstanceGuid()));
+        .forEach(s -> serviceInstanceGuids.put(s.getEntity().getName(), s.getMetadata().getGuid()));
 
     if (serviceInstanceNames.size() != description.getServiceUnbindingRequests().size()) {
       throw new CloudFoundryApiException(
