@@ -523,7 +523,9 @@ public class DeployCloudFoundryServerGroupAtomicOperation
             serverGroupId,
             description.getApplicationAttributes().getCommand(),
             description.getApplicationAttributes().getHealthCheckType(),
-            description.getApplicationAttributes().getHealthCheckHttpEndpoint());
+            description.getApplicationAttributes().getHealthCheckHttpEndpoint(),
+            description.getApplicationAttributes().getTimeout(),
+            description.getApplicationAttributes().getTimeout());
 
     if (!description.getApplicationAttributes().getProcesses().isEmpty()) {
       List<Process> processes = client.getProcesses().getAllProcessesByAppId(serverGroupId);
@@ -537,7 +539,9 @@ public class DeployCloudFoundryServerGroupAtomicOperation
                 processGuid,
                 req.getCommand(),
                 req.getHealthCheckType(),
-                req.getHealthCheckHttpEndpoint());
+                req.getHealthCheckHttpEndpoint(),
+                req.getTimeout(),
+                req.getHealthCheckInvocationTimeout());
       }
     }
 
