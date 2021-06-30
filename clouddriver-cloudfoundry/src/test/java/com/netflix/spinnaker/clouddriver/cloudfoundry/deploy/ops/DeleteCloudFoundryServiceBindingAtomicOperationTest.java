@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Netflix, Inc.
+ * Copyright 2021 Armory, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,14 +41,13 @@ import org.junit.jupiter.api.Test;
 public class DeleteCloudFoundryServiceBindingAtomicOperationTest
     extends AbstractCloudFoundryAtomicOperationTest {
 
-  OperationPoller poller = mock(OperationPoller.class);
-  CloudFoundryClient client = new MockCloudFoundryClient();
-
   private final CloudFoundrySpace cloudFoundrySpace =
       CloudFoundrySpace.builder()
           .name("space")
           .organization(CloudFoundryOrganization.builder().name("org").build())
           .build();
+  OperationPoller poller = mock(OperationPoller.class);
+  CloudFoundryClient client = new MockCloudFoundryClient();
 
   @Test
   public void shouldDeleteServiceBinding() {
