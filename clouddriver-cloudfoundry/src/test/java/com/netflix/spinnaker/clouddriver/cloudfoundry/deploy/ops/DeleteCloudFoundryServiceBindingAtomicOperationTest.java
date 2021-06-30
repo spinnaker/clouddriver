@@ -23,8 +23,10 @@ import static org.mockito.Mockito.*;
 
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.AbstractServiceInstance;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceBinding;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceInstance;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeleteCloudFoundryServiceBindingDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
@@ -64,20 +66,34 @@ public class DeleteCloudFoundryServiceBindingAtomicOperationTest
 
     DeleteCloudFoundryServiceBindingAtomicOperation operation =
         new DeleteCloudFoundryServiceBindingAtomicOperation(poller, desc);
+    ServiceBinding appServiceInstance = new ServiceBinding();
+    appServiceInstance.setName("service1");
+    appServiceInstance.setAppGuid("app1");
+    appServiceInstance.setServiceInstanceGuid("service-guid-123");
 
-    ServiceBinding serviceInstance = new ServiceBinding();
+    Resource<ServiceBinding> appResource = new Resource<>();
+    Resource.Metadata appMetadata = new Resource.Metadata();
+    appMetadata.setGuid("service-guid-123");
+    appResource.setEntity(appServiceInstance);
+    appResource.setMetadata(appMetadata);
+
+    List<Resource<ServiceBinding>> appInstances = List.of(appResource);
+    when(desc.getClient().getApplications().getServiceBindingsByApp(any()))
+        .thenReturn(appInstances);
+
+    ServiceInstance serviceInstance = new ServiceInstance();
     serviceInstance.setName("service1");
-    serviceInstance.setAppGuid("app1");
-    serviceInstance.setServiceInstanceGuid("service-guid-123");
 
-    Resource<ServiceBinding> resource = new Resource<>();
+    Resource<ServiceInstance> resource = new Resource<>();
     Resource.Metadata metadata = new Resource.Metadata();
-    metadata.setGuid("123abc");
+    metadata.setGuid("service-guid-123");
     resource.setEntity(serviceInstance);
     resource.setMetadata(metadata);
 
-    List<Resource<ServiceBinding>> instances = List.of(resource);
-    when(desc.getClient().getApplications().getServiceBindingsByApp(any())).thenReturn(instances);
+    List<Resource<? extends AbstractServiceInstance>> serviceInstances = List.of(resource);
+
+    when(desc.getClient().getServiceInstances().findAllServicesBySpaceAndNames(any(), any()))
+        .thenReturn(serviceInstances);
     when(poller.waitForOperation(any(Supplier.class), any(), any(), any(), any(), any()))
         .thenReturn(ProcessStats.State.RUNNING);
 
