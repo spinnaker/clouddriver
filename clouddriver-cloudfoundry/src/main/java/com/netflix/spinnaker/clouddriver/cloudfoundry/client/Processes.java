@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -73,7 +74,7 @@ public class Processes {
       throws CloudFoundryApiException {
 
     final Process.HealthCheck healthCheck =
-        healthCheckType != null
+        !StringUtils.isEmpty(healthCheckType)
             ? new Process.HealthCheck.HealthCheckBuilder().type(healthCheckType).build()
             : null;
     if (healthCheck != null) {
