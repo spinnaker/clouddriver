@@ -46,34 +46,46 @@ public class DestroyCloudFoundryServiceAtomicOperation
     Task task = getTask();
 
     if (description.isRemoveBindings()) {
+      task.updateStatus(
+          PHASE,
+          "Started removing service bindings for '"
+              + description.getServiceInstanceName()
+              + "' from space "
+              + description.getSpace().getName());
 
       // create map of binding guid to service binding entity
       Map<String, ServiceBinding> map = new HashMap<>();
       description
           .getClient()
           .getServiceInstances()
-          .findAllServiceBindingsByServiceName(description.getServiceInstanceName())
+          .findAllServiceBindingsByServiceName(
+              description.getRegion(), description.getServiceInstanceName())
           .stream()
-          .forEach(
-              r -> {
-                map.put(r.getMetadata().getGuid(), r.getEntity());
-              });
+          .forEach(r -> map.put(r.getMetadata().getGuid(), r.getEntity()));
 
-      // make sure that the bindings are only to sg's that belong to the spinnaker application
+      // make sure that the bindings are only to sg's that belong to the specific spinnaker
+      // application
       // before deleting, or else throw
       for (ServiceBinding sb : map.values()) {
         CloudFoundryServerGroup sg =
             description.getClient().getApplications().findById(sb.getAppGuid());
         String appName = description.getApplications().stream().findFirst().get();
-        if (sg == null || !sg.getName().startsWith(appName)) {
+        if (!sg.getMoniker().getApp().equals(appName)) {
           throw new IllegalArgumentException(
               "Unable to unbind server group '"
-                  + sg
-                  + "' from "
+                  + sg.getName()
+                  + "' from '"
                   + description.getServiceInstanceName()
-                  + " because it doesn't belong to Spinnaker Application:  "
-                  + appName);
+                  + "' because it doesn't belong to the application '"
+                  + appName
+                  + "'");
         }
+        task.updateStatus(
+            PHASE,
+            "Finished removing service bindings for '"
+                + description.getServiceInstanceName()
+                + "' from space "
+                + description.getSpace().getName());
       }
 
       // delete the service binding
