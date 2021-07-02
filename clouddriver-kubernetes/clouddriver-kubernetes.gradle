@@ -103,7 +103,7 @@ dependencies {
 
   integrationImplementation project(":clouddriver-web")
   integrationImplementation "org.springframework.boot:spring-boot-starter-test"
-  integrationImplementation "org.testcontainers:testcontainers"
+  integrationImplementation "org.testcontainers:testcontainers:1.15.3"
   integrationImplementation "org.testcontainers:mysql"
   integrationImplementation "org.testcontainers:junit-jupiter"
   integrationImplementation "mysql:mysql-connector-java"
