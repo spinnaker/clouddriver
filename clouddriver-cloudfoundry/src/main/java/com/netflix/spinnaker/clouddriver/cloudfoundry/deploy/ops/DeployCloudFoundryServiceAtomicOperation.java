@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops;
 
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.Type.UPDATE;
 
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.ServiceInstances;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.ServiceInstanceResponse;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServiceDescription;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
@@ -55,7 +56,11 @@ public class DeployCloudFoundryServiceAtomicOperation
                   serviceAttributes.getServicePlan(),
                   serviceAttributes.getTags(),
                   serviceAttributes.getParameterMap(),
-                  serviceAttributes.isUpdatable(),
+                  ServiceInstances.ServiceInstanceOptions.builder()
+                      .updatable(serviceAttributes.isUpdatable())
+                      .versioned(serviceAttributes.isVersioned())
+                      .deletePreviousVersion(serviceAttributes.isDeletePreviousVersion())
+                      .build(),
                   description.getSpace());
       String gerund = serviceInstanceResponse.getType() == UPDATE ? "Updating" : "Creating";
       task.updateStatus(
@@ -83,7 +88,12 @@ public class DeployCloudFoundryServiceAtomicOperation
                   userProvidedServiceAttributes.getTags(),
                   userProvidedServiceAttributes.getCredentials(),
                   userProvidedServiceAttributes.getRouteServiceUrl(),
-                  userProvidedServiceAttributes.isUpdatable(),
+                  ServiceInstances.ServiceInstanceOptions.builder()
+                      .updatable(userProvidedServiceAttributes.isUpdatable())
+                      .versioned(userProvidedServiceAttributes.isVersioned())
+                      .deletePreviousVersion(
+                          userProvidedServiceAttributes.isDeletePreviousVersion())
+                      .build(),
                   description.getSpace());
       String verb = serviceInstanceResponse.getType() == UPDATE ? "Updated" : "Created";
       task.updateStatus(

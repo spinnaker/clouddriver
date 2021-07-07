@@ -99,6 +99,8 @@ public class DeployCloudFoundryServiceAtomicOperationConverter
     attrs.setServicePlan(manifest.getServicePlan());
     attrs.setTags(manifest.getTags());
     attrs.setUpdatable(manifest.isUpdatable());
+    attrs.setVersioned(manifest.isVersioned());
+    attrs.setDeletePreviousVersion(manifest.isDeletePreviousVersion());
     attrs.setParameterMap(manifest.getParameters());
     return attrs;
   }
@@ -129,6 +131,8 @@ public class DeployCloudFoundryServiceAtomicOperationConverter
   private static class ServiceManifest {
     private String service;
     private boolean updatable = true;
+    private boolean versioned;
+    private boolean deletePreviousVersion;
 
     @JsonAlias({"service_instance_name", "serviceInstanceName"})
     private String serviceInstanceName;

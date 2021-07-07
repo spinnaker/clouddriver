@@ -46,7 +46,11 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import lombok.Builder;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import okhttp3.ResponseBody;
 import org.springframework.util.StringUtils;
@@ -467,7 +471,7 @@ public class ServiceInstances {
       String servicePlanName,
       Set<String> tags,
       Map<String, Object> parameters,
-      boolean updatable,
+      ServiceInstanceOptions serviceInstanceOptions,
       CloudFoundrySpace space) {
     List<CloudFoundryServicePlan> cloudFoundryServicePlans =
         findAllServicePlansByServiceName(serviceName);
@@ -502,6 +506,7 @@ public class ServiceInstances {
             command,
             api::createServiceInstance,
             api::updateServiceInstance,
+            api::destroyServiceInstance,
             api::all,
             c -> getOsbServiceInstance(space, c.getName()),
             (createServiceInstance, r) -> {
@@ -512,10 +517,10 @@ public class ServiceInstances {
                         + "' exists but has a different plan");
               }
             },
-            updatable,
+            serviceInstanceOptions,
             space);
 
-    response.setState(updatable ? IN_PROGRESS : SUCCEEDED);
+    response.setState(serviceInstanceOptions.isUpdatable() ? IN_PROGRESS : SUCCEEDED);
     return response;
   }
 
@@ -525,7 +530,7 @@ public class ServiceInstances {
       Set<String> tags,
       Map<String, Object> credentials,
       String routeServiceUrl,
-      boolean updatable,
+      ServiceInstanceOptions serviceInstanceOptions,
       CloudFoundrySpace space) {
     CreateUserProvidedServiceInstance command = new CreateUserProvidedServiceInstance();
     command.setName(newUserProvidedServiceInstanceName);
@@ -540,10 +545,11 @@ public class ServiceInstances {
             command,
             api::createUserProvidedServiceInstance,
             api::updateUserProvidedServiceInstance,
+            api::destroyUserProvidedServiceInstance,
             api::allUserProvided,
             c -> getUserProvidedServiceInstance(space, c.getName()),
             (c, r) -> {},
-            updatable,
+            serviceInstanceOptions,
             space);
 
     response.setState(SUCCEEDED);
@@ -555,10 +561,11 @@ public class ServiceInstances {
           T command,
           Function<T, Call<Resource<S>>> create,
           BiFunction<String, T, Call<Resource<S>>> update,
+          Function<String, Call<?>> destroy,
           BiFunction<Integer, List<String>, Call<Page<S>>> getAllServices,
           Function<T, CloudFoundryServiceInstance> getServiceInstance,
           BiConsumer<T, CloudFoundryServiceInstance> updateValidation,
-          boolean updatable,
+          ServiceInstanceOptions serviceInstanceOptions,
           CloudFoundrySpace space) {
     LastOperation.Type operationType;
     List<String> serviceInstanceQuery =
@@ -576,7 +583,7 @@ public class ServiceInstances {
               () ->
                   new CloudFoundryApiException(
                       "service instance '" + command.getName() + "' could not be created"));
-    } else if (updatable) {
+    } else if (serviceInstanceOptions.isUpdatable()) {
       operationType = UPDATE;
       serviceInstances.stream()
           .findFirst()
@@ -595,11 +602,41 @@ public class ServiceInstances {
       }
       updateValidation.accept(command, serviceInstance);
       safelyCall(() -> update.apply(serviceInstance.getId(), command));
+    } else if (serviceInstanceOptions.isVersioned()) {
+
+      CloudFoundryServiceInstance previousServiceInstance = getServiceInstance.apply(command);
+
+      if (previousServiceInstance != null && previousServiceInstance.getName() != null) {
+        command.setName(getNextVersionName(previousServiceInstance.getName()));
+      } else {
+        command.setName(getNextVersionName(command.getName()));
+      }
+
+      safelyCall(() -> create.apply(command))
+          .map(res -> res.getMetadata().getGuid())
+          .orElseThrow(
+              () ->
+                  new CloudFoundryApiException(
+                      "service instance '" + command.getName() + "' could not be created"));
+
+      if (previousServiceInstance != null && serviceInstanceOptions.isDeletePreviousVersion()) {
+        destroy.apply(previousServiceInstance.getId());
+      }
     }
 
     return new ServiceInstanceResponse()
         .setServiceInstanceName(command.getName())
         .setType(operationType);
+  }
+
+  static String getNextVersionName(String name) {
+    Pattern r = Pattern.compile(".*?-v(\\d+)");
+    Matcher m = r.matcher(name);
+    if (m.find()) {
+      int currentVersion = Integer.parseInt(m.group(1));
+      return name.replace("v" + currentVersion, "v" + (currentVersion + 1));
+    }
+    return name + "-v1";
   }
 
   private static List<String> getServiceQueryParams(
@@ -610,5 +647,13 @@ public class ServiceInstances {
             : "name IN " + String.join(",", serviceNames),
         "organization_guid:" + space.getOrganization().getId(),
         "space_guid:" + space.getId());
+  }
+
+  @Data
+  @Builder
+  public static class ServiceInstanceOptions {
+    private boolean updatable;
+    private boolean versioned;
+    private boolean deletePreviousVersion;
   }
 }
