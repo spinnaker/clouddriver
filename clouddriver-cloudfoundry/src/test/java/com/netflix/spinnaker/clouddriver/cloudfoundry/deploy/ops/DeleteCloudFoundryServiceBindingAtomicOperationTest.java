@@ -27,15 +27,12 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.AbstractSe
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceBinding;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceInstance;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeleteCloudFoundryServiceBindingDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
-import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
 public class DeleteCloudFoundryServiceBindingAtomicOperationTest
@@ -46,7 +43,6 @@ public class DeleteCloudFoundryServiceBindingAtomicOperationTest
           .name("space")
           .organization(CloudFoundryOrganization.builder().name("org").build())
           .build();
-  OperationPoller poller = mock(OperationPoller.class);
   CloudFoundryClient client = new MockCloudFoundryClient();
 
   @Test
@@ -64,7 +60,7 @@ public class DeleteCloudFoundryServiceBindingAtomicOperationTest
     desc.setServiceUnbindingRequests(Collections.singletonList(unbinding));
 
     DeleteCloudFoundryServiceBindingAtomicOperation operation =
-        new DeleteCloudFoundryServiceBindingAtomicOperation(poller, desc);
+        new DeleteCloudFoundryServiceBindingAtomicOperation(desc);
     ServiceBinding appServiceInstance = new ServiceBinding();
     appServiceInstance.setName("service1");
     appServiceInstance.setAppGuid("app1");
@@ -93,21 +89,18 @@ public class DeleteCloudFoundryServiceBindingAtomicOperationTest
 
     when(desc.getClient().getServiceInstances().findAllServicesBySpaceAndNames(any(), any()))
         .thenReturn(serviceInstances);
-    when(poller.waitForOperation(any(Supplier.class), any(), any(), any(), any(), any()))
-        .thenReturn(ProcessStats.State.RUNNING);
 
     Task task = runOperation(operation);
 
     verify(client.getServiceInstances()).deleteServiceBinding(any());
     assertThat(task.getHistory())
         .has(
-            status(
-                "Deleting Cloud Foundry service bindings between application 'app1' and services: [service1]"),
+            status("Unbinding Cloud Foundry application 'app1' from services: [service1]"),
             atIndex(1));
     assertThat(task.getHistory())
         .has(
             status(
-                "Deleted Cloud Foundry service from application 'app1' and services: [service1]"),
-            atIndex(3));
+                "Successfully unbound Cloud Foundry application 'app1' from services: [service1]"),
+            atIndex(2));
   }
 }
