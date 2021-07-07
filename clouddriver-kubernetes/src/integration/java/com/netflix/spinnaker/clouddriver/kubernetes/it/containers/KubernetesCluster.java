@@ -34,7 +34,7 @@ import org.yaml.snakeyaml.Yaml;
 
 public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
 
-  private static final String DOCKER_IMAGE = "rancher/k3s:v1.17.11-k3s1";
+  private static final String DOCKER_IMAGE = "rancher/k3s:v1.21.2-k3s1";
   private static final String KUBECFG_IN_CONTAINER = "/etc/rancher/k3s/k3s.yaml";
 
   private static KubernetesCluster INSTANCE;
