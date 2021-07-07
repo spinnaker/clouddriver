@@ -9,6 +9,6 @@
         <appender-ref ref="STDOUT"/>
     </root>
 
-    <logger name="org.testcontainers" level="INFO"/>
-    <logger name="com.github.dockerjava" level="WARN"/>
+    <logger name="org.testcontainers" level="DEBUG"/>
+    <logger name="com.github.dockerjava" level="DEBUG"/>
 </configuration>
