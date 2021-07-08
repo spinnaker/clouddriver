@@ -17,8 +17,7 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client;
 
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ConfigFeatureFlag.ConfigFlag.SERVICE_INSTANCE_SHARING;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.State.IN_PROGRESS;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.State.SUCCEEDED;
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.State.*;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.Type.*;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceInstance.Type.MANAGED_SERVICE_INSTANCE;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceInstance.Type.USER_PROVIDED_SERVICE_INSTANCE;
@@ -87,7 +86,7 @@ class ServiceInstancesTest {
     Page<ServiceInstance> serviceMappingPageOne = Page.singleton(null, "service-instance-guid");
     CreateServiceBinding binding =
         new CreateServiceBinding(
-            "service-instance-guid", cloudFoundryServerGroup.getId(), emptyMap());
+            "service-instance-guid", cloudFoundryServerGroup.getId(), "service-name", emptyMap());
     serviceMappingPageOne.setTotalResults(0);
     serviceMappingPageOne.setTotalPages(0);
     when(serviceInstanceService.all(eq(null), any()))
@@ -122,7 +121,7 @@ class ServiceInstancesTest {
     Page<ServiceInstance> serviceMappingPageOne = createEmptyOsbServiceInstancePage();
     CreateServiceBinding binding =
         new CreateServiceBinding(
-            "service-instance-guid", cloudFoundryServerGroup.getId(), emptyMap());
+            "service-instance-guid", cloudFoundryServerGroup.getId(), "service-name", emptyMap());
     when(serviceInstanceService.all(eq(null), any()))
         .thenAnswer(invocation -> Calls.response(Response.success(serviceMappingPageOne)));
     when(serviceInstanceService.all(eq(1), any()))
@@ -158,7 +157,7 @@ class ServiceInstancesTest {
     Page<ServiceInstance> serviceMappingPageOne = Page.singleton(null, "service-instance-guid");
     CreateServiceBinding binding =
         new CreateServiceBinding(
-            "service-instance-guid", cloudFoundryServerGroup.getId(), emptyMap());
+            "service-instance-guid", cloudFoundryServerGroup.getId(), "service-name", emptyMap());
     serviceMappingPageOne.setTotalResults(0);
     serviceMappingPageOne.setTotalPages(0);
     when(serviceInstanceService.all(eq(null), any()))
@@ -1119,6 +1118,26 @@ class ServiceInstancesTest {
   }
 
   @Test
+  void getServiceInstanceShouldReturnAServiceInstanceWithStatusWhenExactlyOneIsReturnedFromApi() {
+    when(serviceInstanceService.all(any(), any()))
+        .thenAnswer(invocation -> Calls.response(Response.success(createServiceInstancePage())));
+
+    CloudFoundryServiceInstance service =
+        serviceInstances.getOsbServiceInstance(cloudFoundrySpace, "up-service-instance-name");
+
+    assertThat(service).isNotNull();
+    CloudFoundryServiceInstance expected =
+        CloudFoundryServiceInstance.builder()
+            .id("up-service-instance-guid")
+            .type(MANAGED_SERVICE_INSTANCE.toString())
+            .serviceInstanceName("up-service-instance-name")
+            .status(FAILED.toString())
+            .lastOperationDescription("Custom description")
+            .build();
+    assertThat(service).isEqualToComparingFieldByFieldRecursively(expected);
+  }
+
+  @Test
   void getOsbServiceInstanceShouldThrowAnExceptionWhenMultipleServicesAreReturnedFromApi() {
     when(serviceInstanceService.all(any(), any()))
         .thenAnswer(
@@ -1389,6 +1408,20 @@ class ServiceInstancesTest {
   private Page<UserProvidedServiceInstance> createUserProvidedServiceInstancePage() {
     UserProvidedServiceInstance serviceInstance = new UserProvidedServiceInstance();
     serviceInstance.setName("up-service-instance-name").setTags(singleton("spinnakerVersion-v000"));
+    return Page.singleton(serviceInstance, "up-service-instance-guid");
+  }
+
+  private Page<ServiceInstance> createServiceInstancePage() {
+    ServiceInstance serviceInstance = new ServiceInstance();
+    serviceInstance.setName("up-service-instance-name").setTags(singleton("spinnakerVersion-v000"));
+
+    LastOperation lastOperation = new LastOperation();
+    lastOperation.setState(FAILED);
+    lastOperation.setDescription("Custom description");
+
+    serviceInstance.setLastOperation(lastOperation);
+    serviceInstance.setType(MANAGED_SERVICE_INSTANCE);
+
     return Page.singleton(serviceInstance, "up-service-instance-guid");
   }
 

@@ -66,13 +66,7 @@ public class CreateCloudFoundryServiceBindingAtomicOperation implements AtomicOp
         .getClient()
         .getServiceInstances()
         .findAllServicesBySpaceAndNames(description.getSpace(), serviceInstanceNames)
-        .stream()
         .forEach(s -> serviceInstanceGuids.put(s.getEntity().getName(), s.getMetadata().getGuid()));
-
-    if (serviceInstanceNames.size() != description.getServiceBindingRequests().size()) {
-      throw new CloudFoundryApiException(
-          "Number of service instances found does not match the number of service binding requests.");
-    }
 
     List<CreateServiceBinding> bindings =
         description.getServiceBindingRequests().stream()
@@ -89,7 +83,10 @@ public class CreateCloudFoundryServiceBindingAtomicOperation implements AtomicOp
                     removeBindings(serviceGuid, description.getServerGroupId());
                   }
                   return new CreateServiceBinding(
-                      serviceGuid, description.getServerGroupId(), s.getParameters());
+                      serviceGuid,
+                      description.getServerGroupId(),
+                      s.getServiceInstanceName(),
+                      s.getParameters());
                 })
             .collect(Collectors.toList());
 
@@ -156,7 +153,7 @@ public class CreateCloudFoundryServiceBindingAtomicOperation implements AtomicOp
   }
 
   private void removeBindings(String serviceGuid, String appGuid) {
-    description.getClient().getServiceInstances().findAllServiceBindingsByApp(appGuid).stream()
+    description.getClient().getApplications().getServiceBindingsByApp(appGuid).stream()
         .filter(s -> serviceGuid.equalsIgnoreCase(s.getEntity().getServiceInstanceGuid()))
         .findAny()
         .ifPresent(

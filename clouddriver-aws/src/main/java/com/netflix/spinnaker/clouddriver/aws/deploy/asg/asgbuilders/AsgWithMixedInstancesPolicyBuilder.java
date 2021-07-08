@@ -20,7 +20,6 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.asg.asgbuilders;
 import com.amazonaws.services.autoscaling.AmazonAutoScaling;
 import com.amazonaws.services.autoscaling.model.CreateAutoScalingGroupRequest;
 import com.amazonaws.services.autoscaling.model.InstancesDistribution;
-import com.amazonaws.services.autoscaling.model.LaunchTemplateOverrides;
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification;
 import com.amazonaws.services.autoscaling.model.MixedInstancesPolicy;
 import com.amazonaws.services.ec2.AmazonEC2;
@@ -31,11 +30,12 @@ import com.netflix.spinnaker.clouddriver.aws.services.LaunchTemplateService;
 import com.netflix.spinnaker.clouddriver.aws.services.SecurityGroupService;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults;
-import java.util.List;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-/** A builder used to build an AWS Autoscaling group. */
+/**
+ * A builder used to build an AWS Autoscaling group with mixed instances policy, backed by EC2
+ * launch template. https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-purchase-options.html
+ */
 @Slf4j
 public class AsgWithMixedInstancesPolicyBuilder extends AsgBuilder {
   private LaunchTemplateService ec2LtService;
@@ -81,19 +81,9 @@ public class AsgWithMixedInstancesPolicyBuilder extends AsgBuilder {
 
     // create and add overrides
     // https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-override-options.html
-    if (config.getLaunchTemplateOverridesForInstanceType() != null
-        && !config.getLaunchTemplateOverridesForInstanceType().isEmpty()) {
-      // todo(pdk27): add priority to the user input overrides and maintain that order here
-      List<LaunchTemplateOverrides> overrides =
-          config.getLaunchTemplateOverridesForInstanceType().stream()
-              .map(
-                  o ->
-                      new LaunchTemplateOverrides()
-                          .withInstanceType(o.getInstanceType())
-                          .withWeightedCapacity(o.getWeightedCapacity()))
-              .collect(Collectors.toList());
-      asgLt.withOverrides(overrides);
-    }
+    asgLt.withOverrides(
+        AsgConfigHelper.getLaunchTemplateOverrides(
+            config.getLaunchTemplateOverridesForInstanceType()));
 
     // configure instance distribution
     // https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-purchase-options.html
@@ -106,7 +96,7 @@ public class AsgWithMixedInstancesPolicyBuilder extends AsgBuilder {
             .withSpotMaxPrice(config.getSpotMaxPrice())
             .withSpotAllocationStrategy(config.getSpotAllocationStrategy());
 
-    // create mixes instances policy with overrides and instance distribution
+    // create mixed instances policy with overrides and instance distribution
     final MixedInstancesPolicy mixedInsPolicy =
         new MixedInstancesPolicy().withLaunchTemplate(asgLt).withInstancesDistribution(dist);
 
