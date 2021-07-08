@@ -115,7 +115,11 @@ task integrationTest(type: Test) {
   description = 'Runs kubernetes provider integration tests.'
   group = 'verification'
 
+<<<<<<< HEAD
   environment "PROJECT_ROOT", project.rootDir.toString()
+=======
+  environment "IT_BUILD_HOME", "$project.buildDir/it"
+>>>>>>> 807d18edf (fix(kube/test): Use kind instead of k3s (#5421))
   useJUnitPlatform()
 
   testClassesDirs = sourceSets.integration.output.classesDirs
