@@ -471,7 +471,8 @@ public class ServiceInstances {
       String servicePlanName,
       Set<String> tags,
       Map<String, Object> parameters,
-      ServiceInstanceOptions serviceInstanceOptions,
+      boolean updatable,
+      boolean versioned,
       CloudFoundrySpace space) {
     List<CloudFoundryServicePlan> cloudFoundryServicePlans =
         findAllServicePlansByServiceName(serviceName);
@@ -517,10 +518,11 @@ public class ServiceInstances {
                         + "' exists but has a different plan");
               }
             },
-            serviceInstanceOptions,
+            updatable,
+            versioned,
             space);
 
-    response.setState(serviceInstanceOptions.isUpdatable() ? IN_PROGRESS : SUCCEEDED);
+    response.setState(updatable ? IN_PROGRESS : SUCCEEDED);
     return response;
   }
 
@@ -530,7 +532,8 @@ public class ServiceInstances {
       Set<String> tags,
       Map<String, Object> credentials,
       String routeServiceUrl,
-      ServiceInstanceOptions serviceInstanceOptions,
+      boolean updatable,
+      boolean versioned,
       CloudFoundrySpace space) {
     CreateUserProvidedServiceInstance command = new CreateUserProvidedServiceInstance();
     command.setName(newUserProvidedServiceInstanceName);
@@ -549,7 +552,8 @@ public class ServiceInstances {
             api::allUserProvided,
             c -> getUserProvidedServiceInstance(space, c.getName()),
             (c, r) -> {},
-            serviceInstanceOptions,
+            updatable,
+            versioned,
             space);
 
     response.setState(SUCCEEDED);
@@ -565,7 +569,8 @@ public class ServiceInstances {
           BiFunction<Integer, List<String>, Call<Page<S>>> getAllServices,
           Function<T, CloudFoundryServiceInstance> getServiceInstance,
           BiConsumer<T, CloudFoundryServiceInstance> updateValidation,
-          ServiceInstanceOptions serviceInstanceOptions,
+          boolean updatable,
+          boolean versioned,
           CloudFoundrySpace space) {
     LastOperation.Type operationType;
     List<String> serviceInstanceQuery =
@@ -583,7 +588,7 @@ public class ServiceInstances {
               () ->
                   new CloudFoundryApiException(
                       "service instance '" + command.getName() + "' could not be created"));
-    } else if (serviceInstanceOptions.isUpdatable()) {
+    } else if (updatable) {
       operationType = UPDATE;
       serviceInstances.stream()
           .findFirst()
@@ -602,7 +607,7 @@ public class ServiceInstances {
       }
       updateValidation.accept(command, serviceInstance);
       safelyCall(() -> update.apply(serviceInstance.getId(), command));
-    } else if (serviceInstanceOptions.isVersioned()) {
+    } else if (versioned) {
 
       CloudFoundryServiceInstance previousServiceInstance = getServiceInstance.apply(command);
 
@@ -618,10 +623,6 @@ public class ServiceInstances {
               () ->
                   new CloudFoundryApiException(
                       "service instance '" + command.getName() + "' could not be created"));
-
-      if (previousServiceInstance != null && serviceInstanceOptions.isDeletePreviousVersion()) {
-        destroy.apply(previousServiceInstance.getId());
-      }
     }
 
     return new ServiceInstanceResponse()
@@ -654,6 +655,5 @@ public class ServiceInstances {
   public static class ServiceInstanceOptions {
     private boolean updatable;
     private boolean versioned;
-    private boolean deletePreviousVersion;
   }
 }

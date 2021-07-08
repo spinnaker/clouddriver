@@ -25,6 +25,7 @@ public abstract class AbstractCreateServiceInstance {
   private String name;
   private String spaceGuid;
   private boolean updatable = true;
+  private boolean versioned = false;
 
   @Nullable private Set<String> tags;
 }

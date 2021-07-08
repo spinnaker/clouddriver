@@ -212,7 +212,8 @@ class ServiceInstancesTest {
             "ServicePlan1",
             Collections.emptySet(),
             null,
-            ServiceInstances.ServiceInstanceOptions.builder().updatable(true).build(),
+            true,
+            false,
             cloudFoundrySpace);
 
     assertThat(response)
@@ -252,7 +253,8 @@ class ServiceInstancesTest {
                 "ServicePlan1",
                 Collections.emptySet(),
                 null,
-                ServiceInstances.ServiceInstanceOptions.builder().updatable(false).build(),
+                false,
+                false,
                 cloudFoundrySpace),
         CloudFoundryApiException.class,
         "Cloud Foundry API returned with error(s): service instance 'new-service-instance-name' could not be created");
@@ -277,7 +279,8 @@ class ServiceInstancesTest {
                 "servicePlanName",
                 Collections.emptySet(),
                 null,
-                ServiceInstances.ServiceInstanceOptions.builder().updatable(true).build(),
+                true,
+                false,
                 cloudFoundrySpace),
         ResourceNotFoundException.class,
         "No plans available for service name 'serviceName'");
@@ -302,7 +305,8 @@ class ServiceInstancesTest {
             "ServicePlan1",
             Collections.emptySet(),
             null,
-            ServiceInstances.ServiceInstanceOptions.builder().updatable(true).build(),
+            true,
+            false,
             cloudFoundrySpace);
 
     assertThat(response)
@@ -334,7 +338,8 @@ class ServiceInstancesTest {
             "ServicePlan1",
             Collections.emptySet(),
             null,
-            ServiceInstances.ServiceInstanceOptions.builder().updatable(false).build(),
+            false,
+            false,
             cloudFoundrySpace);
 
     assertThat(response)
@@ -372,7 +377,8 @@ class ServiceInstancesTest {
                 "ServicePlan1",
                 Collections.emptySet(),
                 null,
-                ServiceInstances.ServiceInstanceOptions.builder().updatable(true).build(),
+                true,
+                false,
                 cloudFoundrySpace),
         CloudFoundryApiException.class,
         "Cloud Foundry API returned with error(s): update failed");
@@ -410,7 +416,8 @@ class ServiceInstancesTest {
                 "ServicePlan1",
                 Collections.emptySet(),
                 null,
-                ServiceInstances.ServiceInstanceOptions.builder().updatable(true).build(),
+                true,
+                false,
                 cloudFoundrySpace),
         CloudFoundryApiException.class,
         "Cloud Foundry API returned with error(s): 2 service instances found with name 'new-service-instance-name' in space 'space', but expected only 1");
@@ -437,7 +444,8 @@ class ServiceInstancesTest {
             Collections.emptySet(),
             Collections.emptyMap(),
             "routeServiceUrl",
-            ServiceInstances.ServiceInstanceOptions.builder().updatable(true).build(),
+            true,
+            false,
             cloudFoundrySpace);
 
     assertThat(response)
@@ -471,7 +479,8 @@ class ServiceInstancesTest {
             Collections.emptySet(),
             Collections.emptyMap(),
             "routeServiceUrl",
-            ServiceInstances.ServiceInstanceOptions.builder().updatable(true).build(),
+            true,
+            false,
             cloudFoundrySpace);
 
     assertThat(response)
@@ -505,7 +514,8 @@ class ServiceInstancesTest {
             Collections.emptySet(),
             Collections.emptyMap(),
             "routeServiceUrl",
-            ServiceInstances.ServiceInstanceOptions.builder().updatable(false).build(),
+            false,
+            false,
             cloudFoundrySpace);
 
     assertThat(response)
@@ -543,10 +553,8 @@ class ServiceInstancesTest {
             Collections.emptySet(),
             Collections.emptyMap(),
             "routeServiceUrl",
-            ServiceInstances.ServiceInstanceOptions.builder()
-                .updatable(false)
-                .versioned(true)
-                .build(),
+            false,
+            true,
             cloudFoundrySpace);
 
     assertThat(response)
@@ -558,49 +566,6 @@ class ServiceInstancesTest {
     verify(serviceInstanceService, times(1)).createUserProvidedServiceInstance(any());
     verify(serviceInstanceService, times(0)).updateUserProvidedServiceInstance(any(), any());
     verify(serviceInstanceService, times(0)).destroyServiceInstance(any());
-  }
-
-  @Test
-  void shouldCreateNewServiceInstanceDeletePreviousOneIfVersionedAndDeletePrevious() {
-    when(serviceInstanceService.all(any(), any()))
-        .thenAnswer(
-            invocation -> Calls.response(Response.success(createEmptyOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
-        .thenAnswer(
-            invocation ->
-                Calls.response(Response.success(createUserProvidedServiceInstancePage())));
-    when(serviceInstanceService.updateUserProvidedServiceInstance(any(), any()))
-        .thenAnswer(
-            invocation ->
-                Calls.response(Response.success(createUserProvidedServiceInstanceResource())));
-    when(serviceInstanceService.createUserProvidedServiceInstance(any()))
-        .thenAnswer(
-            invocation ->
-                Calls.response(Response.success(createUserProvidedServiceInstanceResource())));
-
-    ServiceInstanceResponse response =
-        serviceInstances.createUserProvidedServiceInstance(
-            "new-up-service-instance-name",
-            "syslogDrainUrl",
-            Collections.emptySet(),
-            Collections.emptyMap(),
-            "routeServiceUrl",
-            ServiceInstances.ServiceInstanceOptions.builder()
-                .updatable(false)
-                .versioned(true)
-                .deletePreviousVersion(true)
-                .build(),
-            cloudFoundrySpace);
-
-    assertThat(response)
-        .isEqualTo(
-            new ServiceInstanceResponse()
-                .setServiceInstanceName("new-up-service-instance-name-v1")
-                .setType(CREATE)
-                .setState(SUCCEEDED));
-    verify(serviceInstanceService, times(1)).createUserProvidedServiceInstance(any());
-    verify(serviceInstanceService, times(1)).destroyUserProvidedServiceInstance(any());
-    verify(serviceInstanceService, times(0)).updateUserProvidedServiceInstance(any(), any());
   }
 
   @Test

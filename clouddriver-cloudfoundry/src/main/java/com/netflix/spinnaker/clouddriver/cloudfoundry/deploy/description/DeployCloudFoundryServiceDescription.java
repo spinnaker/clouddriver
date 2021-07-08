@@ -42,7 +42,6 @@ public class DeployCloudFoundryServiceDescription extends AbstractCloudFoundrySe
     String servicePlan;
     boolean updatable = true;
     boolean versioned;
-    boolean deletePreviousVersion;
 
     @Nullable Set<String> tags;
 

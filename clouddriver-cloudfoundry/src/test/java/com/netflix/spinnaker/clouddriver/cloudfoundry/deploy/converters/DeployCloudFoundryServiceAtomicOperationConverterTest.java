@@ -207,6 +207,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
             "service_instance_name", "my-service-instance-name",
             "syslog_drain_url", "test-syslog-drain-url",
             "updatable", false,
+            "versioned", true,
             "route_service_url", "test-route-service-url",
             "tags", Collections.singletonList("my-tag"),
             "credentials_map", "{\"foo\": \"bar\"}");
@@ -219,6 +220,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
                 .setRouteServiceUrl("test-route-service-url")
                 .setTags(Collections.singleton("my-tag"))
                 .setUpdatable(false)
+                .setVersioned(true)
                 .setCredentials(Collections.singletonMap("foo", "bar")));
   }
 
