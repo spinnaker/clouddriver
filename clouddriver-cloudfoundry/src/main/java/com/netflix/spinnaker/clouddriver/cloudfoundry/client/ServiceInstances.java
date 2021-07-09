@@ -507,7 +507,6 @@ public class ServiceInstances {
             command,
             api::createServiceInstance,
             api::updateServiceInstance,
-            api::destroyServiceInstance,
             api::all,
             c -> getOsbServiceInstance(space, c.getName()),
             (createServiceInstance, r) -> {
@@ -548,7 +547,6 @@ public class ServiceInstances {
             command,
             api::createUserProvidedServiceInstance,
             api::updateUserProvidedServiceInstance,
-            api::destroyUserProvidedServiceInstance,
             api::allUserProvided,
             c -> getUserProvidedServiceInstance(space, c.getName()),
             (c, r) -> {},
@@ -565,7 +563,6 @@ public class ServiceInstances {
           T command,
           Function<T, Call<Resource<S>>> create,
           BiFunction<String, T, Call<Resource<S>>> update,
-          Function<String, Call<?>> destroy,
           BiFunction<Integer, List<String>, Call<Page<S>>> getAllServices,
           Function<T, CloudFoundryServiceInstance> getServiceInstance,
           BiConsumer<T, CloudFoundryServiceInstance> updateValidation,
