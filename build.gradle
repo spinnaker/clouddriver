@@ -35,6 +35,7 @@ plugins {
   id 'org.jetbrains.kotlin.jvm' version "$kotlinVersion"
   id 'org.jetbrains.kotlin.plugin.allopen' version "$kotlinVersion" apply false
   id "com.google.protobuf" version "0.8.12" apply false
+  id "nebula.maven-apache-license" version "17.3.2" apply false
 }
 
 allprojects {
@@ -43,6 +44,7 @@ allprojects {
     jcenter()
   }
   apply plugin: 'io.spinnaker.project'
+  apply plugin: 'nebula.maven-apache-license'
 }
 
 subprojects {
