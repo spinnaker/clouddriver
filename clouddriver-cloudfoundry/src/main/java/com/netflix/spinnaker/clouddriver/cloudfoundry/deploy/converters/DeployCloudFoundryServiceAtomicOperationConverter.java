@@ -99,6 +99,7 @@ public class DeployCloudFoundryServiceAtomicOperationConverter
     attrs.setServicePlan(manifest.getServicePlan());
     attrs.setTags(manifest.getTags());
     attrs.setUpdatable(manifest.isUpdatable());
+    attrs.setVersioned(manifest.isVersioned());
     attrs.setParameterMap(manifest.getParameters());
     return attrs;
   }
@@ -121,6 +122,7 @@ public class DeployCloudFoundryServiceAtomicOperationConverter
     attrs.setRouteServiceUrl(manifest.getRouteServiceUrl());
     attrs.setTags(manifest.getTags());
     attrs.setUpdatable(manifest.isUpdatable());
+    attrs.setVersioned(manifest.isVersioned());
     attrs.setCredentials(manifest.getCredentials());
     return attrs;
   }
@@ -129,6 +131,7 @@ public class DeployCloudFoundryServiceAtomicOperationConverter
   private static class ServiceManifest {
     private String service;
     private boolean updatable = true;
+    private boolean versioned;
 
     @JsonAlias({"service_instance_name", "serviceInstanceName"})
     private String serviceInstanceName;
@@ -146,6 +149,7 @@ public class DeployCloudFoundryServiceAtomicOperationConverter
   @Data
   private static class UserProvidedServiceManifest {
     private boolean updatable = true;
+    private boolean versioned;
 
     @JsonAlias({"service_instance_name", "serviceInstanceName"})
     private String serviceInstanceName;

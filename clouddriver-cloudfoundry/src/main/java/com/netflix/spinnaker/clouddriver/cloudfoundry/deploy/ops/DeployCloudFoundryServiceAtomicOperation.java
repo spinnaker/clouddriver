@@ -56,6 +56,7 @@ public class DeployCloudFoundryServiceAtomicOperation
                   serviceAttributes.getTags(),
                   serviceAttributes.getParameterMap(),
                   serviceAttributes.isUpdatable(),
+                  serviceAttributes.isVersioned(),
                   description.getSpace());
       String gerund = serviceInstanceResponse.getType() == UPDATE ? "Updating" : "Creating";
       task.updateStatus(
@@ -84,6 +85,7 @@ public class DeployCloudFoundryServiceAtomicOperation
                   userProvidedServiceAttributes.getCredentials(),
                   userProvidedServiceAttributes.getRouteServiceUrl(),
                   userProvidedServiceAttributes.isUpdatable(),
+                  userProvidedServiceAttributes.isVersioned(),
                   description.getSpace());
       String verb = serviceInstanceResponse.getType() == UPDATE ? "Updated" : "Created";
       task.updateStatus(

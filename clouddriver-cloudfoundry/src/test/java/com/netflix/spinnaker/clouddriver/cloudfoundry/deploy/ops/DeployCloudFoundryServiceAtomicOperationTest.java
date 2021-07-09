@@ -51,7 +51,8 @@ class DeployCloudFoundryServiceAtomicOperationTest extends AbstractCloudFoundryA
             .setState(IN_PROGRESS);
     when(client
             .getServiceInstances()
-            .createServiceInstance(any(), any(), any(), any(), any(), anyBoolean(), any()))
+            .createServiceInstance(
+                any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any()))
         .thenReturn(serviceInstanceResponse);
 
     DeployCloudFoundryServiceAtomicOperation op =
@@ -87,7 +88,7 @@ class DeployCloudFoundryServiceAtomicOperationTest extends AbstractCloudFoundryA
     when(client
             .getServiceInstances()
             .createUserProvidedServiceInstance(
-                any(), any(), any(), any(), any(), anyBoolean(), any()))
+                any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), any()))
         .thenReturn(serviceInstanceResponse);
 
     DeployCloudFoundryServiceAtomicOperation op =
