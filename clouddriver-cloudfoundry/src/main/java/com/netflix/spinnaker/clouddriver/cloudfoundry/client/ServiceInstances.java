@@ -46,12 +46,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import lombok.Builder;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import okhttp3.ResponseBody;
 import org.springframework.util.StringUtils;
@@ -161,6 +156,20 @@ public class ServiceInstances {
     serviceInstances.addAll(
         collectPageResources(
             "service instances", pg -> api.allUserProvided(pg, serviceInstanceQuery)));
+    return serviceInstances;
+  }
+
+  public List<Resource<? extends AbstractServiceInstance>> findAllServicesByNameGreaterThan(
+      CloudFoundrySpace space, String serviceInstanceName) {
+    if (serviceInstanceName == null || serviceInstanceName.isEmpty()) return emptyList();
+    List<String> allServiceInstanceQuery =
+        Arrays.asList(
+            "name>" + serviceInstanceName,
+            "organization_guid:" + space.getOrganization().getId(),
+            "space_guid:" + space.getId());
+    List<Resource<? extends AbstractServiceInstance>> serviceInstances = new ArrayList<>();
+    serviceInstances.addAll(
+        collectPageResources("service instances", pg -> api.all(pg, allServiceInstanceQuery)));
     return serviceInstances;
   }
 
@@ -487,7 +496,7 @@ public class ServiceInstances {
       Set<String> tags,
       Map<String, Object> parameters,
       boolean updatable,
-      boolean versioned,
+      String previousInstanceName,
       CloudFoundrySpace space) {
     List<CloudFoundryServicePlan> cloudFoundryServicePlans =
         findAllServicePlansByServiceName(serviceName);
@@ -533,7 +542,7 @@ public class ServiceInstances {
               }
             },
             updatable,
-            versioned,
+            previousInstanceName,
             space);
 
     response.setState(updatable ? IN_PROGRESS : SUCCEEDED);
@@ -547,7 +556,7 @@ public class ServiceInstances {
       Map<String, Object> credentials,
       String routeServiceUrl,
       boolean updatable,
-      boolean versioned,
+      String previousServiceInstanceName,
       CloudFoundrySpace space) {
     CreateUserProvidedServiceInstance command = new CreateUserProvidedServiceInstance();
     command.setName(newUserProvidedServiceInstanceName);
@@ -557,7 +566,6 @@ public class ServiceInstances {
     command.setRouteServiceUrl(routeServiceUrl);
     command.setSpaceGuid(space.getId());
     command.setUpdatable(updatable);
-    command.setVersioned(versioned);
 
     ServiceInstanceResponse response =
         createServiceInstance(
@@ -568,7 +576,7 @@ public class ServiceInstances {
             c -> getUserProvidedServiceInstance(space, c.getName()),
             (c, r) -> {},
             updatable,
-            versioned,
+            previousServiceInstanceName,
             space);
 
     response.setState(SUCCEEDED);
@@ -584,13 +592,11 @@ public class ServiceInstances {
           Function<T, CloudFoundryServiceInstance> getServiceInstance,
           BiConsumer<T, CloudFoundryServiceInstance> updateValidation,
           boolean updatable,
-          boolean versioned,
+          String previousInstanceName,
           CloudFoundrySpace space) {
     LastOperation.Type operationType;
     List<String> serviceInstanceQuery =
-        getServiceQueryParams(
-            Collections.singletonList(versioned ? command.getName() + "-v0" : command.getName()),
-            space);
+        getServiceQueryParams(Collections.singletonList(command.getName()), space);
     List<Resource<? extends AbstractServiceInstance>> serviceInstances = new ArrayList<>();
     serviceInstances.addAll(
         collectPageResources(
@@ -598,9 +604,6 @@ public class ServiceInstances {
 
     operationType = CREATE;
     if (serviceInstances.size() == 0) {
-      if (versioned) {
-        command.setName(command.getName() + "-v0");
-      }
       safelyCall(() -> create.apply(command))
           .map(res -> res.getMetadata().getGuid())
           .orElseThrow(
@@ -626,72 +629,12 @@ public class ServiceInstances {
       }
       updateValidation.accept(command, serviceInstance);
       safelyCall(() -> update.apply(serviceInstance.getId(), command));
-    } else if (versioned) {
-      String latestVersion = command.getName() + "-v0";
-
-      List<String> allServiceInstanceQuery =
-          Arrays.asList(
-              "organization_guid:" + space.getOrganization().getId(),
-              "space_guid:" + space.getId());
-
-      // Look for all the service-instances
-      List<Resource<? extends AbstractServiceInstance>> allServiceInstances = new ArrayList<>();
-      allServiceInstances.addAll(
-          collectPageResources("service instances", pg -> api.all(pg, allServiceInstanceQuery)));
-
-      // Filter the service-instances for those which starts with the serviceName without version
-      Set<String> serviceNames =
-          allServiceInstances.stream()
-              .filter(s -> s.getEntity().getName().startsWith(command.getName()))
-              .map(
-                  s -> {
-                    return s.getEntity().getName();
-                  })
-              .collect(Collectors.toSet());
-
-      if (!serviceNames.isEmpty()) {
-        latestVersion = getLastVersionName(command.getName(), serviceNames);
-      }
-
-      command.setName(getNextVersionName(latestVersion));
-      safelyCall(() -> create.apply(command))
-          .map(res -> res.getMetadata().getGuid())
-          .orElseThrow(
-              () ->
-                  new CloudFoundryApiException(
-                      "service instance '" + command.getName() + "' could not be created"));
     }
 
     return new ServiceInstanceResponse()
         .setServiceInstanceName(command.getName())
+        .setPreviousInstanceName(previousInstanceName)
         .setType(operationType);
-  }
-
-  static String getNextVersionName(String name) {
-    Pattern r = Pattern.compile(".*?-v(\\d+)");
-    Matcher m = r.matcher(name);
-    if (m.find()) {
-      int currentVersion = Integer.parseInt(m.group(1));
-      return name.replace("v" + currentVersion, "v" + (currentVersion + 1));
-    }
-    return name + "-v1";
-  }
-
-  static String getLastVersionName(String serviceName, Set<String> serviceNames) {
-    Integer max =
-        serviceNames.stream()
-            .filter(
-                s -> {
-                  Pattern r = Pattern.compile(serviceName + "?-v[0-9]+");
-                  return r.matcher(s).matches();
-                })
-            .mapToInt(
-                s -> {
-                  return Integer.parseInt(s.replace(serviceName + "-v", ""));
-                })
-            .max()
-            .orElseThrow(NoSuchElementException::new);
-    return serviceName + "-v" + max;
   }
 
   private static List<String> getServiceQueryParams(
@@ -702,12 +645,5 @@ public class ServiceInstances {
             : "name IN " + String.join(",", serviceNames),
         "organization_guid:" + space.getOrganization().getId(),
         "space_guid:" + space.getId());
-  }
-
-  @Data
-  @Builder
-  public static class ServiceInstanceOptions {
-    private boolean updatable;
-    private boolean versioned;
   }
 }

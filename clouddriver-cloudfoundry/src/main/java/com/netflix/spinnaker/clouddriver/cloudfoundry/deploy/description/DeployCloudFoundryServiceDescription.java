@@ -41,7 +41,8 @@ public class DeployCloudFoundryServiceDescription extends AbstractCloudFoundrySe
     String serviceInstanceName;
     String servicePlan;
     boolean updatable = true;
-    boolean versioned;
+    boolean versioned = false;
+    String previousServiceInstanceName;
 
     @Nullable Set<String> tags;
 
@@ -52,7 +53,8 @@ public class DeployCloudFoundryServiceDescription extends AbstractCloudFoundrySe
   public static class UserProvidedServiceAttributes {
     String serviceInstanceName;
     boolean updatable = true;
-    boolean versioned;
+    boolean versioned = false;
+    String previousServiceInstanceName;
 
     @Nullable Set<String> tags;
 

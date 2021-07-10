@@ -262,6 +262,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
         .isEqualToComparingFieldByFieldRecursively(
             new DeployCloudFoundryServiceDescription.UserProvidedServiceAttributes()
                 .setServiceInstanceName("userProvidedServiceName")
+                .setPreviousServiceInstanceName(null)
                 .setSyslogDrainUrl("http://syslogDrainUrl.io")
                 .setRouteServiceUrl("http://routeServiceUrl.io")
                 .setTags(Collections.singleton("my-tag"))

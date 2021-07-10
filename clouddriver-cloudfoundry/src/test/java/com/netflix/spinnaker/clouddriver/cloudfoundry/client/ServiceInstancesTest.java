@@ -212,13 +212,14 @@ class ServiceInstancesTest {
             Collections.emptySet(),
             null,
             true,
-            false,
+            "",
             cloudFoundrySpace);
 
     assertThat(response)
         .isEqualTo(
             new ServiceInstanceResponse()
                 .setServiceInstanceName("new-service-instance-name")
+                .setPreviousInstanceName("")
                 .setType(CREATE)
                 .setState(IN_PROGRESS));
     verify(serviceInstanceService, times(1)).createServiceInstance(any());
@@ -253,7 +254,7 @@ class ServiceInstancesTest {
                 Collections.emptySet(),
                 null,
                 false,
-                false,
+                "",
                 cloudFoundrySpace),
         CloudFoundryApiException.class,
         "Cloud Foundry API returned with error(s): service instance 'new-service-instance-name' could not be created");
@@ -279,7 +280,7 @@ class ServiceInstancesTest {
                 Collections.emptySet(),
                 null,
                 true,
-                false,
+                "",
                 cloudFoundrySpace),
         ResourceNotFoundException.class,
         "No plans available for service name 'serviceName'");
@@ -305,13 +306,14 @@ class ServiceInstancesTest {
             Collections.emptySet(),
             null,
             true,
-            false,
+            "",
             cloudFoundrySpace);
 
     assertThat(response)
         .isEqualTo(
             new ServiceInstanceResponse()
                 .setServiceInstanceName("new-service-instance-name")
+                .setPreviousInstanceName("")
                 .setType(UPDATE)
                 .setState(IN_PROGRESS));
     verify(serviceInstanceService, times(0)).createServiceInstance(any());
@@ -338,13 +340,14 @@ class ServiceInstancesTest {
             Collections.emptySet(),
             null,
             false,
-            false,
+            "",
             cloudFoundrySpace);
 
     assertThat(response)
         .isEqualTo(
             new ServiceInstanceResponse()
                 .setServiceInstanceName("new-service-instance-name")
+                .setPreviousInstanceName("")
                 .setType(CREATE)
                 .setState(SUCCEEDED));
     verify(serviceInstanceService, times(0)).createServiceInstance(any());
@@ -377,7 +380,7 @@ class ServiceInstancesTest {
                 Collections.emptySet(),
                 null,
                 true,
-                false,
+                "",
                 cloudFoundrySpace),
         CloudFoundryApiException.class,
         "Cloud Foundry API returned with error(s): update failed");
@@ -416,7 +419,7 @@ class ServiceInstancesTest {
                 Collections.emptySet(),
                 null,
                 true,
-                false,
+                "",
                 cloudFoundrySpace),
         CloudFoundryApiException.class,
         "Cloud Foundry API returned with error(s): 2 service instances found with name 'new-service-instance-name' in space 'space', but expected only 1");
@@ -444,13 +447,14 @@ class ServiceInstancesTest {
             Collections.emptyMap(),
             "routeServiceUrl",
             true,
-            false,
+            "",
             cloudFoundrySpace);
 
     assertThat(response)
         .isEqualTo(
             new ServiceInstanceResponse()
                 .setServiceInstanceName("new-up-service-instance-name")
+                .setPreviousInstanceName("")
                 .setType(CREATE)
                 .setState(SUCCEEDED));
     verify(serviceInstanceService, times(1)).createUserProvidedServiceInstance(any());
@@ -479,13 +483,14 @@ class ServiceInstancesTest {
             Collections.emptyMap(),
             "routeServiceUrl",
             true,
-            false,
+            "",
             cloudFoundrySpace);
 
     assertThat(response)
         .isEqualTo(
             new ServiceInstanceResponse()
                 .setServiceInstanceName("new-up-service-instance-name")
+                .setPreviousInstanceName("")
                 .setType(UPDATE)
                 .setState(SUCCEEDED));
     verify(serviceInstanceService, times(0)).createUserProvidedServiceInstance(any());
@@ -514,13 +519,14 @@ class ServiceInstancesTest {
             Collections.emptyMap(),
             "routeServiceUrl",
             false,
-            false,
+            "",
             cloudFoundrySpace);
 
     assertThat(response)
         .isEqualTo(
             new ServiceInstanceResponse()
                 .setServiceInstanceName("new-up-service-instance-name")
+                .setPreviousInstanceName("")
                 .setType(CREATE)
                 .setState(SUCCEEDED));
     verify(serviceInstanceService, times(0)).createUserProvidedServiceInstance(any());
@@ -531,7 +537,7 @@ class ServiceInstancesTest {
   void shouldCreateNewServiceInstanceIfAlreadyExistsAndItsVersioned() {
     when(serviceInstanceService.all(any(), any()))
         .thenAnswer(
-            invocation -> Calls.response(Response.success(createEmptyOsbServiceInstancePage())));
+            invocation -> Calls.response(Response.success(createVersionedServiceInstancePage())));
     when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
         .thenAnswer(
             invocation ->
@@ -547,58 +553,25 @@ class ServiceInstancesTest {
 
     ServiceInstanceResponse response =
         serviceInstances.createUserProvidedServiceInstance(
-            "new-up-service-instance-name",
+            "new-up-service-instance-v1",
             "syslogDrainUrl",
             Collections.emptySet(),
             Collections.emptyMap(),
             "routeServiceUrl",
             false,
-            true,
+            "new-up-service-instance-v0",
             cloudFoundrySpace);
 
     assertThat(response)
         .isEqualTo(
             new ServiceInstanceResponse()
-                .setServiceInstanceName("new-up-service-instance-name-v1")
+                .setServiceInstanceName("new-up-service-instance-v1")
+                .setPreviousInstanceName("new-up-service-instance-v0")
                 .setType(CREATE)
                 .setState(SUCCEEDED));
-    verify(serviceInstanceService, times(1)).createUserProvidedServiceInstance(any());
+    verify(serviceInstanceService, times(1)).allUserProvided(any(), any());
     verify(serviceInstanceService, times(0)).updateUserProvidedServiceInstance(any(), any());
     verify(serviceInstanceService, times(0)).destroyServiceInstance(any());
-  }
-
-  @Test
-  void getVersionedNameShouldGenerateVersion() {
-    String versionedName = ServiceInstances.getNextVersionName("service-name");
-    assertThat(versionedName).isEqualTo("service-name-v1");
-  }
-
-  @Test
-  void getVersionedNameShouldProvideANewVersion() {
-    String versionedName = ServiceInstances.getNextVersionName("service-name-v1");
-    assertThat(versionedName).isEqualTo("service-name-v2");
-  }
-
-  @Test
-  void getLatestVersionFromAListOfServices() {
-    Set<String> serviceNames = new HashSet<String>();
-    serviceNames.add("mysql-v0");
-    serviceNames.add("mysql-v1");
-    serviceNames.add("mysql-v2");
-    serviceNames.add("mysql-fake-v3");
-    String versionedName = ServiceInstances.getLastVersionName("mysql", serviceNames);
-    assertThat(versionedName).isEqualTo("mysql-v2");
-  }
-
-  @Test
-  void getLatestVersionFromNameWithDashes() {
-    Set<String> serviceNames = new HashSet<String>();
-    serviceNames.add("mysql-v0");
-    serviceNames.add("mongo-v0");
-    serviceNames.add("mongo-db-v3");
-    serviceNames.add("mongo-db-v1");
-    String versionedName = ServiceInstances.getLastVersionName("mongo-db", serviceNames);
-    assertThat(versionedName).isEqualTo("mongo-db-v3");
   }
 
   @Test
@@ -1498,6 +1471,22 @@ class ServiceInstancesTest {
   private Page<ServiceInstance> createServiceInstancePage() {
     ServiceInstance serviceInstance = new ServiceInstance();
     serviceInstance.setName("up-service-instance-name").setTags(singleton("spinnakerVersion-v000"));
+
+    LastOperation lastOperation = new LastOperation();
+    lastOperation.setState(FAILED);
+    lastOperation.setDescription("Custom description");
+
+    serviceInstance.setLastOperation(lastOperation);
+    serviceInstance.setType(MANAGED_SERVICE_INSTANCE);
+
+    return Page.singleton(serviceInstance, "up-service-instance-guid");
+  }
+
+  private Page<ServiceInstance> createVersionedServiceInstancePage() {
+    ServiceInstance serviceInstance = new ServiceInstance();
+    serviceInstance
+        .setName("new-up-service-instance-v0")
+        .setTags(singleton("spinnakerVersion-v000"));
 
     LastOperation lastOperation = new LastOperation();
     lastOperation.setState(FAILED);

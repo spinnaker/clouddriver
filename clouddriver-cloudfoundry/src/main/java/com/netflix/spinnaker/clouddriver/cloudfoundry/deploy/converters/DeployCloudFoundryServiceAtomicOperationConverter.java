@@ -24,15 +24,20 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryOperation;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.AbstractServiceInstance;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServiceDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops.DeployCloudFoundryServiceAtomicOperation;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
@@ -42,6 +47,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class DeployCloudFoundryServiceAtomicOperationConverter
     extends AbstractCloudFoundryAtomicOperationConverter {
+
   private static final ObjectMapper objectMapper =
       new ObjectMapper()
           .setPropertyNamingStrategy(PropertyNamingStrategy.KEBAB_CASE)
@@ -73,8 +79,40 @@ public class DeployCloudFoundryServiceAtomicOperationConverter
     if (converted.isUserProvided()) {
       converted.setUserProvidedServiceAttributes(
           convertUserProvidedServiceManifest(manifest.stream().findFirst().orElse(null)));
+      if (converted.getUserProvidedServiceAttributes().isVersioned()) {
+        String lastServiceName =
+            getLastServiceInstanceName(
+                converted.getSpace(),
+                converted.getUserProvidedServiceAttributes().getServiceInstanceName(),
+                credentials.getClient());
+        if (!lastServiceName.endsWith("-v0")) {
+          converted
+              .getUserProvidedServiceAttributes()
+              .setPreviousServiceInstanceName(lastServiceName);
+          converted
+              .getUserProvidedServiceAttributes()
+              .setServiceInstanceName(getNextVersionName(lastServiceName));
+        } else {
+          converted.getUserProvidedServiceAttributes().setServiceInstanceName(lastServiceName);
+        }
+      }
     } else {
       converted.setServiceAttributes(convertManifest(manifest.stream().findFirst().orElse(null)));
+      if (converted.getServiceAttributes().isVersioned()) {
+        String lastServiceName =
+            getLastServiceInstanceName(
+                converted.getSpace(),
+                converted.getServiceAttributes().getServiceInstanceName(),
+                credentials.getClient());
+        if (!lastServiceName.endsWith("-v0")) {
+          converted.getServiceAttributes().setPreviousServiceInstanceName(lastServiceName);
+          converted
+              .getServiceAttributes()
+              .setServiceInstanceName(getNextVersionName(lastServiceName));
+        } else {
+          converted.getServiceAttributes().setServiceInstanceName(lastServiceName);
+        }
+      }
     }
     return converted;
   }
@@ -125,6 +163,62 @@ public class DeployCloudFoundryServiceAtomicOperationConverter
     attrs.setVersioned(manifest.isVersioned());
     attrs.setCredentials(manifest.getCredentials());
     return attrs;
+  }
+
+  static String getLastServiceInstanceName(
+      CloudFoundrySpace space, String name, CloudFoundryClient client) {
+    String latestVersion = name + "-v0";
+
+    // Look for all the service-instances
+    List<Resource<? extends AbstractServiceInstance>> allServiceInstances =
+        client.getServiceInstances().findAllServicesByNameGreaterThan(space, name);
+
+    if (allServiceInstances.isEmpty()) {
+      return latestVersion;
+    }
+
+    // Filter the service-instances for those which starts with the serviceName without version
+    Set<String> serviceNames =
+        allServiceInstances.stream()
+            .filter(s -> s.getEntity().getName().startsWith(name))
+            .map(
+                s -> {
+                  return s.getEntity().getName();
+                })
+            .collect(Collectors.toSet());
+
+    if (!serviceNames.isEmpty()) {
+      latestVersion = getLastVersionName(name, serviceNames);
+    }
+
+    return latestVersion;
+  }
+
+  static String getNextVersionName(String name) {
+    Pattern r = Pattern.compile(".*?-v(\\d+)");
+    Matcher m = r.matcher(name);
+    if (m.find()) {
+      int currentVersion = Integer.parseInt(m.group(1));
+      return name.replace("v" + currentVersion, "v" + (currentVersion + 1));
+    }
+    return name + "-v1";
+  }
+
+  static String getLastVersionName(String serviceName, Set<String> serviceNames) {
+    Integer max =
+        serviceNames.stream()
+            .filter(
+                s -> {
+                  Pattern r = Pattern.compile(serviceName + "?-v[0-9]+");
+                  return r.matcher(s).matches();
+                })
+            .mapToInt(
+                s -> {
+                  return Integer.parseInt(s.replace(serviceName + "-v", ""));
+                })
+            .max()
+            .orElse(0);
+    return serviceName + "-v" + max;
   }
 
   @Data
