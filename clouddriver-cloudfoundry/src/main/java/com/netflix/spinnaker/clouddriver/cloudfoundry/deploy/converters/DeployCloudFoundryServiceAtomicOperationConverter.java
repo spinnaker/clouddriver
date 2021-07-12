@@ -120,7 +120,7 @@ public class DeployCloudFoundryServiceAtomicOperationConverter
     List<String> serviceInstances =
         client
             .getServiceInstances()
-            .findAllVersionedServiceInstancesBySpace(
+            .findAllVersionedServiceInstancesBySpaceAndName(
                 space, String.format("%s-v%03d", serviceInstanceName, 0))
             .stream()
             .filter(n -> n.getEntity().getName().startsWith(serviceInstanceName))

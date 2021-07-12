@@ -159,8 +159,9 @@ public class ServiceInstances {
     return serviceInstances;
   }
 
-  public List<Resource<? extends AbstractServiceInstance>> findAllVersionedServiceInstancesBySpace(
-      CloudFoundrySpace space, String serviceInstanceName) {
+  public List<Resource<? extends AbstractServiceInstance>>
+      findAllVersionedServiceInstancesBySpaceAndName(
+          CloudFoundrySpace space, String serviceInstanceName) {
     List<String> serviceInstanceQuery =
         Arrays.asList(
             "name>=" + serviceInstanceName,
