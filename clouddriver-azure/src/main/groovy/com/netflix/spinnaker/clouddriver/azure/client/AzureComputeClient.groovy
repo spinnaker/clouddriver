@@ -124,7 +124,7 @@ public class AzureComputeClient extends AzureBaseClient {
       })
 
       vmssList?.each { scaleSet ->
-        if (scaleSet.regionName() == region) {
+        if (scaleSet.regionName() == region && scaleSet.tags().get("appName") != null) {
           try {
             def sg = AzureServerGroupDescription.build(scaleSet.inner())
             sg.lastReadTime = lastReadTime

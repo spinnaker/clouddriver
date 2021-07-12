@@ -376,6 +376,9 @@ class AzureServerGroupResourceTemplate {
       def currentTime = System.currentTimeMillis()
       tags = [:]
       tags.createdTime = currentTime.toString()
+      tags.appName = description.application
+      tags.stack = description.stack
+      tags.detail = description.detail
       if (description.subnetId) tags.subnetId = description.subnetId
       if (description.securityGroupName) tags.securityGroupName = description.securityGroupName
 
