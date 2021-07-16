@@ -41,11 +41,10 @@ import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.CollectionUtils;
 
 @Slf4j
-public class AmazonCloudFormationCachingAgent
-    implements CachingAgent, OnDemandAgent, AccountAware, AgentIntervalAware {
+public class AmazonCloudFormationAgent
+    implements OnDemandAgent, AccountAware, AgentIntervalAware {
   private final AmazonClientProvider amazonClientProvider;
   private final NetflixAmazonCredentials account;
   private final String region;
@@ -55,7 +54,7 @@ public class AmazonCloudFormationCachingAgent
   static final Set<AgentDataType> types =
       new HashSet<>(Collections.singletonList(AUTHORITATIVE.forType(STACKS.getNs())));
 
-  public AmazonCloudFormationCachingAgent(
+  public AmazonCloudFormationAgent(
       AmazonClientProvider amazonClientProvider,
       NetflixAmazonCredentials account,
       String region,
@@ -162,64 +161,15 @@ public class AmazonCloudFormationCachingAgent
     return onDemandEntriesToReturn;
   }
 
-  @Override
-  public String getAgentType() {
+  private String getAgentType() {
     return String.format(
         "%s/%s/%s",
-        account.getName(), region, AmazonCloudFormationCachingAgent.class.getSimpleName());
+        account.getName(), region, AmazonCloudFormationAgent.class.getSimpleName());
   }
 
   @Override
   public String getAccountName() {
     return account.getName();
-  }
-
-  @Override
-  public Collection<AgentDataType> getProvidedDataTypes() {
-    return types;
-  }
-
-  @Override
-  public CacheResult loadData(ProviderCache providerCache) {
-    log.info(getAgentType() + ": agent is starting");
-
-    List<String> keepInOnDemand = new ArrayList<>();
-    List<String> evictFromOnDemand = new ArrayList<>();
-    Long start = System.currentTimeMillis();
-
-    CacheResult stacks = queryStacks(providerCache, new DescribeStacksRequest(), false);
-    Collection<String> keys =
-        stacks.getCacheResults().get("stacks").stream()
-            .map(cachedata -> cachedata.getId())
-            .collect(Collectors.toList());
-
-    Collection<CacheData> onDemandEntries = providerCache.getAll(ON_DEMAND.getNs(), keys);
-    if (!CollectionUtils.isEmpty(onDemandEntries)) {
-      onDemandEntries.forEach(
-          cacheData -> {
-            long cacheTime = (long) cacheData.getAttributes().get("cacheTime");
-            if (cacheTime < start && (int) cacheData.getAttributes().get("processedCount") > 0) {
-              evictFromOnDemand.add(cacheData.getId());
-            } else {
-              keepInOnDemand.add(cacheData.getId());
-            }
-          });
-    }
-    onDemandEntries = providerCache.getAll(ON_DEMAND.getNs(), keepInOnDemand);
-    if (!CollectionUtils.isEmpty(onDemandEntries)) {
-      providerCache
-          .getAll(ON_DEMAND.getNs(), keepInOnDemand)
-          .forEach(
-              cacheData -> {
-                cacheData.getAttributes().put("processedTime", System.currentTimeMillis());
-                int processedCount = (Integer) cacheData.getAttributes().get("processedCount");
-                cacheData.getAttributes().put("processedCount", processedCount + 1);
-                providerCache.putCacheData(ON_DEMAND.getNs(), cacheData);
-              });
-    }
-    providerCache.evictDeletedItems(ON_DEMAND.getNs(), evictFromOnDemand);
-
-    return stacks;
   }
 
   public CacheResult queryStacks(
