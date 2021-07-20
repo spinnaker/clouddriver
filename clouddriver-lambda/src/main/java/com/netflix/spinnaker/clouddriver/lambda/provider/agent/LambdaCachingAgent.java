@@ -25,6 +25,7 @@ import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.CaseFormat;
 import com.netflix.frigga.Names;
 import com.netflix.spectator.api.DefaultRegistry;
 import com.netflix.spectator.api.Registry;
@@ -112,6 +113,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
   public CacheResult loadData(ProviderCache providerCache) {
     log.info("Describing items in {}", getAgentType());
 
+    // Get new data
     AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
 
     String nextMarker = null;
@@ -185,8 +187,23 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
     cacheResults.put(LAMBDA_FUNCTIONS.ns, data);
     cacheResults.put(
         com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.APPLICATIONS.ns, appData);
+
+    // Get all old keys from the cache for the region and account
+    String authoritativeKeyName = getAuthoritativeKeyName();
+    Set<String> oldKeys =
+        providerCache.getIdentifiers(authoritativeKeyName).stream()
+            .filter(
+                key -> {
+                  Map<String, String> keyParts = Keys.parse(key);
+                  return keyParts.get("account").equalsIgnoreCase(account.getName())
+                      && keyParts.get("region").equalsIgnoreCase(region);
+                })
+            .collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictions = computeEvictableData(data, oldKeys);
+
     log.info("Caching {} items in {}", String.valueOf(data.size()), getAgentType());
-    return new DefaultCacheResult(cacheResults);
+    return new DefaultCacheResult(cacheResults, evictions);
   }
 
   private Map<String, String> listFunctionRevisions(String functionArn) {
@@ -417,5 +434,62 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
     }
 
     return targetGroupNames;
+  }
+
+  /**
+   * Provides the key namespace that the caching agent is authoritative of. Currently only supports
+   * the caching agent being authoritative over one key namespace. Taken from
+   * AbstractEcsCachingAgent
+   *
+   * @return Key namespace.
+   */
+  String getAuthoritativeKeyName() {
+    Collection<AgentDataType> authoritativeNamespaces =
+        getProvidedDataTypes().stream()
+            .filter(agentDataType -> agentDataType.getAuthority().equals(AUTHORITATIVE))
+            .collect(Collectors.toSet());
+
+    if (authoritativeNamespaces.size() != 1) {
+      throw new RuntimeException(
+          "LambdaCachingAgent supports only one authoritative key namespace. "
+              + authoritativeNamespaces.size()
+              + " authoritative key namespace were given.");
+    }
+
+    return authoritativeNamespaces.iterator().next().getTypeName();
+  }
+
+  /**
+   * Evicts cache that does not belong to an entity on the ECS service. This is done by evicting old
+   * keys that are no longer found in the new keys provided by the new data.
+   *
+   * @param newData New data that contains new keys.
+   * @param oldKeys Old keys.
+   * @return Key collection associated to the key namespace the the caching agent is authoritative
+   *     of.
+   */
+  private Map<String, Collection<String>> computeEvictableData(
+      Collection<CacheData> newData, Collection<String> oldKeys) {
+    // New data can only come from the current account and region, no need to filter.
+    Set<String> newKeys = newData.stream().map(CacheData::getId).collect(Collectors.toSet());
+
+    Set<String> evictedKeys =
+        oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    evictionsByKey.put(getAuthoritativeKeyName(), evictedKeys);
+    String prettyKeyName =
+        CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, getAuthoritativeKeyName());
+
+    log.info(
+        "Evicting "
+            + evictedKeys.size()
+            + " "
+            + prettyKeyName
+            + (evictedKeys.size() > 1 ? "s" : "")
+            + " in "
+            + getAgentType());
+
+    return evictionsByKey;
   }
 }
