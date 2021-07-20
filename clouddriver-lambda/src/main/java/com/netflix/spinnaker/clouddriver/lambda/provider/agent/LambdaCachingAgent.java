@@ -468,7 +468,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
    * @return Key collection associated to the key namespace the the caching agent is authoritative
    *     of.
    */
-  private Map<String, Collection<String>> computeEvictableData(
+  Map<String, Collection<String>> computeEvictableData(
       Collection<CacheData> newData, Collection<String> oldKeys) {
     // New data can only come from the current account and region, no need to filter.
     Set<String> newKeys = newData.stream().map(CacheData::getId).collect(Collectors.toSet());
