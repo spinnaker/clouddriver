@@ -310,7 +310,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
 
     Map<String, Object> attributes = new HashMap<String, Object>();
     attributes.put("name", appName);
-    Map<String, Collection<String>> evictions = Collections.emptyMap();
+    Map<String, Collection<String>> evictions = new HashMap<>();
 
     Collection<String> existingFunctionRel = null;
 
