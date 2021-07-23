@@ -32,6 +32,9 @@ public abstract class AbstractLambdaFunctionDescription extends AbstractAmazonCr
 
   @Override
   public Collection<String> getApplications() {
+    if (appName == null || appName.isEmpty()) {
+      throw new IllegalArgumentException("appName must not be bull or empty!");
+    }
     return List.of(getAppName());
   }
 }
