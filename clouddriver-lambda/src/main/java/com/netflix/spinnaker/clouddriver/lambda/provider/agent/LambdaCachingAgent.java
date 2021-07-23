@@ -225,7 +225,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
         processedOnDemandCache.add(
             new DefaultCacheData(onDemandItem.getId(), attr, Collections.emptyMap()));
       } catch (Exception e) {
-
+        log.warn("Failed to process onDemandCache for Lambda's: " + e.getMessage());
       }
     }
 
