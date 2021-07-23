@@ -30,13 +30,13 @@ import org.springframework.core.env.PropertySource;
  *
  * <p>This interface defines the necessary actions which would be required to do the same.
  */
-public interface ConfigurationProvider {
+public interface ConfigurationProvider<T> {
   /**
    * Returns the desired configuration properties, bound to the target implementation class.
    *
    * @return a target implementation class for a property
    */
-  Object getConfigurationProperties();
+  T getConfigurationProperties();
 
   /**
    * This method takes an input property and returns a map representation of the {@link

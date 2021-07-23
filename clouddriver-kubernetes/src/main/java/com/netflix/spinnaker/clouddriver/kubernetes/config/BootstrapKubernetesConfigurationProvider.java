@@ -36,7 +36,7 @@ import org.springframework.context.ConfigurableApplicationContext;
  */
 @Slf4j
 public class BootstrapKubernetesConfigurationProvider
-    extends AbstractBootstrapCredentialsConfigurationProvider {
+    extends AbstractBootstrapCredentialsConfigurationProvider<KubernetesConfigurationProperties> {
   private final String FIRST_ACCOUNT_NAME_KEY = "kubernetes.accounts[0].name";
 
   public BootstrapKubernetesConfigurationProvider(

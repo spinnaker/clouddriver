@@ -39,8 +39,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertySource;
 
-public abstract class AbstractBootstrapCredentialsConfigurationProvider
-    implements ConfigurationProvider {
+public abstract class AbstractBootstrapCredentialsConfigurationProvider<T>
+    implements ConfigurationProvider<T> {
   private final ConfigurableApplicationContext applicationContext;
   private CloudConfigResourceService configResourceService;
   private SecretSession secretSession;
@@ -55,6 +55,8 @@ public abstract class AbstractBootstrapCredentialsConfigurationProvider
     this.configResourceService = configResourceService;
     this.secretSession = new SecretSession(secretManager);
   }
+
+  public abstract T getConfigurationProperties();
 
   @Override
   @SuppressWarnings("unchecked")
