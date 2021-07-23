@@ -17,12 +17,14 @@
 package com.netflix.spinnaker.clouddriver.lambda.provider.agent;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
+import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
@@ -36,6 +38,7 @@ public class LambdaCachingAgentTest {
   private NetflixAmazonCredentials netflixAmazonCredentials = mock(NetflixAmazonCredentials.class);
   private LambdaCachingAgent lambdaCachingAgent =
       new LambdaCachingAgent(objectMapper, clientProvider, netflixAmazonCredentials, REGION);
+  private final ProviderCache cache = mock(ProviderCache.class);
 
   @Test
   public void shouldGetAuthoritativeName() {
@@ -55,17 +58,19 @@ public class LambdaCachingAgentTest {
             attributes,
             Collections.emptyMap()));
 
-    Collection<String> oldKeys =
-        List.of(
-            Keys.getLambdaFunctionKey(netflixAmazonCredentials.getName(), REGION, "function-1"),
-            Keys.getLambdaFunctionKey(netflixAmazonCredentials.getName(), REGION, "function-2"));
+    HashSet<String> oldKeys = new HashSet<>();
+    oldKeys.add(
+        Keys.getLambdaFunctionKey(netflixAmazonCredentials.getName(), REGION, "function-1"));
+    oldKeys.add(
+        Keys.getLambdaFunctionKey(netflixAmazonCredentials.getName(), REGION, "function-2"));
+
+    when(cache.getIdentifiers(any())).thenReturn(oldKeys);
+
     Map<String, Collection<String>> evictions =
-        lambdaCachingAgent.computeEvictableData(data, oldKeys);
+        lambdaCachingAgent.computeEvictableData(data, cache);
 
     assertThat(evictions.get(lambdaCachingAgent.getAuthoritativeKeyName()).size()).isEqualTo(2);
-    assertThat(evictions.get(lambdaCachingAgent.getAuthoritativeKeyName()))
-        .asList()
-        .contains(oldKeys);
+    assertThat(evictions.get(lambdaCachingAgent.getAuthoritativeKeyName())).isEqualTo(oldKeys);
   }
 
   @Test
@@ -85,8 +90,11 @@ public class LambdaCachingAgentTest {
         List.of(
             Keys.getLambdaFunctionKey(netflixAmazonCredentials.getName(), REGION, "function-1"),
             Keys.getLambdaFunctionKey(netflixAmazonCredentials.getName(), REGION, "function-2"));
+
+    when(cache.getIdentifiers(any())).thenReturn(oldKeys);
+
     Map<String, Collection<String>> evictions =
-        lambdaCachingAgent.computeEvictableData(data, oldKeys);
+        lambdaCachingAgent.computeEvictableData(data, cache);
 
     assertThat(evictions.get(lambdaCachingAgent.getAuthoritativeKeyName()).size()).isEqualTo(1);
     assertThat(evictions.get(lambdaCachingAgent.getAuthoritativeKeyName()).stream().findAny().get())
