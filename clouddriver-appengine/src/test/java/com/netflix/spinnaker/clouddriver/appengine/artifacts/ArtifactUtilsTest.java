@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import org.codehaus.plexus.util.FileUtils;
 import org.junit.jupiter.api.Test;
 
 class ArtifactUtilsTest {
@@ -18,7 +17,7 @@ class ArtifactUtilsTest {
     File testZip = new File(new File("").getAbsolutePath(), "src/test/zips/zip-slip.zip");
     File outputDirectory = new File(new File("test-tar").getAbsolutePath(), s);
 
-    FileUtils.deleteDirectory(outputDirectory);
+    outputDirectory.delete();
 
     try {
       ArtifactUtils.untarStreamToPath(new FileInputStream(testZip), outputDirectory.getPath());
