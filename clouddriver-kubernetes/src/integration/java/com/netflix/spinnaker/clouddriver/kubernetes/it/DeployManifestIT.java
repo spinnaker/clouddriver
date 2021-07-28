@@ -24,12 +24,13 @@ import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.KubeTestUtils;
 import io.restassured.response.Response;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import org.apache.logging.log4j.util.Strings;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
 
 public class DeployManifestIT extends BaseTest {
 
@@ -957,20 +958,6 @@ public class DeployManifestIT extends BaseTest {
             .asList();
     KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
 
-    // ------------------------- then --------------------------
-    String port =
-        kubeCluster.execKubectl(
-            "-n "
-                + account1Ns
-                + " get service "
-                + SERVICE_1_NAME
-                + " -o=jsonpath='{.spec.ports[0].nodePort}'");
-    Container.ExecResult result =
-        kubeCluster.execInContainer("wget", "http://localhost:" + port, "-O", "-");
-    assertEquals(
-        0,
-        result.getExitCode(),
-        "stdout: " + result.getStdout() + " stderr: " + result.getStderr());
     List<String> podNames =
         Splitter.on(" ")
             .splitToList(
@@ -1045,19 +1032,6 @@ public class DeployManifestIT extends BaseTest {
     KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
 
     // ------------------------- then --------------------------
-    String port =
-        kubeCluster.execKubectl(
-            "-n "
-                + account1Ns
-                + " get service "
-                + SERVICE_1_NAME
-                + " -o=jsonpath='{.spec.ports[0].nodePort}'");
-    Container.ExecResult result =
-        kubeCluster.execInContainer("wget", "http://localhost:" + port, "-O", " -");
-    assertEquals(
-        0,
-        result.getExitCode(),
-        "stdout: " + result.getStdout() + " stderr: " + result.getStderr());
     List<String> podNames =
         Splitter.on(" ")
             .splitToList(
