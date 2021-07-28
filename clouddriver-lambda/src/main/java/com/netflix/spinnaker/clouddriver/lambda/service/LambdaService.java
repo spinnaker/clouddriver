@@ -78,6 +78,9 @@ public class LambdaService {
             });
     executorService.invokeAll(functionTasks);
 
+    // if addBaseAttributes returned null, the name won't be included. There is a chance other
+    // resources still have
+    // associations to the deleted lambda
     return hydratedFunctionList.stream()
         .filter(lf -> lf.get("functionName") != null)
         .collect(Collectors.toList());
@@ -126,6 +129,9 @@ public class LambdaService {
 
   private Void addBaseAttributes(Map<String, Object> functionAttributes, String functionName) {
     GetFunctionResult result = getFunctionResult(functionName);
+    if (result == null) {
+      return null;
+    }
     Map<String, Object> attr = mapper.convertValue(result.getConfiguration(), Map.class);
     attr.put("code", result.getCode());
     attr.put("tags", result.getTags());
@@ -169,6 +175,9 @@ public class LambdaService {
               () -> lambda.listVersionsByFunction(listVersionsByFunctionRequest),
               DEFAULT_RETRIES,
               DEFAULT_TIMEOUT_MINUTES);
+      if (listVersionsByFunctionResult == null) {
+        return listRevionIds;
+      }
       for (FunctionConfiguration x : listVersionsByFunctionResult.getVersions()) {
         listRevionIds.put(x.getRevisionId(), x.getVersion());
       }
@@ -212,6 +221,9 @@ public class LambdaService {
               () -> lambda.listAliases(listAliasesRequest),
               DEFAULT_RETRIES,
               DEFAULT_TIMEOUT_MINUTES);
+      if (listAliasesResult == null) {
+        return aliasConfigurations;
+      }
       for (AliasConfiguration x : listAliasesResult.getAliases()) {
         aliasConfigurations.add(x);
       }
@@ -241,6 +253,9 @@ public class LambdaService {
               () -> lambda.listEventSourceMappings(listEventSourceMappingsRequest),
               DEFAULT_RETRIES,
               DEFAULT_TIMEOUT_MINUTES);
+      if (listEventSourceMappingsResult == null) {
+        return eventSourceMappingConfigurations;
+      }
 
       for (EventSourceMappingConfiguration x :
           listEventSourceMappingsResult.getEventSourceMappings()) {
@@ -282,6 +297,9 @@ public class LambdaService {
               () -> lambda.getPolicy(new GetPolicyRequest().withFunctionName(functionName)),
               DEFAULT_RETRIES,
               DEFAULT_TIMEOUT_MINUTES);
+      if (result == null) {
+        return targetGroupNames;
+      }
       String json = result.getPolicy();
       Policy policy = Policy.fromJson(json);
 
