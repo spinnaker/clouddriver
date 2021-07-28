@@ -32,6 +32,7 @@ import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 @Slf4j
 public class LambdaService {
@@ -323,6 +324,7 @@ public class LambdaService {
     return targetGroupNames;
   }
 
+  @Nullable
   private <T> T retry(String requestName, Supplier<T> fn, int maxRetries, int timeoutMinutes) {
     int retries = 0;
     long startTime = clock.instant().toEpochMilli();
@@ -348,7 +350,7 @@ public class LambdaService {
         try {
           Thread.sleep(timeout);
         } catch (InterruptedException interruptedException) {
-          return null;
+          // don't care about this
         }
         if (e instanceof ServiceException) {
           retries++;
