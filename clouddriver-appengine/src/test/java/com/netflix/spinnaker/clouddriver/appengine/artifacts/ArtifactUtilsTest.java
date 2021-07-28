@@ -14,7 +14,7 @@ class ArtifactUtilsTest {
 
     Exception ex = null;
     String s = "target/zip-unarchiver-slip-tests";
-    File testZip = new File(new File("").getAbsolutePath(), "src/test/zips/zip-slip.zip");
+    File testZip = new File(new File("").getAbsolutePath(), "src/test/zip-slip/zip-slip.tar");
     File outputDirectory = new File(new File("test-tar").getAbsolutePath(), s);
 
     outputDirectory.delete();
