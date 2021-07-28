@@ -299,7 +299,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
     DefaultCacheResult defaultCacheResult;
     Map<String, Collection<String>> evictions;
 
-    if (lambdaAttributes != null) {
+    if (lambdaAttributes != null && !lambdaAttributes.isEmpty()) {
       lambdaAttributes.put("cacheTime", clock.instant().toEpochMilli());
       lambdaAttributes.put("processedCount", 0);
       DefaultCacheData lambdaCacheData =

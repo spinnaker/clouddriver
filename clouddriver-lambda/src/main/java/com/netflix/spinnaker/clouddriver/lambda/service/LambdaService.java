@@ -83,7 +83,11 @@ public class LambdaService {
   public Map<String, Object> getFunctionByName(String functionName) throws InterruptedException {
     List<Callable<Void>> functionTasks = Collections.synchronizedList(new ArrayList<>());
     Map<String, Object> functionAttributes = new ConcurrentHashMap<>();
-    functionTasks.add(() -> addBaseAttributes(functionAttributes, functionName));
+    addBaseAttributes(functionAttributes, functionName);
+    if (functionAttributes.isEmpty()) {
+      // return quick so we don't make extra api calls for a delete lambda
+      return null;
+    }
     functionTasks.add(() -> addRevisionsAttributes(functionAttributes, functionName));
     functionTasks.add(
         () ->
