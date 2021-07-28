@@ -24,7 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.KubeTestUtils;
 import io.restassured.response.Response;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import org.apache.logging.log4j.util.Strings;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -783,4 +785,130 @@ public class DeployManifestIT extends BaseTest {
   // ------------------------------------------------------------------------------------------------------
   // ------------------------------------------------------------------------------------------------------
 
+<<<<<<< HEAD
+=======
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", List.of(replicaset, service))
+            .withValue(
+                "deployManifest.services", Collections.singleton("service " + SERVICE_1_NAME))
+            .withValue("deployManifest.strategy", "RED_BLACK")
+            .withValue("deployManifest.trafficManagement.enabled", true)
+            .withValue("deployManifest.trafficManagement.options.strategy", "redblack")
+            .withValue("deployManifest.trafficManagement.options.enableTraffic", true)
+            .withValue("deployManifest.trafficManagement.options.namespace", account1Ns)
+            .withValue(
+                "deployManifest.trafficManagement.options.services",
+                Collections.singleton("service " + appName))
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(),
+        body,
+        account1Ns,
+        "service " + SERVICE_1_NAME,
+        "replicaSet " + appName + "-v000");
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(),
+        body,
+        account1Ns,
+        "service " + SERVICE_1_NAME,
+        "replicaSet " + appName + "-v001");
+    body =
+        KubeTestUtils.loadJson("classpath:requests/disable_manifest.json")
+            .withValue("disableManifest.app", appName)
+            .withValue("disableManifest.manifestName", "replicaSet " + appName + "-v000")
+            .withValue("disableManifest.location", account1Ns)
+            .withValue("disableManifest.account", ACCOUNT1_NAME)
+            .asList();
+    KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
+
+    List<String> podNames =
+        Splitter.on(" ")
+            .splitToList(
+                kubeCluster.execKubectl(
+                    "-n "
+                        + account1Ns
+                        + " get pod -o=jsonpath='{.items[*].metadata.name}' -l=pointer="
+                        + selectorValue));
+    assertEquals(
+        1, podNames.size(), "Only one pod expected to have the label for traffic selection");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a replicaset yaml with red/black deployment traffic strategy\n"
+          + "  And an existing service\n"
+          + "When sending deploy manifest request two times\n"
+          + "  And sending disable manifest one time\n"
+          + "Then there are two replicasets with only the last one receiving traffic\n===")
+  @Test
+  public void shouldDeployRedBlackReplicaSet() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String appName = "red-black";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    String selectorValue = appName + "traffichere";
+
+    Map<String, Object> service =
+        KubeTestUtils.loadYaml("classpath:manifests/service.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", SERVICE_1_NAME)
+            .withValue("spec.selector", ImmutableMap.of("pointer", selectorValue))
+            .withValue("spec.type", "NodePort")
+            .asMap();
+    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", service);
+
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", appName)
+            .withValue("spec.selector.matchLabels", ImmutableMap.of("label1", "value1"))
+            .withValue("spec.template.metadata.labels", ImmutableMap.of("label1", "value1"))
+            .asList();
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .withValue(
+                "deployManifest.services", Collections.singleton("service " + SERVICE_1_NAME))
+            .withValue("deployManifest.strategy", "RED_BLACK")
+            .withValue("deployManifest.trafficManagement.enabled", true)
+            .withValue("deployManifest.trafficManagement.options.strategy", "redblack")
+            .withValue("deployManifest.trafficManagement.options.enableTraffic", true)
+            .withValue("deployManifest.trafficManagement.options.namespace", account1Ns)
+            .withValue(
+                "deployManifest.trafficManagement.options.services",
+                Collections.singleton("service " + appName))
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "replicaSet " + appName + "-v001");
+    body =
+        KubeTestUtils.loadJson("classpath:requests/disable_manifest.json")
+            .withValue("disableManifest.app", appName)
+            .withValue("disableManifest.manifestName", "replicaSet " + appName + "-v000")
+            .withValue("disableManifest.location", account1Ns)
+            .withValue("disableManifest.account", ACCOUNT1_NAME)
+            .asList();
+    KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
+
+    // ------------------------- then --------------------------
+    List<String> podNames =
+        Splitter.on(" ")
+            .splitToList(
+                kubeCluster.execKubectl(
+                    "-n "
+                        + account1Ns
+                        + " get pod -o=jsonpath='{.items[*].metadata.name}' -l=pointer="
+                        + selectorValue));
+    assertEquals(
+        1, podNames.size(), "Only one pod expected to have the label for traffic selection");
+  }
+>>>>>>> cc8094bef (fix(kube/test): Use kind instead of k3s (backport #5421) (#5451))
 }
