@@ -56,7 +56,7 @@ public class LambdaService {
     this.mapper = mapper;
   }
 
-  public List<Map<String, Object>> getAllFunctions() throws InterruptedException, TimeoutException {
+  public List<Map<String, Object>> getAllFunctions() throws InterruptedException {
     List<FunctionConfiguration> functions = listAllFunctionConfigurations();
     List<Callable<Void>> functionTasks = Collections.synchronizedList(new ArrayList<>());
     List<Map<String, Object>> hydratedFunctionList =
@@ -329,7 +329,9 @@ public class LambdaService {
         } catch (InterruptedException interruptedException) {
           return null;
         }
-        retries++;
+        if (e instanceof ServiceException) {
+          retries++;
+        }
       } catch (Exception e) {
         throw e;
       }
