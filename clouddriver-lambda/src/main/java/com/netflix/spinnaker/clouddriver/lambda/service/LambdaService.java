@@ -77,7 +77,10 @@ public class LambdaService {
               hydratedFunctionList.add(functionAttributes);
             });
     executorService.invokeAll(functionTasks);
-    return hydratedFunctionList;
+
+    return hydratedFunctionList.stream()
+        .filter(lf -> lf.get("functionName") != null)
+        .collect(Collectors.toList());
   }
 
   public Map<String, Object> getFunctionByName(String functionName) throws InterruptedException {
