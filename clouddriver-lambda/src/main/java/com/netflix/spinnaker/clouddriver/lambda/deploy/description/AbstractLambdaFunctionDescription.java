@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.lambda.deploy.description;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.AbstractAmazonCredentialsDescription;
 import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -33,7 +34,7 @@ public abstract class AbstractLambdaFunctionDescription extends AbstractAmazonCr
   @Override
   public Collection<String> getApplications() {
     if (appName == null || appName.isEmpty()) {
-      throw new IllegalArgumentException("appName must not be bull or empty!");
+      return Collections.emptyList();
     }
     return List.of(getAppName());
   }
