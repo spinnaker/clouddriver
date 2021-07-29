@@ -66,7 +66,6 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
         }
       };
 
-  private final AmazonClientProvider amazonClientProvider;
   private final NetflixAmazonCredentials account;
   private final String region;
   private OnDemandMetricsSupport metricsSupport;
@@ -79,7 +78,6 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
       AmazonClientProvider amazonClientProvider,
       NetflixAmazonCredentials account,
       String region) {
-    this.amazonClientProvider = amazonClientProvider;
     this.account = account;
     this.region = region;
     this.registry = new DefaultRegistry();

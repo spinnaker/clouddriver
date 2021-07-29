@@ -342,16 +342,6 @@ public class LambdaService {
         if (retries >= (maxRetries - 1)) {
           throw e;
         }
-        long timeout =
-            e instanceof TooManyRequestsException
-                ? TimeUnit.MILLISECONDS.toMinutes(
-                    Integer.parseInt(((TooManyRequestsException) e).getRetryAfterSeconds()))
-                : 1000;
-        try {
-          Thread.sleep(timeout);
-        } catch (InterruptedException interruptedException) {
-          // don't care about this
-        }
         if (e instanceof ServiceException) {
           retries++;
         }
