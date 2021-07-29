@@ -27,8 +27,10 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
 import com.netflix.spinnaker.clouddriver.lambda.service.LambdaService;
+import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
 import java.util.*;
 import org.junit.Test;
 
@@ -38,8 +40,17 @@ public class LambdaCachingAgentTest {
   private String REGION = "us-west-2";
   private NetflixAmazonCredentials netflixAmazonCredentials = mock(NetflixAmazonCredentials.class);
   private LambdaService lambdaService = mock(LambdaService.class);
+  private LambdaServiceConfig config = mock(LambdaServiceConfig.class);
+  private ServiceLimitConfiguration serviceLimitConfiguration =
+      mock(ServiceLimitConfiguration.class);
   private LambdaCachingAgent lambdaCachingAgent =
-      new LambdaCachingAgent(objectMapper, clientProvider, netflixAmazonCredentials, REGION);
+      new LambdaCachingAgent(
+          objectMapper,
+          clientProvider,
+          netflixAmazonCredentials,
+          REGION,
+          config,
+          serviceLimitConfiguration);
   private final ProviderCache cache = mock(ProviderCache.class);
 
   @Test

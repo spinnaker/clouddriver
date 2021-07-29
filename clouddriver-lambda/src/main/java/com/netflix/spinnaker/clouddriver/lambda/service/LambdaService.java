@@ -21,9 +21,12 @@ import com.amazonaws.auth.policy.Statement;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider;
 import com.netflix.spinnaker.clouddriver.aws.data.ArnUtils;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
+import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException;
 import groovy.util.logging.Slf4j;
 import java.time.Clock;
@@ -40,21 +43,28 @@ public class LambdaService {
   private final AmazonClientProvider amazonClientProvider;
   private final NetflixAmazonCredentials account;
   private final String region;
-  private final int DEFAULT_TIMEOUT_MINUTES = 15;
-  private final int DEFAULT_RETRIES = 5;
+  private final int TIMEOUT_MINUTES;
+  private final int RETRIES;
   private final Clock clock = Clock.systemDefaultZone();
   private final ObjectMapper mapper;
-  private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+  private final ExecutorService executorService;
 
   public LambdaService(
       AmazonClientProvider amazonClientProvider,
       NetflixAmazonCredentials account,
       String region,
-      ObjectMapper mapper) {
+      ObjectMapper mapper,
+      LambdaServiceConfig lambdaServiceConfig,
+      ServiceLimitConfiguration serviceLimitConfiguration) {
     this.amazonClientProvider = amazonClientProvider;
     this.account = account;
     this.region = region;
     this.mapper = mapper;
+    this.TIMEOUT_MINUTES = lambdaServiceConfig.getRetry().getTimeout();
+    this.RETRIES = lambdaServiceConfig.getRetry().getRetries();
+    this.executorService =
+        Executors.newFixedThreadPool(
+            computeThreads(serviceLimitConfiguration, lambdaServiceConfig));
   }
 
   public List<Map<String, Object>> getAllFunctions() throws InterruptedException {
@@ -118,8 +128,8 @@ public class LambdaService {
           retry(
               "listFunctions",
               () -> lambda.listFunctions(listFunctionsRequest),
-              DEFAULT_RETRIES,
-              DEFAULT_TIMEOUT_MINUTES);
+              RETRIES,
+              TIMEOUT_MINUTES);
 
       lstFunction.addAll(listFunctionsResult.getFunctions());
       nextMarker = listFunctionsResult.getNextMarker();
@@ -145,11 +155,7 @@ public class LambdaService {
   private GetFunctionResult getFunctionResult(String functionName) {
     AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
     GetFunctionRequest request = new GetFunctionRequest().withFunctionName(functionName);
-    return retry(
-        "getFunctionRequest",
-        () -> lambda.getFunction(request),
-        DEFAULT_RETRIES,
-        DEFAULT_TIMEOUT_MINUTES);
+    return retry("getFunctionRequest", () -> lambda.getFunction(request), RETRIES, TIMEOUT_MINUTES);
   }
 
   private Void addRevisionsAttributes(Map<String, Object> functionAttributes, String functionName) {
@@ -174,8 +180,8 @@ public class LambdaService {
           retry(
               "listVersionsByFunction",
               () -> lambda.listVersionsByFunction(listVersionsByFunctionRequest),
-              DEFAULT_RETRIES,
-              DEFAULT_TIMEOUT_MINUTES);
+              RETRIES,
+              TIMEOUT_MINUTES);
       if (listVersionsByFunctionResult == null) {
         return listRevionIds;
       }
@@ -220,8 +226,8 @@ public class LambdaService {
           retry(
               "listAliases",
               () -> lambda.listAliases(listAliasesRequest),
-              DEFAULT_RETRIES,
-              DEFAULT_TIMEOUT_MINUTES);
+              RETRIES,
+              TIMEOUT_MINUTES);
       if (listAliasesResult == null) {
         return aliasConfigurations;
       }
@@ -252,8 +258,8 @@ public class LambdaService {
           retry(
               "listEventSourceMappings",
               () -> lambda.listEventSourceMappings(listEventSourceMappingsRequest),
-              DEFAULT_RETRIES,
-              DEFAULT_TIMEOUT_MINUTES);
+              RETRIES,
+              TIMEOUT_MINUTES);
       if (listEventSourceMappingsResult == null) {
         return eventSourceMappingConfigurations;
       }
@@ -296,8 +302,8 @@ public class LambdaService {
           retry(
               "getPolicy",
               () -> lambda.getPolicy(new GetPolicyRequest().withFunctionName(functionName)),
-              DEFAULT_RETRIES,
-              DEFAULT_TIMEOUT_MINUTES);
+              RETRIES,
+              TIMEOUT_MINUTES);
       if (result == null) {
         return targetGroupNames;
       }
@@ -349,5 +355,20 @@ public class LambdaService {
         throw e;
       }
     }
+  }
+
+  private int computeThreads(
+      ServiceLimitConfiguration serviceLimitConfiguration,
+      LambdaServiceConfig lambdaServiceConfig) {
+    int serviceLimit =
+        serviceLimitConfiguration
+            .getLimit(
+                ServiceLimitConfiguration.API_RATE_LIMIT,
+                AWSLambda.class.getSimpleName(),
+                account.getName(),
+                AmazonCloudProvider.ID,
+                5.0d)
+            .intValue();
+    return Math.min(serviceLimit * 2, lambdaServiceConfig.getConcurrency().getThreads());
   }
 }

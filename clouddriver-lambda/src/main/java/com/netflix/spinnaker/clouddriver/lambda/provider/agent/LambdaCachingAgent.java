@@ -45,8 +45,10 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandType;
+import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
 import com.netflix.spinnaker.clouddriver.lambda.service.LambdaService;
+import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -77,7 +79,9 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
       ObjectMapper objectMapper,
       AmazonClientProvider amazonClientProvider,
       NetflixAmazonCredentials account,
-      String region) {
+      String region,
+      LambdaServiceConfig lambdaServiceConfig,
+      ServiceLimitConfiguration serviceLimitConfiguration) {
     this.account = account;
     this.region = region;
     this.registry = new DefaultRegistry();
@@ -86,7 +90,14 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
             registry,
             this,
             AmazonCloudProvider.ID + ":" + AmazonCloudProvider.ID + ":" + OnDemandType.Function);
-    this.lambdaService = new LambdaService(amazonClientProvider, account, region, objectMapper);
+    this.lambdaService =
+        new LambdaService(
+            amazonClientProvider,
+            account,
+            region,
+            objectMapper,
+            lambdaServiceConfig,
+            serviceLimitConfiguration);
   }
 
   @Override
