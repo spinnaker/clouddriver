@@ -29,9 +29,9 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
-import com.netflix.spinnaker.clouddriver.lambda.service.LambdaService;
 import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
 import java.util.*;
+import org.junit.Before;
 import org.junit.Test;
 
 public class LambdaCachingAgentTest {
@@ -39,19 +39,26 @@ public class LambdaCachingAgentTest {
   private AmazonClientProvider clientProvider = mock(AmazonClientProvider.class);
   private String REGION = "us-west-2";
   private NetflixAmazonCredentials netflixAmazonCredentials = mock(NetflixAmazonCredentials.class);
-  private LambdaService lambdaService = mock(LambdaService.class);
   private LambdaServiceConfig config = mock(LambdaServiceConfig.class);
   private ServiceLimitConfiguration serviceLimitConfiguration =
       mock(ServiceLimitConfiguration.class);
-  private LambdaCachingAgent lambdaCachingAgent =
-      new LambdaCachingAgent(
-          objectMapper,
-          clientProvider,
-          netflixAmazonCredentials,
-          REGION,
-          config,
-          serviceLimitConfiguration);
+  private LambdaCachingAgent lambdaCachingAgent;
   private final ProviderCache cache = mock(ProviderCache.class);
+
+  @Before
+  public void setup() {
+    when(config.getRetry()).thenReturn(new LambdaServiceConfig.Retry());
+    when(config.getConcurrency()).thenReturn(new LambdaServiceConfig.Concurrency());
+    when(serviceLimitConfiguration.getLimit(any(), any(), any(), any(), any())).thenReturn(1.0);
+    lambdaCachingAgent =
+        new LambdaCachingAgent(
+            objectMapper,
+            clientProvider,
+            netflixAmazonCredentials,
+            REGION,
+            config,
+            serviceLimitConfiguration);
+  }
 
   @Test
   public void shouldGetAuthoritativeName() {
