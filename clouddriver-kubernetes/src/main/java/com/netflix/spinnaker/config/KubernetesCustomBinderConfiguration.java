@@ -42,7 +42,7 @@ public class KubernetesCustomBinderConfiguration {
 
   @Bean
   @RefreshScope
-  public KubernetesAccountProperties kubernetesAccounts(
+  public KubernetesAccountProperties kubernetesAccountProperties(
       KubernetesCustomAccountConfigurationProvider kubernetesCustomAccountConfigurationProvider) {
     return kubernetesCustomAccountConfigurationProvider.getConfigurationProperties();
   }

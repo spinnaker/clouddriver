@@ -40,7 +40,6 @@ import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration
@@ -59,12 +58,6 @@ public class KubernetesConfiguration {
   @Bean
   @RefreshScope
   @ConfigurationProperties("kubernetes")
-  @ConditionalOnProperty(
-      prefix = "kubernetes",
-      name = "custom-property-binding-enabled",
-      havingValue = "false",
-      matchIfMissing = true)
-  @Primary
   public KubernetesAccountProperties kubernetesAccountProperties() {
     return new KubernetesAccountProperties();
   }
