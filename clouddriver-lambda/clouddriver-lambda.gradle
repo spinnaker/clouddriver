@@ -16,7 +16,12 @@ dependencies {
   implementation "com.amazonaws:aws-java-sdk"
   implementation "com.github.ben-manes.caffeine:guava"
   implementation "com.netflix.awsobjectmapper:awsobjectmapper"
+<<<<<<< HEAD
   implementation "com.netflix.spinnaker.kork:kork-artifacts"
+=======
+  implementation "io.spinnaker.kork:kork-artifacts"
+  implementation "io.spinnaker.kork:kork-core"
+>>>>>>> ba0ce6986 (feat(lambda): run sdk calls concurrently (#5452))
   implementation "org.apache.commons:commons-lang3"
   implementation "org.apache.httpcomponents:httpclient"
   implementation "org.apache.httpcomponents:httpcore"
