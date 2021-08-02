@@ -131,6 +131,10 @@ public class LambdaService {
               RETRIES,
               TIMEOUT_MINUTES);
 
+      if (listFunctionsResult == null) {
+        break;
+      }
+
       lstFunction.addAll(listFunctionsResult.getFunctions());
       nextMarker = listFunctionsResult.getNextMarker();
 
