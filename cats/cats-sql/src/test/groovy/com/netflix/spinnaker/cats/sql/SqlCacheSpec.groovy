@@ -45,7 +45,7 @@ abstract class SqlCacheSpec extends WriteableCacheSpec {
     ((SqlCache) cache).merge('foo', data)
 
     then:
-    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 1, 0, 0, 1, 1, 0)
+    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 1, 0, 0, 1, 1, 0, 0)
 
     when:
     ((SqlCache) cache).merge('foo', data)
@@ -54,7 +54,7 @@ abstract class SqlCacheSpec extends WriteableCacheSpec {
     // SqlCacheMetrics currently sets items to # of items stored. The redis impl
     // sets this to # of items passed to merge, regardless of how many are actually stored
     // after deduplication. TODO: Having both metrics would be nice.
-    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 0, 0, 0, 1, 0, 0)
+    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 0, 0, 0, 1, 0, 0, 0)
   }
 
   def 'mergeAll with two items that have the same id preserves the existing item'() {
@@ -74,11 +74,17 @@ abstract class SqlCacheSpec extends WriteableCacheSpec {
       then: 'itemOne is in the cache'
       itemOneAttributes.equals(cache.get(type, id).attributes)
 
+      and: 'the metrics report a duplicate'
+      1 * ((SqlCache) cache).cacheMetrics.merge('test', type, 2, 0, 0, 0, 1, 0, 0, 1)
+
       when: 'storing the items again'
       cache.mergeAll(type, [ itemOne, itemTwo ])
 
       then: 'itemOne is in the cache'
       itemOneAttributes.equals(cache.get(type, id).attributes)
+
+      and: 'the metrics report a duplicate'
+      1 * ((SqlCache) cache).cacheMetrics.merge('test', type, 2, 0, 0, 0, 1, 0, 0, 1)
   }
 
   def 'all items are stored and retrieved when larger than sql chunk sizes'() {

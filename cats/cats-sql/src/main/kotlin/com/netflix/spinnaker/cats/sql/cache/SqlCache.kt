@@ -172,7 +172,8 @@ class SqlCache(
       relationshipsStored = storeResult.relationshipsStored.get(),
       selectOperations = storeResult.selectQueries.get(),
       writeOperations = storeResult.writeQueries.get(),
-      deleteOperations = storeResult.deleteQueries.get()
+      deleteOperations = storeResult.deleteQueries.get(),
+      duplicates = storeResult.duplicates.get()
     )
   }
 
@@ -554,6 +555,7 @@ class SqlCache(
       .forEach {
         if (!currentIds.add(it.id)) {
             log.error("agent: '${agent}': type: '$type': only one item with id '${it.id}' allowed")
+            result.duplicates.incrementAndGet()
             // Skip the rest of this iteration
             return@forEach
         }
@@ -1580,6 +1582,7 @@ class SqlCache(
     val selectQueries = AtomicInteger(0)
     val writeQueries = AtomicInteger(0)
     val deleteQueries = AtomicInteger(0)
+    val duplicates = AtomicInteger(0)
   }
 }
 
