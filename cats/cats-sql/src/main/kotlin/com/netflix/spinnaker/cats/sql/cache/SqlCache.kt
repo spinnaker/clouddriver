@@ -552,7 +552,11 @@ class SqlCache(
     items
       .filter { it.id != "_ALL_" && it.id.length <= sqlConstraints.maxIdLength }
       .forEach {
-        currentIds.add(it.id)
+        if (!currentIds.add(it.id)) {
+            log.error("agent: '${agent}': type: '$type': only one item with id '${it.id}' allowed")
+            // Skip the rest of this iteration
+            return@forEach
+        }
         val nullKeys = it.attributes
           .filter { e -> e.value == null }
           .keys

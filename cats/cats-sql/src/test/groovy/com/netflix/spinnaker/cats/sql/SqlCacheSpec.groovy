@@ -57,7 +57,7 @@ abstract class SqlCacheSpec extends WriteableCacheSpec {
     1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 0, 0, 0, 1, 0, 0)
   }
 
-  def 'mergeAll with two items that have the same id swaps the data'() {
+  def 'mergeAll with two items that have the same id preserves the existing item'() {
       given: 'one item in the cache'
       String id = 'bar'
       def itemOneAttributes = [att1: 'val1']
@@ -71,8 +71,8 @@ abstract class SqlCacheSpec extends WriteableCacheSpec {
       when: 'adding both items'
       cache.mergeAll(type, [ itemOne, itemTwo ])
 
-      then: 'itemTwo is in the cache'
-      itemTwoAttributes.equals(cache.get(type, id).attributes)
+      then: 'itemOne is in the cache'
+      itemOneAttributes.equals(cache.get(type, id).attributes)
 
       when: 'storing the items again'
       cache.mergeAll(type, [ itemOne, itemTwo ])
