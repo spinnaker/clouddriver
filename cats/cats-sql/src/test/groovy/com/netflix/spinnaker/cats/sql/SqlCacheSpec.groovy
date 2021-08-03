@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.cats.sql
 
+import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.cache.WriteableCacheSpec
 import com.netflix.spinnaker.cats.sql.cache.SqlCache
@@ -54,6 +55,30 @@ abstract class SqlCacheSpec extends WriteableCacheSpec {
     // sets this to # of items passed to merge, regardless of how many are actually stored
     // after deduplication. TODO: Having both metrics would be nice.
     1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 0, 0, 0, 1, 0, 0)
+  }
+
+  def 'mergeAll with two items that have the same id swaps the data'() {
+      given: 'one item in the cache'
+      String id = 'bar'
+      def itemOneAttributes = [att1: 'val1']
+      CacheData itemOne = createData(id, itemOneAttributes)
+      def itemTwoAttributes = [att2: 'val2']
+      CacheData itemTwo = createData(id, itemTwoAttributes)
+      String type = 'foo'
+      cache.mergeAll(type, [ itemOne ])
+      assert itemOneAttributes.equals(cache.get(type, id).attributes)
+
+      when: 'adding both items'
+      cache.mergeAll(type, [ itemOne, itemTwo ])
+
+      then: 'itemTwo is in the cache'
+      itemTwoAttributes.equals(cache.get(type, id).attributes)
+
+      when: 'storing the items again'
+      cache.mergeAll(type, [ itemOne, itemTwo ])
+
+      then: 'itemOne is in the cache'
+      itemOneAttributes.equals(cache.get(type, id).attributes)
   }
 
   def 'all items are stored and retrieved when larger than sql chunk sizes'() {
