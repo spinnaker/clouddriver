@@ -226,6 +226,83 @@ class AmazonNamedImageLookupControllerSpec extends Specification {
     }
   }
 
+  void "find by name when two amis in the same region have the same name"() {
+    given:
+    def httpServletRequest = httpServletRequest([:])
+    Cache cacheView = Mock(Cache)
+    def controller = new AmazonNamedImageLookupController(cacheView)
+    def amiIdOne = 'ami-12345678'
+    def amiIdTwo = 'ami-5678abcd'
+    def amiName = 'myAmi'
+    def account = 'account'
+    def region = 'region'
+    def imageOneTags = [att1: 'value1', att2: 'value2']
+    def imageTwoTags = [att3: 'value3', att3: 'value3']
+    def query = amiName
+    // Yes, this is insanely detailed, but it's what the render method expects
+    // (and what ImageCachingAgent provides).
+    def imageIdOne = Keys.getImageKey(amiIdOne, account, region)
+    def imageIdTwo = Keys.getImageKey(amiIdTwo, account, region)
+    def namedImageId = Keys.getNamedImageKey(account, amiName)
+    def tagsAsAttributesOne = imageOneTags.collect { key, value -> [key: key, value: value] }
+    def tagsAsAttributesTwo = imageTwoTags.collect { key, value -> [key: key, value: value] }
+    def Collection<CacheData> imageCacheData = [new DefaultCacheData(imageIdOne,
+                                                                     [name: amiName,
+                                                                      tags: tagsAsAttributesOne,
+                                                                      imageId: amiIdOne],
+                                                                     [(NAMED_IMAGES.ns): [namedImageId]]),
+                                                new DefaultCacheData(imageIdTwo,
+                                                                     [name: amiName,
+                                                                      tags: tagsAsAttributesTwo,
+                                                                      imageId: amiIdTwo],
+                                                                     [(NAMED_IMAGES.ns): [namedImageId]])]
+
+    def namedImageCacheAttributes = [name: amiName,
+                                     virtualizationType: 'hvm', // arbitrary
+                                     creationDate: '2021-08-03T22:27:50.000Z'] // arbitrary
+
+    def Collection<CacheData> namedImageCacheData = [new DefaultCacheData(namedImageId,
+                                                                          namedImageCacheAttributes,
+                                                                          [(IMAGES.ns): [imageIdOne, imageIdTwo]])]
+
+    when:
+    List<AmazonNamedImageLookupController.NamedImage> results = controller.list(new LookupOptions(q: query), httpServletRequest)
+
+    then:
+    // Expect an identifier lookup by name
+    1 * cacheView.filterIdentifiers(NAMED_IMAGES.ns, _) >> [amiName]
+
+    // Expect no image identifiers since the identifier lookup by name returned
+    // something
+    0 * cacheView.filterIdentifiers(IMAGES.ns, _)
+
+    // Expect a lookup by name, with the one available name
+    1 * cacheView.getAll(NAMED_IMAGES.ns, [amiName], _) >> namedImageCacheData
+
+    // Expect a lookup by image, but with no items to look in since the
+    // identifier lookup by name returned something
+    1 * cacheView.getAll(IMAGES.ns, []) >> []
+
+    // And then in render, expect another image lookup, this time with an image
+    // id because our named image is related to at least one "real" image.
+    1 * cacheView.getAll(IMAGES.ns, [imageIdOne, imageIdTwo]) >> imageCacheData
+
+    and:
+    results.size() == 1
+    with(results[0]) {
+      imageName == amiName
+      // When there's a named image that matches the given query, these are the
+      // attributes that render populates.
+      attributes == namedImageCacheAttributes - [name: amiName]
+      tagsByImageId == [(amiIdOne): imageOneTags, (amiIdTwo): imageTwoTags]
+      accounts == [account] as Set
+      amis == [region: [amiIdOne, amiIdTwo] as Set]
+      // When there's a named image that matches the given query, render doesn't
+      // currently populate tags, only tagsByImageId, as tags is deprecated.
+      tags == [:]
+    }
+  }
+
   private HttpServletRequest httpServletRequest(Map<String, String> tagFilters) {
     return Mock(HttpServletRequest) {
       getParameterNames() >> {

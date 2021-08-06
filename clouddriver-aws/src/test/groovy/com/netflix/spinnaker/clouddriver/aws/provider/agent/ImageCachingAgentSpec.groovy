@@ -91,7 +91,7 @@ class ImageCachingAgentSpec extends Specification {
     new ImageCachingAgent(acp, creds, region, AmazonObjectMapperConfigurer.createConfigured(), Spectator.globalRegistry(), publicImages, dcs)
   }
 
-  void "two images with the same name result in two named images"() {
+  void "two images with the same name result in one named image"() {
     given: 'two images with the same name'
     // amis have unique ids, but it's possible for two amis with the same name
     // to exist in the same account (and potentially the same region).
@@ -110,18 +110,17 @@ class ImageCachingAgentSpec extends Specification {
     when:
     def result = agent.loadData(providerCache)
 
-    then: 'the result has two named images'
+    then: 'the result has one named image'
     1 * ec2.describeImages(request) >> new DescribeImagesResult(images: [imageOne, imageTwo])
     0 * _
 
-    result.cacheResults[NAMED_IMAGES.ns].size() == 2
+    result.cacheResults[NAMED_IMAGES.ns].size() == 1
 
-    and: 'each named image has the same cache key'
-    Set<String> ids = new HashSet<>()
-    result.cacheResults[NAMED_IMAGES.ns].each { cacheData ->
-      ids.add(cacheData.id)
-    }
-    ids.size() == 1
+    and: 'the named image is related to both amis'
+    def imageRelationships = result.cacheResults[NAMED_IMAGES.ns][0].relationships[IMAGES.ns]
+    imageRelationships.size() == 2
+    imageRelationships.containsAll(Keys.getImageKey('ami-1', accountName, region),
+                                   Keys.getImageKey('ami-2', accountName, region))
   }
 
   void "should include only private images"() {
