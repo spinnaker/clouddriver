@@ -122,13 +122,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
                     }
                   }
 
-                  KubernetesHandler handler =
-                      credentials
-                          .getResourcePropertyRegistry()
-                          .get(manifest.getKind())
-                          .getHandler();
-
-                  if (handler instanceof CanReceiveTraffic) {
+                  if (deployer instanceof CanReceiveTraffic) {
                     setTrafficAnnotation(description.getServices(), manifest);
 
                     if (description.isEnableTraffic()) {
