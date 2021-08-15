@@ -320,9 +320,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       List<String> existingRegionalLbs = instanceMetadata[REGIONAL_LOAD_BALANCER_NAMES]?.split(",") ?: []
       List<String> regionBackendServices = instanceMetadata[REGION_BACKEND_SERVICE_NAMES]?.split(",") as List ?: []
       def ilbServices = internalLoadBalancers.collect { it.backendService.name }
-      if (regionBackendServices.size() != 0) {
-        ilbServices.addAll(regionBackendServices)
-      }
+      ilbServices.addAll(regionBackendServices)
       ilbServices.unique{ a, b -> a <=> b }   //to remove duplicate services
       def ilbNames = internalLoadBalancers.collect { it.name } + internalHttpLoadBalancers.collect { it.name }
 
