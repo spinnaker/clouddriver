@@ -8,5 +8,5 @@ dependencies {
   implementation(project(":cats:cats-core"))
 
   api("org.springframework.boot:spring-boot-starter-test")
-  api("dev.minutest:minutest")
+  api("dev.minutest:minutest:1.13.0")
 }

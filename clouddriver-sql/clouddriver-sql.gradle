@@ -23,16 +23,16 @@ dependencies {
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-event")
 
-  implementation "com.netflix.spinnaker.kork:kork-core"
-  implementation "com.netflix.spinnaker.kork:kork-sql"
-  implementation "com.netflix.spinnaker.kork:kork-telemetry"
+  implementation "io.spinnaker.kork:kork-core"
+  implementation "io.spinnaker.kork:kork-sql"
+  implementation "io.spinnaker.kork:kork-telemetry"
   implementation "de.huxhorn.sulky:de.huxhorn.sulky.ulid"
   implementation "org.jooq:jooq"
   implementation "org.hibernate.validator:hibernate-validator"
 
   testImplementation project(":clouddriver-core-tck")
 
-  testImplementation "com.netflix.spinnaker.kork:kork-sql-test"
+  testImplementation "io.spinnaker.kork:kork-sql-test"
   testImplementation "org.testcontainers:mysql"
   testImplementation "mysql:mysql-connector-java"
 
@@ -44,7 +44,7 @@ dependencies {
   testImplementation "org.springframework.boot:spring-boot-test"
   testImplementation "org.assertj:assertj-core"
   testImplementation "io.strikt:strikt-core"
-  testImplementation "dev.minutest:minutest"
+  testImplementation "dev.minutest:minutest:1.13.0"
   testImplementation "io.mockk:mockk"
   testImplementation "com.fasterxml.jackson.module:jackson-module-kotlin"
 
