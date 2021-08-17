@@ -29,6 +29,6 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-test"
   implementation "org.assertj:assertj-core"
   implementation "io.strikt:strikt-core"
-  implementation "dev.minutest:minutest"
+  implementation "dev.minutest:minutest:1.13.0"
   implementation "io.mockk:mockk"
 }

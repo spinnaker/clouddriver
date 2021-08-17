@@ -37,7 +37,7 @@ dependencies {
   testImplementation "org.springframework.boot:spring-boot-test"
   testImplementation "org.assertj:assertj-core"
   testImplementation "io.strikt:strikt-core"
-  testImplementation "dev.minutest:minutest"
+  testImplementation "dev.minutest:minutest:1.13.0"
   testImplementation "io.mockk:mockk"
 
   testRuntimeOnly "org.junit.platform:junit-platform-launcher"

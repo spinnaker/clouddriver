@@ -6,7 +6,7 @@ ext {
 }
 
 repositories {
-  maven { url 'https://dl.bintray.com/netflixoss' }
+  mavenCentral()
 }
 
 dependencies {
