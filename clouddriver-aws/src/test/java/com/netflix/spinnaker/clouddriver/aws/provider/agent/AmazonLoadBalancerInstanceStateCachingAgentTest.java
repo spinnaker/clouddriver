@@ -31,6 +31,7 @@ import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancing.model.DescribeInstanceHealthRequest;
 import com.amazonaws.services.elasticloadbalancing.model.DescribeInstanceHealthResult;
 import com.amazonaws.services.elasticloadbalancing.model.InstanceState;
+import com.google.common.collect.Iterables;
 import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.Cache;
@@ -38,9 +39,9 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.data.Keys;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.platform.runner.JUnitPlatform;
@@ -74,6 +75,7 @@ class AmazonLoadBalancerInstanceStateCachingAgentTest {
         acp, creds, region, AmazonObjectMapperConfigurer.createConfigured(), ctx);
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   void twoLoadBalancersWithTheSameInstance() {
     // given
@@ -120,22 +122,20 @@ class AmazonLoadBalancerInstanceStateCachingAgentTest {
     verify(loadBalancing, times(2))
         .describeInstanceHealth(any(DescribeInstanceHealthRequest.class));
 
-    // and: 'there are two health items in the cache result'
+    // and: 'there's one health item in the cache result'
+    assertThat(result.getCacheResults().get(HEALTH.ns)).hasSize(1);
 
-    // What we'd really like to see if one health item that includes information
-    // from both load balancers.  The current behavior is two health items with
-    // the same id though.
-    assertThat(result.getCacheResults().get(HEALTH.ns)).hasSize(2);
+    // and: 'the health item has information from the last load balancer'
+    Map<String, Object> healthAttributes =
+        Iterables.getOnlyElement(result.getCacheResults().get(HEALTH.ns)).getAttributes();
+    assertThat(healthAttributes.get("loadBalancers")).isInstanceOf(List.class);
+    List<?> loadBalancers = (List<?>) healthAttributes.get("loadBalancers");
+    assertThat(loadBalancers).hasSize(1);
+    List<String> loadBalancerNames =
+        loadBalancers.stream()
+            .map(loadBalancer -> ((Map<String, String>) loadBalancer).get("loadBalancerName"))
+            .collect(Collectors.toList());
 
-    // and: 'each health item has the same cache key'
-    Set<String> ids = new HashSet<>();
-    result
-        .getCacheResults()
-        .get(HEALTH.ns)
-        .forEach(
-            cacheData -> {
-              ids.add(cacheData.getId());
-            });
-    assertThat(ids).hasSize(1);
+    assertThat(loadBalancerNames).containsAll(List.of(loadBalancerTwoName));
   }
 }
