@@ -554,7 +554,7 @@ class SqlCache(
       .filter { it.id != "_ALL_" && it.id.length <= sqlConstraints.maxIdLength }
       .forEach {
         if (!currentIds.add(it.id)) {
-            log.error("agent: '${agent}': type: '$type': only one item with id '${it.id}' allowed")
+            log.warn("agent: '${agent}': type: '$type': only one item with id '${it.id}' allowed")
             result.duplicates.incrementAndGet()
             // Skip the rest of this iteration
             return@forEach
