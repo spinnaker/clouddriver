@@ -88,7 +88,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
   }
 
   def 'should generate correct ServerGroup resource template health extension is blank'() {
-    description = createHealthDescription("", "", "")
+    description = createHealthDescription("", 0, "")
     String template = AzureServerGroupResourceTemplate.getTemplate(description)
 
     expect:
@@ -212,7 +212,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"').replace('\r', '') == expectedFullTemplateWithUserAssignedIdentities
   }
 
-  private static AzureServerGroupDescription.AzureExtensionHealthSettings createHealthExtension(String protocol = "https", String port = "7000", String requestPath = "localhost") {
+  private static AzureServerGroupDescription.AzureExtensionHealthSettings createHealthExtension(String protocol = "https", int port = 7000, String requestPath = "localhost") {
     AzureServerGroupDescription.AzureExtensionHealthSettings extension = new AzureServerGroupDescription.AzureExtensionHealthSettings()
     extension.protocol = protocol
     extension.port = port
@@ -284,7 +284,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     description
   }
 
-  private static AzureServerGroupDescription createHealthDescription(String protocol = "https", String port = "7000", String requestPath = "localhost") {
+  private static AzureServerGroupDescription createHealthDescription(String protocol = "https", int port = 7000, String requestPath = "localhost") {
     AzureServerGroupDescription description = createDescription()
     description.healthSettings = createHealthExtension(protocol, port, requestPath)
 
@@ -2814,7 +2814,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
               "autoUpgradeMinorVersion" : true,
               "settings" : {
                 "protocol" : "https",
-                "port" : "7000",
+                "port" : 7000,
                 "requestPath" : "localhost"
               }
             }
@@ -3368,12 +3368,12 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
             "name" : "azureMASM_health_ext",
             "properties" : {
               "publisher" : "Microsoft.ManagedServices",
-              "type" : "ApplicationHealthWindows",
+              "type" : "ApplicationHealthLinux",
               "typeHandlerVersion" : "1.0",
               "autoUpgradeMinorVersion" : true,
               "settings" : {
                 "protocol" : "https",
-                "port" : "7000",
+                "port" : 7000,
                 "requestPath" : "localhost"
               }
             }
@@ -3564,7 +3564,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
               "autoUpgradeMinorVersion" : true,
               "settings" : {
                 "protocol" : "https",
-                "port" : "7000",
+                "port" : 7000,
                 "requestPath" : "localhost"
               }
             }
