@@ -52,6 +52,7 @@ dependencies {
   implementation project(":clouddriver-api")
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-core")
+  implementation project(":clouddriver-configserver")
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-security")
 
@@ -118,8 +119,7 @@ task integrationTest(type: Test) {
   description = 'Runs kubernetes provider integration tests.'
   group = 'verification'
 
-  environment "KUBECTL_PATH", "$project.rootDir/clouddriver-kubernetes/src/integration/resources/kubectl-wrapper.sh"
-  environment "KUBECONFIGS_HOME", "$project.rootDir/clouddriver-kubernetes/build/kubeconfigs"
+  environment "IT_BUILD_HOME", "$project.buildDir/it"
   useJUnitPlatform()
 
   testClassesDirs = sourceSets.integration.output.classesDirs
