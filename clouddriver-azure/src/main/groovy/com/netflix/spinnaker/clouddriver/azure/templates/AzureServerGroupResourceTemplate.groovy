@@ -901,7 +901,7 @@ class AzureServerGroupResourceTemplate {
     HealthExtensionProperty(AzureServerGroupDescription description) {
       settings = new HealthExtensionSettings(description)
       publisher = AzureUtilities.AZURE_HEALTH_EXT_PUBLISHER
-      type = AzureUtilities.AZURE_HEALTH_EXT_TYPE
+      type = description.image?.ostype?.toLowerCase() == "linux" ? AzureUtilities.AZURE_HEALTH_EXT_TYPE_LINUX : AzureUtilities.AZURE_HEALTH_EXT_TYPE_WINDOWS
       typeHandlerVersion = AzureUtilities.AZURE_HEALTH_EXT_VERSION
     }
   }
@@ -925,12 +925,17 @@ class AzureServerGroupResourceTemplate {
 
   static class HealthExtensionSettings implements IExtensionSettings {
     String protocol
-    String port
+    int port
     String requestPath
 
     HealthExtensionSettings(AzureServerGroupDescription description) {
       protocol = description.healthSettings.protocol
-      port = description.healthSettings.port
+      try {
+        port = Integer.parseInt(description.healthSettings.port)
+      } catch (NumberFormatException ignored) {
+        port = 0
+        throw new IllegalArgumentException("healthSettings.port \"$description.healthSettings.port\" is not a valid integer")
+      }
       requestPath = description.healthSettings.requestPath
     }
   }

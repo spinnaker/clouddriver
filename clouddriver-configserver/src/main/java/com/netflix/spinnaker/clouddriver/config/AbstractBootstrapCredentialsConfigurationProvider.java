@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Netflix, Inc.
+ * Copyright 2021 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,11 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.config;
+package com.netflix.spinnaker.clouddriver.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wnameless.json.flattener.JsonFlattener;
-import com.github.wnameless.json.unflattener.JsonUnflattener;
 import com.netflix.spinnaker.kork.configserver.CloudConfigResourceService;
 import com.netflix.spinnaker.kork.secrets.EncryptedSecret;
 import com.netflix.spinnaker.kork.secrets.SecretManager;
@@ -28,7 +27,6 @@ import com.netflix.spinnaker.kork.secrets.SecretSession;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.springframework.boot.context.properties.bind.BindResult;
 import org.springframework.boot.context.properties.bind.Bindable;
@@ -41,22 +39,15 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertySource;
 
-/**
- * For larger number of Kubernetes accounts, as-is SpringBoot implementation of properties binding
- * is inefficient, hence a custom logic for KubernetesConfigurationProperties is written but it
- * still uses SpringBoot's Binder class. BootstrapKubernetesConfigurationProvider class fetches the
- * flattened kubernetes properties from Spring Cloud Config's BootstrapPropertySource and creates a
- * KubernetesConfigurationProperties object.
- */
-public class BootstrapKubernetesConfigurationProvider {
+public abstract class AbstractBootstrapCredentialsConfigurationProvider<T>
+    implements ConfigurationProvider<T> {
   private final ConfigurableApplicationContext applicationContext;
   private CloudConfigResourceService configResourceService;
   private SecretSession secretSession;
   private Map<String, String> configServerCache;
-  private ObjectMapper objectMapper = new ObjectMapper();
-  private final String FIRST_ACCOUNT_NAME_KEY = "kubernetes.accounts[0].name";
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
-  public BootstrapKubernetesConfigurationProvider(
+  public AbstractBootstrapCredentialsConfigurationProvider(
       ConfigurableApplicationContext applicationContext,
       CloudConfigResourceService configResourceService,
       SecretManager secretManager) {
@@ -65,35 +56,36 @@ public class BootstrapKubernetesConfigurationProvider {
     this.secretSession = new SecretSession(secretManager);
   }
 
-  public KubernetesConfigurationProperties getKubernetesConfigurationProperties() {
-    return getKubernetesConfigurationProperties(getPropertiesMap());
-  }
+  public abstract T getConfigurationProperties();
 
+  @Override
   @SuppressWarnings("unchecked")
-  public KubernetesConfigurationProperties getKubernetesConfigurationProperties(
-      Map<String, Object> kubernetesPropertiesMap) {
-    KubernetesConfigurationProperties k8sConfigProps = new KubernetesConfigurationProperties();
-    BindResult<?> result;
+  public Map<String, Object> getPropertiesMap(String property) {
+    ConfigurableEnvironment environment = applicationContext.getEnvironment();
+    Map<String, Object> map;
 
-    // unflatten
-    Map<String, Object> propertiesMap =
-        (Map<String, Object>)
-            JsonUnflattener.unflattenAsMap(kubernetesPropertiesMap).get("kubernetes");
+    for (PropertySource<?> propertySource : environment.getPropertySources()) {
+      if (propertySource instanceof BootstrapPropertySource) {
+        map = (Map<String, Object>) propertySource.getSource();
+        if (map.containsKey(property)) {
+          return map;
+        }
+      }
 
-    // loop through each account and bind
-    for (Map<String, Object> unflattendAcc :
-        ((List<Map<String, Object>>) propertiesMap.get("accounts"))) {
-      result =
-          bind(getFlatMap(unflattendAcc), KubernetesConfigurationProperties.ManagedAccount.class);
-      k8sConfigProps
-          .getAccounts()
-          .add((KubernetesConfigurationProperties.ManagedAccount) result.get());
+      if (propertySource.getSource() instanceof BootstrapPropertySource) {
+        BootstrapPropertySource<Map<String, Object>> bootstrapPropertySource =
+            (BootstrapPropertySource<Map<String, Object>>) propertySource.getSource();
+        if (bootstrapPropertySource.containsProperty(property)) {
+          return bootstrapPropertySource.getSource();
+        }
+      }
     }
 
-    return k8sConfigProps;
+    throw new RuntimeException("No BootstrapPropertySource found!");
   }
 
-  private BindResult<?> bind(Map<String, Object> propertiesMap, Class<?> clazz) {
+  @Override
+  public BindResult<?> bind(Map<String, Object> propertiesMap, Class<?> clazz) {
     resolveSpecialCases(propertiesMap);
     ConfigurationPropertySource configurationPropertySource =
         new MapConfigurationPropertySource(propertiesMap);
@@ -117,40 +109,13 @@ public class BootstrapKubernetesConfigurationProvider {
     }
   }
 
-  private Map<String, Object> getFlatMap(Map<String, Object> unflatMap) {
+  @Override
+  public Map<String, Object> getFlatMap(Map<String, Object> unflatMap) {
     try {
       return JsonFlattener.flattenAsMap(objectMapper.writeValueAsString(unflatMap));
     } catch (JsonProcessingException e) {
-      throw new RuntimeException(
-          "Error occurred while building KubernetesConfigurationProperties object: "
-              + e.getMessage());
+      throw new RuntimeException("Error occurred while building object: " + e.getMessage());
     }
-  }
-
-  @SuppressWarnings("unchecked")
-  private Map<String, Object> getPropertiesMap() {
-    ConfigurableEnvironment environment = applicationContext.getEnvironment();
-    Map<String, Object> map;
-
-    for (PropertySource<?> propertySource : environment.getPropertySources()) {
-
-      if (propertySource instanceof BootstrapPropertySource) {
-        map = (Map<String, Object>) propertySource.getSource();
-        if (map.containsKey(FIRST_ACCOUNT_NAME_KEY)) {
-          return map;
-        }
-      }
-
-      if (propertySource.getSource() instanceof BootstrapPropertySource) {
-        BootstrapPropertySource<Map<String, Object>> bootstrapPropertySource =
-            (BootstrapPropertySource<Map<String, Object>>) propertySource.getSource();
-        if (bootstrapPropertySource.containsProperty(FIRST_ACCOUNT_NAME_KEY)) {
-          return bootstrapPropertySource.getSource();
-        }
-      }
-    }
-
-    throw new RuntimeException("No BootstrapPropertySource found!!!!");
   }
 
   private String resolveEncryptedPattern(String possiblePattern) {
