@@ -68,7 +68,8 @@ public class GitJobExecutor {
     if (!StringUtils.isEmpty(account.getUsername())
         && !StringUtils.isEmpty(account.getPassword())) {
       authType = AuthType.USER_PASS;
-    } else if (!StringUtils.isEmpty(account.getTokenAsString())) {
+    } else if (account.getTokenAsString().isPresent()
+        && !StringUtils.isEmpty(account.getTokenAsString())) {
       authType = AuthType.TOKEN;
     } else if (!StringUtils.isEmpty(account.getSshPrivateKeyFilePath())) {
       authType = AuthType.SSH;
