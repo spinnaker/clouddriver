@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -194,6 +195,24 @@ final class ArtifactReplacerTest {
     assertThat(extractImage(result.getManifest())).contains("nginx:1.19.1");
     assertThat(result.getBoundArtifacts()).hasSize(1);
     assertThat(Iterables.getOnlyElement(result.getBoundArtifacts())).isEqualTo(inputArtifact);
+  }
+
+  /** If there is already a tag on the image in the manifest. */
+  @Test
+  void doesNotReplaceImageWithTag() {
+    Replacer.Factory replacerFactory = spy(new Replacer.Factory(true));
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.dockerImage()));
+    KubernetesManifest deployment = getDeploymentWithContainer(getContainer("nginx:1.18.0"));
+
+    Artifact inputArtifact =
+        Artifact.builder().type("docker/image").name("nginx").reference("nginx:1.19.1").build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(
+            deployment, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+
+    assertThat(result.getManifest()).isEqualTo(deployment);
+    assertThat(result.getBoundArtifacts()).isEmpty();
   }
 
   /**

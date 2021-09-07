@@ -42,8 +42,11 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Builder;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @NonnullByDefault
 public final class Replacer {
@@ -60,24 +63,35 @@ public final class Replacer {
    *     representing a filter
    * @param findFilter a filter that should be applied to the path when finding any artifacts in a
    *     manifest; defaults to a filter matching all nodes
+   * @param legacyReplaceFilter a function that takes an artifact and returns the filter that should
+   *     be applied to the path when replacing artifacts; if a findFilter is supplied both the
+   *     findFilter and replaceFilter must match for the artifact to be replaced
    * @param replacePathFromPlaceholder a string that represents the path from the [?] placeholder to
    *     the replaced field.
    * @param nameFromReference a function to extract an artifact name from its reference; defaults to
    *     returning the reference
+   * @param artifactsLegacyBindingEnabled //TODO
    */
   @Builder(access = AccessLevel.PRIVATE)
   private Replacer(
       KubernetesArtifactType type,
       String path,
       @Nullable Filter findFilter,
+      Function<Artifact, Filter> legacyReplaceFilter,
       String replacePathFromPlaceholder,
-      @Nullable Function<String, String> nameFromReference) {
+      @Nullable Function<String, String> nameFromReference,
+      boolean artifactsLegacyBindingEnabled) {
     this.type = Objects.requireNonNull(type);
     Objects.requireNonNull(path);
     Objects.requireNonNull(replacePathFromPlaceholder);
     this.nameFromReference = Optional.ofNullable(nameFromReference).orElse(a -> a);
-    Function<Artifact, Filter> replaceFilter =
-        a -> filter(createReplaceFilterPredicate(replacePathFromPlaceholder, a.getName()));
+    Function<Artifact, Filter> replaceFilter;
+    if (artifactsLegacyBindingEnabled) {
+      replaceFilter = legacyReplaceFilter;
+    } else {
+      replaceFilter =
+          a -> filter(createReplaceFilterPredicate(replacePathFromPlaceholder, a.getName()));
+    }
     if (findFilter != null) {
       this.findPath = JsonPath.compile(path, findFilter);
       this.replacePathSupplier =
@@ -148,8 +162,9 @@ public final class Replacer {
   }
 
   private static final Replacer DOCKER_IMAGE =
-      builder()
+      Factory.create()
           .path("$..spec.template.spec['containers', 'initContainers'].[?].image")
+          .legacyReplaceFilter(a -> filter(where("image").is(a.getName())))
           .replacePathFromPlaceholder("image")
           .nameFromReference(
               ref -> {
@@ -174,78 +189,89 @@ public final class Replacer {
           .type(KubernetesArtifactType.DockerImage)
           .build();
   private static final Replacer POD_DOCKER_IMAGE =
-      builder()
+      Factory.create()
           .path("$.spec.containers.[?].image")
+          .legacyReplaceFilter(a -> filter(where("image").is(a.getName())))
           .replacePathFromPlaceholder("image")
           .type(KubernetesArtifactType.DockerImage)
           .build();
   private static final Replacer CONFIG_MAP_VOLUME =
-      builder()
+      Factory.create()
           .path("$..spec.template.spec.volumes.[?].configMap.name")
+          .legacyReplaceFilter(a -> filter(where("configMap.name").is(a.getName())))
           .replacePathFromPlaceholder("configMap.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
   private static final Replacer SECRET_VOLUME =
-      builder()
+      Factory.create()
           .path("$..spec.template.spec.volumes.[?].secret.secretName")
+          .legacyReplaceFilter(a -> filter(where("secret.secretName").is(a.getName())))
           .replacePathFromPlaceholder("secret.secretName")
           .type(KubernetesArtifactType.Secret)
           .build();
   private static final Replacer CONFIG_MAP_PROJECTED_VOLUME =
-      builder()
+      Factory.create()
           .path("$..spec.template.spec.volumes.*.projected.sources.[?].configMap.name")
+          .legacyReplaceFilter(a -> filter(where("configMap.name").is(a.getName())))
           .replacePathFromPlaceholder("configMap.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
   private static final Replacer SECRET_PROJECTED_VOLUME =
-      builder()
+      Factory.create()
           .path("$..spec.template.spec.volumes.*.projected.sources.[?].secret.name")
+          .legacyReplaceFilter(a -> filter(where("secret.name").is(a.getName())))
           .replacePathFromPlaceholder("secret.name")
           .type(KubernetesArtifactType.Secret)
           .build();
   private static final Replacer CONFIG_MAP_KEY_VALUE =
-      builder()
+      Factory.create()
           .path(
               "$..spec.template.spec['containers', 'initContainers'].*.env.[?].valueFrom.configMapKeyRef.name")
+          .legacyReplaceFilter(a -> filter(where("valueFrom.configMapKeyRef.name").is(a.getName())))
           .replacePathFromPlaceholder("valueFrom.configMapKeyRef.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
   private static final Replacer SECRET_KEY_VALUE =
-      builder()
+      Factory.create()
           .path(
               "$..spec.template.spec['containers', 'initContainers'].*.env.[?].valueFrom.secretKeyRef.name")
+          .legacyReplaceFilter(a -> filter(where("valueFrom.secretKeyRef.name").is(a.getName())))
           .replacePathFromPlaceholder("valueFrom.secretKeyRef.name")
           .type(KubernetesArtifactType.Secret)
           .build();
   private static final Replacer CONFIG_MAP_ENV =
-      builder()
+      Factory.create()
           .path(
               "$..spec.template.spec['containers', 'initContainers'].*.envFrom.[?].configMapRef.name")
+          .legacyReplaceFilter(a -> filter(where("configMapRef.name").is(a.getName())))
           .replacePathFromPlaceholder("configMapRef.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
   private static final Replacer SECRET_ENV =
-      builder()
+      Factory.create()
           .path(
               "$..spec.template.spec['containers', 'initContainers'].*.envFrom.[?].secretRef.name")
+          .legacyReplaceFilter(a -> filter(where("secretRef.name").is(a.getName())))
           .replacePathFromPlaceholder("secretRef.name")
           .type(KubernetesArtifactType.Secret)
           .build();
   private static final Replacer HPA_DEPLOYMENT =
-      builder()
+      Factory.create()
           .path("$[?].spec.scaleTargetRef.name")
           .findFilter(
               filter(where("spec.scaleTargetRef.kind").is("Deployment"))
                   .or(where("spec.scaleTargetRef.kind").is("deployment")))
+          .legacyReplaceFilter(a -> filter(where("spec.scaleTargetRef.name").is(a.getName())))
           .replacePathFromPlaceholder("spec.scaleTargetRef.name")
           .type(KubernetesArtifactType.Deployment)
           .build();
   private static final Replacer HPA_REPLICA_SET =
-      builder()
+      Factory.create()
           .path("$[?].spec.scaleTargetRef.name")
           .findFilter(
               filter(where("spec.scaleTargetRef.kind").is("ReplicaSet"))
                   .or(where("spec.scaleTargetRef.kind").is("replicaSet")))
+          .legacyReplaceFilter(a -> filter(where("spec.scaleTargetRef.name").is(a.getName())))
           .replacePathFromPlaceholder("spec.scaleTargetRef.name")
           .type(KubernetesArtifactType.ReplicaSet)
           .build();
@@ -296,5 +322,21 @@ public final class Replacer {
 
   public static Replacer hpaReplicaSet() {
     return HPA_REPLICA_SET;
+  }
+
+  @Component
+  @Setter
+  public static class Factory {
+
+    private static Boolean artifactsLegacyBindingEnabled = false;
+
+    public Factory(
+        @Value("${artifacts.legacy-binding.enabled:false}") Boolean artifactsLegacyBindingEnabled) {
+      Factory.artifactsLegacyBindingEnabled = artifactsLegacyBindingEnabled;
+    }
+
+    public static Replacer.ReplacerBuilder create() {
+      return Replacer.builder().artifactsLegacyBindingEnabled(artifactsLegacyBindingEnabled);
+    }
   }
 }
