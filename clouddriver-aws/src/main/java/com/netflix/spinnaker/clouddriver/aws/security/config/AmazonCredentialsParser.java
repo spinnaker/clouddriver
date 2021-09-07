@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.aws.security.config;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.spinnaker.clouddriver.aws.security.*;
 import com.netflix.spinnaker.clouddriver.aws.security.config.AccountsConfiguration.Account;
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig.Region;
@@ -27,13 +28,19 @@ import com.netflix.spinnaker.credentials.definition.CredentialsParser;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+@Slf4j
 public class AmazonCredentialsParser<
         U extends AccountsConfiguration.Account, V extends NetflixAmazonCredentials>
     implements CredentialsParser<U, V> {
@@ -82,34 +89,31 @@ public class AmazonCredentialsParser<
 
   private Lazy<List<Region>> createDefaults(final List<Region> defaults) {
     return new Lazy<>(
-        new Lazy.Loader<List<Region>>() {
-          @Override
-          public List<Region> get() {
-            if (defaults == null) {
-              return toRegion(awsAccountInfoLookup.listRegions());
-            } else {
-              List<Region> result = new ArrayList<>(defaults.size());
-              List<String> toLookup = new ArrayList<>();
-              for (Region def : defaults) {
-                if (def.getAvailabilityZones() == null || def.getAvailabilityZones().isEmpty()) {
-                  toLookup.add(def.getName());
-                } else {
-                  result.add(def);
-                }
+        () -> {
+          if (defaults == null) {
+            return toRegion(awsAccountInfoLookup.listRegions());
+          } else {
+            List<Region> result = new ArrayList<>(defaults.size());
+            List<String> toLookup = new ArrayList<>();
+            for (Region def : defaults) {
+              if (def.getAvailabilityZones() == null || def.getAvailabilityZones().isEmpty()) {
+                toLookup.add(def.getName());
+              } else {
+                result.add(def);
               }
-              if (!toLookup.isEmpty()) {
-                List<Region> resolved = toRegion(awsAccountInfoLookup.listRegions(toLookup));
-                for (Region region : resolved) {
-                  Region fromDefault = find(defaults, region.getName());
-                  if (fromDefault != null) {
-                    region.setPreferredZones(fromDefault.getPreferredZones());
-                    region.setDeprecated(fromDefault.getDeprecated());
-                  }
-                }
-                result.addAll(resolved);
-              }
-              return result;
             }
+            if (!toLookup.isEmpty()) {
+              List<Region> resolved = toRegion(awsAccountInfoLookup.listRegions(toLookup));
+              for (Region region : resolved) {
+                Region fromDefault = find(defaults, region.getName());
+                if (fromDefault != null) {
+                  region.setPreferredZones(fromDefault.getPreferredZones());
+                  region.setDeprecated(fromDefault.getDeprecated());
+                }
+              }
+              result.addAll(resolved);
+            }
+            return result;
           }
         });
   }
@@ -193,19 +197,80 @@ public class AmazonCredentialsParser<
     return result;
   }
 
-  public List<V> load(CredentialsConfig source) throws Throwable {
-    final CredentialsConfig config = objectMapper.convertValue(source, CredentialsConfig.class);
-
+  public List<V> load(CredentialsConfig config) throws Throwable {
     if (accountsConfig.getAccounts() == null || accountsConfig.getAccounts().isEmpty()) {
+      log.info(" 0 aws accounts");
       return Collections.emptyList();
     }
     List<V> initializedAccounts = new ArrayList<>(accountsConfig.getAccounts().size());
-    for (Account account : accountsConfig.getAccounts()) {
-      initializedAccounts.add(parseAccount(config, account));
+
+    log.info(
+        "Attempting to load {} aws accounts found in the configuration",
+        accountsConfig.getAccounts().size());
+    if (config.getLoadAccounts() != null && config.getLoadAccounts().isMultiThreadingEnabled()) {
+      log.info(
+          "Multi-threading is enabled for loading aws accounts. Using {} number of threads, with timeout: {}s",
+          config.getLoadAccounts().getNumberOfThreads(),
+          config.getLoadAccounts().getTimeoutInSeconds());
+      final ExecutorService executorService =
+          Executors.newFixedThreadPool(
+              config.getLoadAccounts().getNumberOfThreads(),
+              new ThreadFactoryBuilder()
+                  .setNameFormat(AmazonCredentialsParser.class.getSimpleName() + "-%d")
+                  .build());
+
+      final ArrayList<Future<V>> futures = new ArrayList<>(accountsConfig.getAccounts().size());
+
+      for (Account account : accountsConfig.getAccounts()) {
+        futures.add(
+            executorService.submit(
+                () -> {
+                  try {
+                    return parseAccount(config, account);
+                  } catch (Throwable e) {
+                    throw new ParseAccountException(
+                        "Parsing aws account: "
+                            + account.getName()
+                            + " failed. Error: "
+                            + e.getMessage(),
+                        e);
+                  }
+                }));
+      }
+
+      for (Future<V> future : futures) {
+        try {
+          initializedAccounts.add(
+              future.get(config.getLoadAccounts().getTimeoutInSeconds(), TimeUnit.SECONDS));
+        } catch (final Exception e) {
+          // failure to load an account should not prevent clouddriver from starting up.
+          log.error(
+              "Failed to load aws account: "
+                  + future.get().getName()
+                  + ". Error: "
+                  + e.getMessage(),
+              e);
+        }
+      }
+      try {
+        // attempt to shutdown the executor service
+        executorService.shutdownNow();
+      } catch (Exception e) {
+        log.error("Failed to shutdown the aws account loading executor service.", e);
+      }
+    } else {
+      log.info("Multi-threading is disabled. AWS accounts will be loaded serially");
+      for (Account account : accountsConfig.getAccounts()) {
+        initializedAccounts.add(parseAccount(config, account));
+      }
     }
-    return initializedAccounts.stream()
-        .filter(AmazonCredentials::isEnabled)
-        .collect(Collectors.toList());
+
+    List<V> enabledAccounts =
+        initializedAccounts.stream()
+            .filter(AmazonCredentials::isEnabled)
+            .collect(Collectors.toList());
+    log.info("{} aws accounts are enabled", enabledAccounts.size());
+    return enabledAccounts;
   }
 
   @Nullable
@@ -224,6 +289,7 @@ public class AmazonCredentialsParser<
   }
 
   private V parseAccount(CredentialsConfig config, Account account) throws Throwable {
+    log.debug("Parsing aws account: {}", account.getName());
     if (account.getAccountId() == null) {
       if (!credentialTranslator.resolveAccountId()) {
         throw new IllegalArgumentException(
@@ -240,6 +306,7 @@ public class AmazonCredentialsParser<
       account.setAccountType(account.getName());
     }
 
+    log.debug("Initializing regions for aws account: {}", account.getName());
     account.setRegions(initRegions(defaultRegions, account.getRegions()));
     account.setDefaultSecurityGroups(
         account.getDefaultSecurityGroups() != null

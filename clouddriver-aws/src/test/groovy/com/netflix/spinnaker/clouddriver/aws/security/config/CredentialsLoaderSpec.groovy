@@ -26,9 +26,22 @@ import com.netflix.spinnaker.clouddriver.aws.security.config.AccountsConfigurati
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig.LifecycleHook
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig.Region
 import spock.lang.Specification
+import spock.lang.Unroll
+
+import java.util.concurrent.ExecutionException
 
 class CredentialsLoaderSpec extends Specification {
+  AWSCredentialsProvider provider
+  AmazonClientProvider amazonClientProvider
+  AWSAccountInfoLookup lookup
 
+  def setup() {
+    provider = Mock(AWSCredentialsProvider)
+    amazonClientProvider = Mock(AmazonClientProvider)
+    lookup = Mock(AWSAccountInfoLookup)
+  }
+
+    @Unroll
     def 'basic test with defaults'() {
         setup:
         def config = new CredentialsConfig(defaultRegions: [
@@ -38,7 +51,8 @@ class CredentialsLoaderSpec extends Specification {
                 defaultEddaTemplate: 'http://edda-main.%s.{{name}}.netflix.net',
                 defaultFront50Template: 'http://front50.prod.netflix.net/{{name}}',
                 defaultDiscoveryTemplate: 'http://%s.discovery{{name}}.netflix.net',
-                defaultAssumeRole: 'role/asgard'
+                defaultAssumeRole: 'role/asgard',
+                loadAccounts: new CredentialsConfig.LoadAccounts().setMultiThreadingEnabled(multiThreadingEnabled)
         )
         def accountsConfig = new AccountsConfiguration( accounts: [
           new Account(name: 'test', accountId: 12345, regions: [
@@ -47,8 +61,6 @@ class CredentialsLoaderSpec extends Specification {
           new Account(name: 'prod', accountId: 67890)
         ])
 
-        AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
-        AmazonClientProvider amazonClientProvider = Mock(AmazonClientProvider)
         AmazonCredentialsParser<Account, NetflixAmazonCredentials> ci = new AmazonCredentialsParser<>(
           provider, amazonClientProvider, NetflixAmazonCredentials.class, config, accountsConfig)
 
@@ -76,15 +88,19 @@ class CredentialsLoaderSpec extends Specification {
           cred.credentialsProvider == provider
         }
         0 * _
+
+        where:
+        multiThreadingEnabled | _
+        true                  | _
+        false                 | _
     }
 
+    @Unroll
     def 'account resolves defaults'() {
         setup:
-        def config = new CredentialsConfig()
+        def config = new CredentialsConfig(loadAccounts: new CredentialsConfig.LoadAccounts().setMultiThreadingEnabled(multiThreadingEnabled))
         def accountsConfig = new AccountsConfiguration(accounts: [new Account(name: 'default')])
 
-        AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
-        AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
         AmazonCredentialsParser<Account, NetflixAmazonCredentials> ci = new AmazonCredentialsParser<>(
           provider, lookup, NetflixAmazonCredentials.class, config, accountsConfig)
 
@@ -105,16 +121,24 @@ class CredentialsLoaderSpec extends Specification {
             cred.regions.first().availabilityZones.toList().sort() == ['us-east-1a', 'us-east-1b']
         }
         0 * _
+
+        where:
+        multiThreadingEnabled | _
+        true                  | _
+        false                 | _
     }
-//
+
+    @Unroll
     def 'availibilityZones are resolved in default regions only once'() {
         setup:
-        def config = new CredentialsConfig(defaultRegions: [new Region(name: 'us-east-1'), new Region(name: 'us-west-2')])
+        def config = new CredentialsConfig(
+          defaultRegions: [new Region(name: 'us-east-1'), new Region(name: 'us-west-2')],
+          loadAccounts: new CredentialsConfig.LoadAccounts().setMultiThreadingEnabled(multiThreadingEnabled)
+        )
         def accountsConfig = new AccountsConfiguration(accounts: [
           new Account(name: 'default', accountId: 1), new Account(name: 'other', accountId: 2)
         ])
-        AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
-        AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
+
         AmazonCredentialsParser<Account, NetflixAmazonCredentials> ci = new AmazonCredentialsParser<>(
           provider, lookup, NetflixAmazonCredentials.class, config, accountsConfig)
 
@@ -122,17 +146,29 @@ class CredentialsLoaderSpec extends Specification {
         List<AmazonCredentials> creds = ci.load(config)
 
         then:
-        1 * lookup.listRegions(['us-east-1', 'us-west-2']) >> [new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1a']), new AmazonCredentials.AWSRegion('us-west-2', ['us-west-2a'])]
+        listRegionsInvocationCount * lookup.listRegions(['us-east-1', 'us-west-2']) >> [
+          new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1a']),
+          new AmazonCredentials.AWSRegion('us-west-2', ['us-west-2a'])
+        ]
         creds.size() == 2
         with (creds.find { it.name == 'default' }) { AmazonCredentials cred ->
             cred.regions.size() == 2
             cred.regions.toList().sort { it.name }.name == ['us-east-1', 'us-west-2']
         }
         0 * _
+
+        where:
+        multiThreadingEnabled || listRegionsInvocationCount
+        true                  || 2
+        false                 || 1
     }
 
+    @Unroll
     def 'availabilityZones are resolved for account-specific region if not defined in defaults'() {
-        def config = new CredentialsConfig(defaultRegions: [new Region(name: 'us-east-1')])
+        def config = new CredentialsConfig(
+          defaultRegions: [new Region(name: 'us-east-1')],
+          loadAccounts: new CredentialsConfig.LoadAccounts().setMultiThreadingEnabled(multiThreadingEnabled)
+        )
 
         def accountsConfig = new AccountsConfiguration(accounts: [
           new Account(
@@ -140,9 +176,8 @@ class CredentialsLoaderSpec extends Specification {
             accountId: 1,
             regions: [ new Region(name: 'us-west-2')])]
         )
-        AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
-        AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
-      AmazonCredentialsParser<Account, NetflixAmazonCredentials> ci = new AmazonCredentialsParser<>(
+
+        AmazonCredentialsParser<Account, NetflixAmazonCredentials> ci = new AmazonCredentialsParser<>(
         provider, lookup, NetflixAmazonCredentials.class, config, accountsConfig)
 
         when:
@@ -157,8 +192,14 @@ class CredentialsLoaderSpec extends Specification {
             cred.regions.first().name == 'us-west-2'
             cred.regions.first().availabilityZones == ['us-west-2a']
         }
+
+        where:
+        multiThreadingEnabled | _
+        true                  | _
+        false                 | _
     }
 
+    @Unroll
     def 'account overrides defaults'() {
         setup:
         def config = new CredentialsConfig(defaultRegions: [
@@ -170,7 +211,8 @@ class CredentialsLoaderSpec extends Specification {
                 defaultDiscoveryTemplate: 'http://%s.discovery{{name}}.netflix.net',
                 defaultAssumeRole: 'role/asgard',
                 defaultLifecycleHookRoleARNTemplate: 'arn:aws:iam::{{accountId}}:role/my-notification-role',
-                defaultLifecycleHookNotificationTargetARNTemplate: 'arn:aws:sns:{{region}}:{{accountId}}:my-sns-topic'
+                defaultLifecycleHookNotificationTargetARNTemplate: 'arn:aws:sns:{{region}}:{{accountId}}:my-sns-topic',
+                loadAccounts: new CredentialsConfig.LoadAccounts().setMultiThreadingEnabled(multiThreadingEnabled)
         )
         def accountsConfig = new AccountsConfiguration(accounts: [
           new Account(
@@ -188,8 +230,6 @@ class CredentialsLoaderSpec extends Specification {
               )
             ])
         ])
-        AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
-        AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
         AmazonCredentialsParser<Account, NetflixAmazonCredentials> ci = new AmazonCredentialsParser<>(
           provider, lookup, NetflixAmazonCredentials.class, config, accountsConfig)
 
@@ -220,16 +260,22 @@ class CredentialsLoaderSpec extends Specification {
             cred.lifecycleHooks.first().defaultResult == 'CONTINUE'
         }
         0 * _
+
+        where:
+        multiThreadingEnabled | _
+        true                  | _
+        false                 | _
     }
 
+    @Unroll
     def 'accountId must be provided for assumeRole account types'() {
         setup:
         def config = new CredentialsConfig(
-                defaultRegions: [new Region(name: 'us-east-1', availabilityZones: ['us-east-1a'])])
+          defaultRegions: [new Region(name: 'us-east-1', availabilityZones: ['us-east-1a'])],
+          loadAccounts: new CredentialsConfig.LoadAccounts().setMultiThreadingEnabled(multiThreadingEnabled)
+        )
 
         def accountsConfig = new AccountsConfiguration(accounts: [new Account(name: 'gonnaFail')])
-        AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
-        AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
         AmazonCredentialsParser<Account, NetflixAssumeRoleAmazonCredentials> ci = new AmazonCredentialsParser<>(
           provider, lookup, NetflixAssumeRoleAmazonCredentials.class, config, accountsConfig)
 
@@ -237,11 +283,18 @@ class CredentialsLoaderSpec extends Specification {
         ci.load(config)
 
         then:
-        def ex = thrown(IllegalArgumentException)
-        ex.getMessage().startsWith'accountId is required'
+        def ex = thrown(expectedException)
+        ex.getMessage().contains('accountId is required and not resolvable for this credentials type')
         0 * _
+        System.out.println(ex)
+
+        where:
+        multiThreadingEnabled | expectedException
+        true                  | ExecutionException
+        false                 | IllegalArgumentException
     }
 
+  @Unroll
   def 'assumeRole account type overrides defaults'() {
     setup:
     def config = new CredentialsConfig(defaultRegions: [
@@ -250,7 +303,8 @@ class CredentialsLoaderSpec extends Specification {
       defaultAssumeRole: 'role/asgard',
       defaultSessionName: 'spinnaker',
       defaultLifecycleHookRoleARNTemplate: 'arn:aws:iam::{{accountId}}:role/my-notification-role',
-      defaultLifecycleHookNotificationTargetARNTemplate: 'arn:aws:sns:{{region}}:{{accountId}}:my-sns-topic'
+      defaultLifecycleHookNotificationTargetARNTemplate: 'arn:aws:sns:{{region}}:{{accountId}}:my-sns-topic',
+      loadAccounts: new CredentialsConfig.LoadAccounts().setMultiThreadingEnabled(multiThreadingEnabled)
     )
 
     def accountsConfig = new AccountsConfiguration(accounts: [
@@ -271,8 +325,6 @@ class CredentialsLoaderSpec extends Specification {
         ])
     ])
 
-    AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
-    AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
     AmazonCredentialsParser<Account, NetflixAssumeRoleAmazonCredentials> ci = new AmazonCredentialsParser<>(
       provider, lookup, NetflixAssumeRoleAmazonCredentials.class, config, accountsConfig)
 
@@ -299,8 +351,14 @@ class CredentialsLoaderSpec extends Specification {
       cred.lifecycleHooks.first().defaultResult == 'CONTINUE'
     }
     0 * _
+
+    where:
+    multiThreadingEnabled | _
+    true                  | _
+    false                 | _
   }
 
+  @Unroll
   def 'assumeRole account type test with defaults'() {
     setup:
     def config = new CredentialsConfig(defaultRegions: [
@@ -311,14 +369,13 @@ class CredentialsLoaderSpec extends Specification {
       defaultFront50Template: 'http://front50.prod.netflix.net/{{name}}',
       defaultDiscoveryTemplate: 'http://%s.discovery{{name}}.netflix.net',
       defaultAssumeRole: 'role/asgard',
-      defaultSessionName: 'spinnaker'
+      defaultSessionName: 'spinnaker',
+      loadAccounts: new CredentialsConfig.LoadAccounts().setMultiThreadingEnabled(multiThreadingEnabled)
     )
 
     def accountsConfig = new AccountsConfiguration(accounts: [
       new Account(name: 'prod', accountId: 67890)
     ])
-    AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
-    AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
     AmazonCredentialsParser<Account, NetflixAssumeRoleAmazonCredentials> ci = new AmazonCredentialsParser<>(
       provider, lookup, NetflixAssumeRoleAmazonCredentials.class, config, accountsConfig)
 
@@ -340,5 +397,10 @@ class CredentialsLoaderSpec extends Specification {
       cred.sessionName == 'spinnaker'
     }
     0 * _
+
+    where:
+    multiThreadingEnabled | _
+    true                  | _
+    false                 | _
   }
 }
