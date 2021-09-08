@@ -69,7 +69,8 @@ public final class Replacer {
    *     the replaced field.
    * @param nameFromReference a function to extract an artifact name from its reference; defaults to
    *     returning the reference
-   * @param artifactsLegacyBindingEnabled //TODO
+   * @param artifactsLegacyBindingEnabled a flag that validates whether to use a legacy replace
+   *     filter
    */
   @Builder(access = AccessLevel.PRIVATE)
   private Replacer(
