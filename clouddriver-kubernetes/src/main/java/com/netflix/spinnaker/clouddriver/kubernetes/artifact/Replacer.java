@@ -42,7 +42,6 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Builder;
-import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -325,7 +324,6 @@ public final class Replacer {
   }
 
   @Component
-  @Setter
   public static class Factory {
 
     private static Boolean artifactsLegacyBindingEnabled = false;
