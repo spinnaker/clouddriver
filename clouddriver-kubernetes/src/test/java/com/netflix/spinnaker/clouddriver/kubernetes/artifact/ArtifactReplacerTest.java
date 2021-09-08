@@ -197,7 +197,10 @@ final class ArtifactReplacerTest {
     assertThat(Iterables.getOnlyElement(result.getBoundArtifacts())).isEqualTo(inputArtifact);
   }
 
-  /** If there is already a tag on the image in the manifest. */
+  /**
+   * This is a support for a legacy behavior, that is enabled by artifacts.legacy-binding.enabled
+   * flag. If there is already a tag on the image in the manifest, we are not replacing it.
+   */
   @Test
   void doesNotReplaceImageWithTag() {
     Replacer.Factory replacerFactory = spy(new Replacer.Factory(true));
