@@ -198,8 +198,9 @@ final class ArtifactReplacerTest {
   }
 
   /**
-   * This is a support for a legacy behavior, that is enabled by artifacts.legacy-binding.enabled
-   * flag. If there is already a tag on the image in the manifest, we are not replacing it.
+   * This is a support for a legacy behavior, it's disabled by default and enabled by
+   * artifacts.legacy-binding.enabled. If there is already a tag on the image in the manifest, we
+   * are not replacing it.
    */
   @Test
   void doesNotReplaceImageWithTag() {
