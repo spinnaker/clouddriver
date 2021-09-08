@@ -18,7 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
