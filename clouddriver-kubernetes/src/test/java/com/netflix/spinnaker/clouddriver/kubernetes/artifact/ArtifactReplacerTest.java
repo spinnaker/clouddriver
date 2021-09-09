@@ -17,8 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
+import static com.jayway.jsonpath.Criteria.where;
+import static com.jayway.jsonpath.Filter.filter;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -204,9 +205,17 @@ final class ArtifactReplacerTest {
    */
   @Test
   void doesNotReplaceImageWithTag() {
-    Replacer.Factory replacerFactory = spy(new Replacer.Factory(true));
-    ArtifactReplacer artifactReplacer =
-        new ArtifactReplacer(ImmutableList.of(Replacer.dockerImage()));
+    Replacer dockerImageMock =
+        ReplacerFactory.create()
+            .artifactsLegacyBindingEnabled(true)
+            .path("$..spec.template.spec['containers', 'initContainers'].[?].image")
+            .legacyReplaceFilter(a -> filter(where("image").is(a.getName())))
+            .replacePathFromPlaceholder("image")
+            .nameFromReference(Replacer.dockerImage().getNameFromReference())
+            .type(KubernetesArtifactType.DockerImage)
+            .build();
+
+    ArtifactReplacer artifactReplacer = new ArtifactReplacer(ImmutableList.of(dockerImageMock));
     KubernetesManifest deployment = getDeploymentWithContainer(getContainer("nginx:1.18.0"));
 
     Artifact inputArtifact =
