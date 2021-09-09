@@ -16,10 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
-import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
-@NonnullByDefault
+@Component
 public class ReplacerFactory {
 
   private static Boolean artifactsLegacyBindingEnabled = false;
