@@ -59,13 +59,9 @@ dependencies {
   testImplementation "io.spinnaker.kork:kork-exceptions"
   testImplementation "cglib:cglib-nodep"
   testImplementation "com.natpryce:hamkrest"
-<<<<<<< HEAD
-  testImplementation "junit:junit"
-=======
   testImplementation "com.google.guava:guava"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
   testImplementation "org.junit.platform:junit-platform-runner"
->>>>>>> 6b019d30f (Load balancer instance health caching (#5486))
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
