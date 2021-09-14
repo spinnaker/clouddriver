@@ -43,6 +43,7 @@ import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +71,7 @@ public final class Replacer {
    * @param nameFromReference a function to extract an artifact name from its reference; defaults to
    *     returning the reference
    */
-  @Builder(access = AccessLevel.PUBLIC)
+  @Builder(access = AccessLevel.PRIVATE)
   private Replacer(
       KubernetesArtifactType type,
       String path,
@@ -139,7 +140,7 @@ public final class Replacer {
     }
 
     JsonPath path;
-    if (dockerImageBinding.equals("match-name-only")) {
+    if (!StringUtils.isBlank(dockerImageBinding) && dockerImageBinding.equals("match-name-only")) {
       path = legacyReplacePathSupplier.apply(artifact);
     } else {
       path = replacePathSupplier.apply(artifact);
