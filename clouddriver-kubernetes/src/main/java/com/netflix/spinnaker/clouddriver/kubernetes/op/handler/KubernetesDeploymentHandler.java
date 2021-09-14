@@ -40,7 +40,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -74,7 +73,7 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
 
   @Override
   @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
-  protected void setDockerImageBinding(String dockerImageBinding){
+  protected void setDockerImageBinding(String dockerImageBinding) {
     this.dockerImageBinding = dockerImageBinding;
   }
 

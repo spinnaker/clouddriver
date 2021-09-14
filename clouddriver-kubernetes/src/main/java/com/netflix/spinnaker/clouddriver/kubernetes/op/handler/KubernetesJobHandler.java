@@ -35,7 +35,6 @@ import io.kubernetes.client.openapi.models.V1JobStatus;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -58,7 +57,7 @@ public class KubernetesJobHandler extends KubernetesHandler implements ServerGro
 
   @Override
   @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
-  protected void setDockerImageBinding(String dockerImageBinding){
+  protected void setDockerImageBinding(String dockerImageBinding) {
     this.dockerImageBinding = dockerImageBinding;
   }
 

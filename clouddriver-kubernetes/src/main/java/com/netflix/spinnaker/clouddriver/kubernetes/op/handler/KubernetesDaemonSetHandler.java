@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -72,7 +71,7 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler
 
   @Override
   @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
-  protected void setDockerImageBinding(String dockerImageBinding){
+  protected void setDockerImageBinding(String dockerImageBinding) {
     this.dockerImageBinding = dockerImageBinding;
   }
 

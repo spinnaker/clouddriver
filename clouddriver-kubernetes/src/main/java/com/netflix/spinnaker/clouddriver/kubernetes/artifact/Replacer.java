@@ -83,12 +83,13 @@ public final class Replacer {
     Objects.requireNonNull(replacePathFromPlaceholder);
     this.nameFromReference = Optional.ofNullable(nameFromReference).orElse(a -> a);
     Function<Artifact, Filter> replaceFilter =
-      a -> filter(createReplaceFilterPredicate(replacePathFromPlaceholder, a.getName()));
+        a -> filter(createReplaceFilterPredicate(replacePathFromPlaceholder, a.getName()));
     if (findFilter != null) {
       this.findPath = JsonPath.compile(path, findFilter);
       this.replacePathSupplier =
           a -> JsonPath.compile(path, replaceFilter.apply(a).and(findFilter));
-      this.legacyReplacePathSupplier = a -> JsonPath.compile(path, legacyReplaceFilter.apply(a).and(findFilter));
+      this.legacyReplacePathSupplier =
+          a -> JsonPath.compile(path, legacyReplaceFilter.apply(a).and(findFilter));
     } else {
       this.findPath = JsonPath.compile(path, filter(a -> true));
       this.replacePathSupplier = a -> JsonPath.compile(path, replaceFilter.apply(a));
@@ -109,7 +110,7 @@ public final class Replacer {
   }
 
   ImmutableCollection<Artifact> replaceArtifacts(
-    String dockerImageBinding, DocumentContext obj, Collection<Artifact> artifacts) {
+      String dockerImageBinding, DocumentContext obj, Collection<Artifact> artifacts) {
     ImmutableSet.Builder<Artifact> replacedArtifacts = ImmutableSet.builder();
     for (Artifact artifact : artifacts) {
       boolean wasReplaced = replaceIfPossible(dockerImageBinding, obj, artifact);
@@ -131,13 +132,14 @@ public final class Replacer {
     };
   }
 
-  private boolean replaceIfPossible(String dockerImageBinding, DocumentContext obj, Artifact artifact) {
+  private boolean replaceIfPossible(
+      String dockerImageBinding, DocumentContext obj, Artifact artifact) {
     if (!type.getType().equals(artifact.getType())) {
       return false;
     }
 
     JsonPath path;
-    if (dockerImageBinding.equals("match-name-only")){
+    if (dockerImageBinding.equals("match-name-only")) {
       path = legacyReplacePathSupplier.apply(artifact);
     } else {
       path = replacePathSupplier.apply(artifact);

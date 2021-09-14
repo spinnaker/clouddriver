@@ -47,7 +47,7 @@ public class KubernetesPodHandler extends KubernetesHandler implements CanReceiv
 
   @Override
   @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
-  protected void setDockerImageBinding(String dockerImageBinding){
+  protected void setDockerImageBinding(String dockerImageBinding) {
     this.dockerImageBinding = dockerImageBinding;
   }
 
