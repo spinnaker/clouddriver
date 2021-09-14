@@ -45,6 +45,8 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -73,6 +75,12 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
         Replacer.secretEnv(),
         Replacer.configMapKeyValue(),
         Replacer.secretKeyValue());
+  }
+
+  @Override
+  @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
+  protected void setDockerImageBinding(String dockerImageBinding){
+    this.dockerImageBinding = dockerImageBinding;
   }
 
   @Override

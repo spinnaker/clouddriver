@@ -58,6 +58,7 @@ final class ReplacerTest {
 
   private static final String NAMESPACE = "ns";
   private static final String ACCOUNT = "my-account";
+  private static final String DEFAULT_DOCKER_IMAGE_BINDING = "match-name-and-tag";
 
   @Test
   void findReplicaSetDockerImages() {
@@ -105,7 +106,7 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+          DEFAULT_DOCKER_IMAGE_BINDING, replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -190,7 +191,7 @@ final class ReplacerTest {
             .reference("gcr.io/my-other-repository/some-image:some-tag")
             .build();
     ReplaceResult replaceResult =
-        artifactReplacer.replaceAll(pod, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+        artifactReplacer.replaceAll(DEFAULT_DOCKER_IMAGE_BINDING, pod, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1Pod replacedPod =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1Pod.class);
@@ -272,7 +273,7 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+          DEFAULT_DOCKER_IMAGE_BINDING, replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -345,7 +346,7 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+          DEFAULT_DOCKER_IMAGE_BINDING, replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -460,7 +461,7 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+          DEFAULT_DOCKER_IMAGE_BINDING, replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -542,7 +543,7 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+          DEFAULT_DOCKER_IMAGE_BINDING, replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -673,7 +674,7 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+          DEFAULT_DOCKER_IMAGE_BINDING, replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -750,7 +751,7 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+          DEFAULT_DOCKER_IMAGE_BINDING, replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -908,7 +909,7 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+          DEFAULT_DOCKER_IMAGE_BINDING, replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -984,7 +985,7 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+          DEFAULT_DOCKER_IMAGE_BINDING, replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -1098,7 +1099,7 @@ final class ReplacerTest {
             .putMetadata("account", ACCOUNT)
             .build();
     ReplaceResult replaceResult =
-        artifactReplacer.replaceAll(hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+        artifactReplacer.replaceAll(DEFAULT_DOCKER_IMAGE_BINDING, hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1HorizontalPodAutoscaler replacedHpa =
         KubernetesCacheDataConverter.getResource(
@@ -1154,7 +1155,7 @@ final class ReplacerTest {
             .putMetadata("account", ACCOUNT)
             .build();
     ReplaceResult replaceResult =
-        artifactReplacer.replaceAll(hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+        artifactReplacer.replaceAll(DEFAULT_DOCKER_IMAGE_BINDING, hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1HorizontalPodAutoscaler replacedHpa =
         KubernetesCacheDataConverter.getResource(
@@ -1185,7 +1186,7 @@ final class ReplacerTest {
             .putMetadata("account", ACCOUNT)
             .build();
     ReplaceResult replaceResult =
-        artifactReplacer.replaceAll(hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+        artifactReplacer.replaceAll(DEFAULT_DOCKER_IMAGE_BINDING, hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1HorizontalPodAutoscaler replacedHpa =
         KubernetesCacheDataConverter.getResource(

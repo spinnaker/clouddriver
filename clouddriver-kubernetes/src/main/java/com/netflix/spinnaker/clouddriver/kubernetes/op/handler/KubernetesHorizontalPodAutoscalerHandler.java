@@ -32,6 +32,8 @@ import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscaler;
 import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscalerStatus;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -40,6 +42,12 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
     return ImmutableList.of(Replacer.hpaDeployment(), Replacer.hpaReplicaSet());
+  }
+
+  @Override
+  @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
+  protected void setDockerImageBinding(String dockerImageBinding){
+    this.dockerImageBinding = dockerImageBinding;
   }
 
   @Override

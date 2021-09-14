@@ -86,7 +86,7 @@ public class DefaultAgentScheduler extends CatsModuleAware implements AgentSched
         scheduledExecutorService.scheduleAtFixedRate(
             new AgentExecutionRunnable(agent, agentExecution, executionInstrumentation),
             0,
-            agentInterval,
+            DEFAULT_INTERVAL,
             agentTimeUnit);
 
     agentFutures.put(agent, agentFuture);

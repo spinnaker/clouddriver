@@ -34,6 +34,7 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -42,6 +43,12 @@ public class KubernetesPodHandler extends KubernetesHandler implements CanReceiv
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
     return ImmutableList.of(Replacer.podDockerImage());
+  }
+
+  @Override
+  @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
+  protected void setDockerImageBinding(String dockerImageBinding){
+    this.dockerImageBinding = dockerImageBinding;
   }
 
   @Override

@@ -45,8 +45,18 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
 
   private final ArtifactReplacer artifactReplacer;
 
+  protected String dockerImageBinding;
+
   protected KubernetesHandler() {
     this.artifactReplacer = new ArtifactReplacer(artifactReplacers());
+  }
+
+  protected void setDockerImageBinding(String dockerImageBinding){
+    this.dockerImageBinding = dockerImageBinding;
+  }
+
+  private String getDockerImageBinding(){
+    return this.dockerImageBinding;
   }
 
   public abstract int deployPriority();
@@ -77,7 +87,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
 
   public ReplaceResult replaceArtifacts(
       KubernetesManifest manifest, List<Artifact> artifacts, @Nonnull String account) {
-    return artifactReplacer.replaceAll(manifest, artifacts, manifest.getNamespace(), account);
+    return artifactReplacer.replaceAll(getDockerImageBinding(), manifest, artifacts, manifest.getNamespace(), account);
   }
 
   public ReplaceResult replaceArtifacts(
@@ -85,7 +95,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
       List<Artifact> artifacts,
       @Nonnull String namespace,
       @Nonnull String account) {
-    return artifactReplacer.replaceAll(manifest, artifacts, namespace, account);
+    return artifactReplacer.replaceAll(getDockerImageBinding(), manifest, artifacts, namespace, account);
   }
 
   protected abstract KubernetesCachingAgentFactory cachingAgentFactory();

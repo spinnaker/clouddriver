@@ -31,6 +31,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Status;
 import io.kubernetes.client.openapi.models.V2alpha1CronJob;
 import io.kubernetes.client.openapi.models.V2alpha1CronJobStatus;
 import javax.annotation.Nonnull;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -50,6 +52,12 @@ public class KubernetesCronJobHandler extends KubernetesHandler
         Replacer.secretEnv(),
         Replacer.configMapKeyValue(),
         Replacer.secretKeyValue());
+  }
+
+  @Override
+  @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
+  protected void setDockerImageBinding(String dockerImageBinding){
+    this.dockerImageBinding = dockerImageBinding;
   }
 
   @Override
