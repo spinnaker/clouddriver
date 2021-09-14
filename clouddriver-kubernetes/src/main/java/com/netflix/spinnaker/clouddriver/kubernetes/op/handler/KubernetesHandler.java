@@ -91,7 +91,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
       @Nonnull String namespace,
       @Nonnull String account) {
     return artifactReplacer.replaceAll(
-      this.dockerImageBinding, manifest, artifacts, namespace, account);
+        this.dockerImageBinding, manifest, artifacts, namespace, account);
   }
 
   protected abstract KubernetesCachingAgentFactory cachingAgentFactory();
