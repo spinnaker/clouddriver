@@ -44,12 +44,6 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
   }
 
   @Override
-  @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
-  protected void setDockerImageBinding(String dockerImageBinding) {
-    this.dockerImageBinding = dockerImageBinding;
-  }
-
-  @Override
   public int deployPriority() {
     return WORKLOAD_ATTACHMENT_PRIORITY.getValue();
   }

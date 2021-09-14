@@ -77,12 +77,6 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
   }
 
   @Override
-  @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
-  protected void setDockerImageBinding(String dockerImageBinding) {
-    this.dockerImageBinding = dockerImageBinding;
-  }
-
-  @Override
   public int deployPriority() {
     return WORKLOAD_CONTROLLER_PRIORITY.getValue();
   }
