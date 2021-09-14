@@ -42,7 +42,6 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Builder;
-import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +54,7 @@ public final class Replacer {
   private final JsonPath findPath;
   private final Function<Artifact, JsonPath> replacePathSupplier;
   private final Function<Artifact, JsonPath> legacyReplacePathSupplier;
-  @Getter private final Function<String, String> nameFromReference;
+  private final Function<String, String> nameFromReference;
 
   /**
    * @param type the type of artifact this replacer handles
