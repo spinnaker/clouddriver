@@ -31,7 +31,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Status;
 import io.kubernetes.client.openapi.models.V2alpha1CronJob;
 import io.kubernetes.client.openapi.models.V2alpha1CronJobStatus;
 import javax.annotation.Nonnull;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component

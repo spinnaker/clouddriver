@@ -32,7 +32,6 @@ import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscaler;
 import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscalerStatus;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component

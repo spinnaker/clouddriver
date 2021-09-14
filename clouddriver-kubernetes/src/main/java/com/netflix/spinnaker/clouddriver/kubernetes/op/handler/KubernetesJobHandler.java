@@ -35,7 +35,6 @@ import io.kubernetes.client.openapi.models.V1JobStatus;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
