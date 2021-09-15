@@ -62,7 +62,6 @@ public class KubernetesHealthIndicator
     if (kubernetesConfigurationProperties.isVerifyAccountHealth()) {
       try {
         accountCredentials.getCredentials().getDeclaredNamespaces();
-        return Optional.empty();
       } catch (RuntimeException e) {
         return Optional.of(e.getMessage());
       }
