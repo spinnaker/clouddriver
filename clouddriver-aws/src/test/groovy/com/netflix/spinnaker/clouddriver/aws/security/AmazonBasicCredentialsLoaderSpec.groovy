@@ -171,4 +171,159 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
     true                  | _
     false                 | _
   }
+
+  @Unroll("should load and parse a large number of accounts having different regions when default regions: #defaultRegionsInConfig are specified in the config")
+  def 'should load and parse a large number of accounts having different regions'() {
+    setup:
+    def credentialsRepository = new MapBackedCredentialsRepository<NetflixAmazonCredentials>(AmazonCloudProvider.ID, null)
+
+    // create 500 accounts with varying regions
+    List<Account> accounts = new ArrayList<>()
+    for (number in 0..499) {
+      Account account = new Account(name: 'prod' + number, accountId: number)
+      if (number == 0) {
+        // test an account having a region that matches one of the default regions
+        account.setRegions([
+          new CredentialsConfig.Region(name: 'us-west-2')
+        ])
+      } else if (number == 100) {
+        // test an account whose region shouldn't be there in the region cache
+        account.setRegions([
+          new CredentialsConfig.Region(name: 'ap-southeast-1')
+        ])
+      } else if (number == 200 || number == 400) {
+        // test an account which has a region not contained in the region cache for account number 200, but should have
+        // it for account number 400
+        account.setRegions([
+          new CredentialsConfig.Region(name: 'ap-southeast-1'),
+          new CredentialsConfig.Region(name: 'ap-southeast-2'),
+          new CredentialsConfig.Region(name: 'us-west-2')
+        ])
+      }
+      accounts.add(account)
+    }
+    AccountsConfiguration accountsConfig = new AccountsConfiguration(accounts: accounts)
+
+    AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
+    AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
+
+    CredentialsConfig credentialsConfig = new CredentialsConfig(){{
+      setAccessKeyId("accessKey")
+      setSecretAccessKey("secret")
+    }}
+
+    credentialsConfig.setDefaultRegions(
+      defaultRegionsInConfig.stream()
+        .map(
+          { it ->
+            new CredentialsConfig.Region() {
+              {
+                setName(it)
+              }
+            }
+          })
+        .collect(Collectors.toList()))
+
+
+    CredentialsDefinitionSource<Account> amazonCredentialsSource = { -> accountsConfig.getAccounts() } as CredentialsDefinitionSource
+    AmazonCredentialsParser<Account, NetflixAmazonCredentials> ci = new AmazonCredentialsParser<>(
+      provider, lookup, NetflixAmazonCredentials.class, credentialsConfig, accountsConfig)
+    def loader = new AmazonBasicCredentialsLoader<Account, NetflixAmazonCredentials>(
+      amazonCredentialsSource, ci, credentialsRepository, credentialsConfig, accountsConfig, defaultAccountConfigurationProperties
+    )
+
+    when:
+    loader.load()
+
+    then:
+    if (defaultRegionsInConfig.isEmpty()) {
+      // just the one call to load all the regions will be made in the absence of any default regions in the config
+      1 * lookup.listRegions() >> [
+        new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1a', 'us-east-1b']),
+        new AmazonCredentials.AWSRegion('us-west-2', ['us-west-2a']),
+        new AmazonCredentials.AWSRegion('ap-southeast-1', ['ap-southeast-1a', 'ap-southeast-1b']),
+        new AmazonCredentials.AWSRegion('ap-southeast-2', ['ap-southeast-2a', 'ap-southeast-2b'])
+      ]
+    } else {
+      1 * lookup.listRegions(['us-east-1', 'us-west-2']) >> [
+        new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1a', 'us-east-1b']),
+        new AmazonCredentials.AWSRegion('us-west-2', ['us-west-2a']),
+      ]
+
+      1 * lookup.listRegions(['ap-southeast-1']) >> [
+        new AmazonCredentials.AWSRegion('ap-southeast-1', ['ap-southeast-1a', 'ap-southeast-1b'])
+      ]
+
+      1 * lookup.listRegions(['ap-southeast-2']) >> [
+        new AmazonCredentials.AWSRegion('ap-southeast-2', ['ap-southeast-2a', 'ap-southeast-2b'])
+      ]
+    }
+
+    0 * lookup.listRegions
+
+    accountsConfig.getAccounts().size() == 500
+
+    // test an account that has 1 region which is a default region
+    with (accountsConfig.getAccounts().first()) { Account account ->
+      account.name == "prod0"
+      account.environment == "prod0"
+      account.accountType == "prod0"
+      account.regions.size() == 1
+      account.regions.first().name == 'us-west-2'
+      account.regions.first().availabilityZones.toList().sort() == ['us-west-2a']
+    }
+
+    // test an account that has 1 region which is not a default region
+    with (accountsConfig.getAccounts().get(100)) { Account account ->
+      account.name == "prod100"
+      account.environment == "prod100"
+      account.accountType == "prod100"
+      account.regions.size() == 1
+      account.regions.first().name == 'ap-southeast-1'
+      account.regions.first().availabilityZones.toList().sort() == ['ap-southeast-1a', 'ap-southeast-1b']
+    }
+
+    // test an account that has multiple regions
+    with (accountsConfig.getAccounts().get(200)) { Account account ->
+      account.name == "prod200"
+      account.environment == "prod200"
+      account.accountType == "prod200"
+      account.regions.size() == 3
+      account.regions.find { it.name == 'ap-southeast-1' }.availabilityZones.size() == 2
+      (!account.regions.find { it.name == 'ap-southeast-1' }.deprecated)
+      account.regions.find { it.name == 'ap-southeast-2' }.availabilityZones.size() == 2
+      (!account.regions.find { it.name == 'ap-southeast-2' }.deprecated)
+      account.regions.find { it.name == 'us-west-2' }.availabilityZones.size() == 1
+      (!account.regions.find { it.name == 'us-west-2' }.deprecated)
+    }
+
+    // test an account that does not have any regions
+    with (accountsConfig.getAccounts().last()) { Account account ->
+      account.name == "prod499"
+      account.environment == "prod499"
+      account.accountType == "prod499"
+      if (defaultRegionsInConfig.isEmpty()) {
+        account.regions.size() == 4
+        account.regions.find { it.name == 'us-east-1' }.availabilityZones.size() == 2
+        (!account.regions.find { it.name == 'us-east-1' }.deprecated)
+        account.regions.find { it.name == 'ap-southeast-1' }.availabilityZones.size() == 2
+        (!account.regions.find { it.name == 'ap-southeast-1' }.deprecated)
+        account.regions.find { it.name == 'ap-southeast-2' }.availabilityZones.size() == 2
+        (!account.regions.find { it.name == 'ap-southeast-2' }.deprecated)
+        account.regions.find { it.name == 'us-west-2' }.availabilityZones.size() == 1
+        (!account.regions.find { it.name == 'us-west-2' }.deprecated)
+      } else {
+        account.regions.size() == 2
+        account.regions.find { it.name == 'us-east-1' }.availabilityZones.size() == 2
+        (!account.regions.find { it.name == 'us-east-1' }.deprecated)
+        account.regions.find { it.name == 'us-west-2' }.availabilityZones.size() == 1
+        (!account.regions.find { it.name == 'us-west-2' }.deprecated)
+      }
+    }
+
+    where:
+    defaultRegionsInConfig    | _
+    ['us-east-1','us-west-2'] | _
+    []                        | _
+  }
 }

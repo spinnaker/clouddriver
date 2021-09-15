@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.aws.security.config;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Maps;
 import com.netflix.spinnaker.clouddriver.aws.security.*;
 import com.netflix.spinnaker.clouddriver.aws.security.config.AccountsConfiguration.Account;
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig.Region;
@@ -46,8 +47,14 @@ public class AmazonCredentialsParser<
   private final CredentialTranslator<V> credentialTranslator;
   private final ObjectMapper objectMapper;
   private final CredentialsConfig credentialsConfig;
-  private Lazy<List<Region>> defaultRegions;
+  private final Lazy<List<Region>> defaultRegions;
   private final AccountsConfiguration accountsConfig;
+  /**
+   * this is used to cache all the regions for the accounts which are parsed. This helps in reducing
+   * the number of API calls made, since known regions are already cached. This benefit is
+   * substantial once there are large number of accounts to be parsed.
+   */
+  private final HashMap<String, Region> regionCache;
 
   public AmazonCredentialsParser(
       AWSCredentialsProvider credentialsProvider,
@@ -75,41 +82,40 @@ public class AmazonCredentialsParser<
     this.objectMapper = new ObjectMapper();
     this.credentialTranslator = findTranslator(credentialsType, this.objectMapper);
     this.credentialsConfig = credentialsConfig;
-    this.defaultRegions = createDefaults(credentialsConfig.getDefaultRegions());
     this.accountsConfig = accountsConfig;
+    this.regionCache = Maps.newHashMap();
+    this.defaultRegions = createDefaults(credentialsConfig.getDefaultRegions());
   }
 
   private Lazy<List<Region>> createDefaults(final List<Region> defaults) {
     return new Lazy<>(
-        new Lazy.Loader<List<Region>>() {
-          @Override
-          public List<Region> get() {
-            if (defaults == null) {
-              return toRegion(awsAccountInfoLookup.listRegions());
+        () -> {
+          List<String> toLookup = new ArrayList<>();
+          if (defaults == null || defaults.isEmpty()) {
+            // get all regions
+            return toRegionsCached(toLookup);
+          }
+          List<Region> result = new ArrayList<>(defaults.size());
+
+          for (Region def : defaults) {
+            if (def.getAvailabilityZones() == null || def.getAvailabilityZones().isEmpty()) {
+              toLookup.add(def.getName());
             } else {
-              List<Region> result = new ArrayList<>(defaults.size());
-              List<String> toLookup = new ArrayList<>();
-              for (Region def : defaults) {
-                if (def.getAvailabilityZones() == null || def.getAvailabilityZones().isEmpty()) {
-                  toLookup.add(def.getName());
-                } else {
-                  result.add(def);
-                }
-              }
-              if (!toLookup.isEmpty()) {
-                List<Region> resolved = toRegion(awsAccountInfoLookup.listRegions(toLookup));
-                for (Region region : resolved) {
-                  Region fromDefault = find(defaults, region.getName());
-                  if (fromDefault != null) {
-                    region.setPreferredZones(fromDefault.getPreferredZones());
-                    region.setDeprecated(fromDefault.getDeprecated());
-                  }
-                }
-                result.addAll(resolved);
-              }
-              return result;
+              result.add(def);
             }
           }
+          if (!toLookup.isEmpty()) {
+            List<Region> resolved = toRegionsCached(toLookup);
+            for (Region region : resolved) {
+              Region fromDefault = find(defaults, region.getName());
+              if (fromDefault != null) {
+                region.setPreferredZones(fromDefault.getPreferredZones());
+                region.setDeprecated(fromDefault.getDeprecated());
+              }
+            }
+            result.addAll(resolved);
+          }
+          return result;
         });
   }
 
@@ -150,7 +156,7 @@ public class AmazonCredentialsParser<
       }
     }
     if (!toLookup.isEmpty()) {
-      List<Region> resolved = toRegion(awsAccountInfoLookup.listRegions(toLookup));
+      List<Region> resolved = toRegionsCached(toLookup);
       for (Region region : resolved) {
         Region src = find(toInit, region.getName());
         if (src == null || src.getPreferredZones() == null) {
@@ -187,6 +193,49 @@ public class AmazonCredentialsParser<
       }
     }
     return null;
+  }
+
+  private void updateRegionsCache(List<Region> regions) {
+    regions.stream()
+        .filter(region -> !regionCache.containsKey(region.getName()))
+        .peek(region -> log.info("adding region: {} to regions cache", region.getName()))
+        .forEach(region -> regionCache.put(region.getName(), region));
+  }
+
+  /**
+   * This function Returns a list of {@link Region} for the regions provided to it as input. If the
+   * list of names provided as an input is empty, then it fetches all the regions. For all such
+   * input names, it checks if it is cached. If not, a listRegions() API call is made and the result
+   * is cached.
+   *
+   * @param names - list of region names
+   * @return - list of {@link Region} objects corresponding to the input names
+   */
+  private List<Region> toRegionsCached(final List<String> names) {
+    List<AmazonCredentials.AWSRegion> newRegions;
+
+    // if list of names is empty, then fetch all regions
+    if (names.isEmpty()) {
+      log.info("no regions provided as an input. Retrieving all the regions");
+      newRegions = awsAccountInfoLookup.listRegions();
+      List<Region> regions = toRegion(newRegions);
+      updateRegionsCache(regions);
+      return regions;
+    }
+
+    // determine if any regions are missing from the cache
+    List<String> cacheMisses = new ArrayList<>();
+    for (String regionName : names) {
+      if (!regionCache.containsKey(regionName)) {
+        cacheMisses.add(regionName);
+      }
+    }
+    if (!cacheMisses.isEmpty()) {
+      log.info("regions: {} do not exist in the regions cache", cacheMisses);
+      newRegions = awsAccountInfoLookup.listRegions(cacheMisses);
+      updateRegionsCache(toRegion(newRegions));
+    }
+    return names.stream().map(regionCache::get).collect(Collectors.toList());
   }
 
   private static List<Region> toRegion(List<AmazonCredentials.AWSRegion> src) {
