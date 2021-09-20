@@ -172,12 +172,13 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
     false                 | _
   }
 
-  @Unroll("should load and parse a large number of accounts having different regions when default regions: #defaultRegionsInConfig are specified in the config")
+  @Unroll("should load and parse a large number of accounts having different regions when default regions: #defaultRegionsInConfig are specified in the config and with multi-threading: #multiThreadingEnabled")
   def 'should load and parse a large number of accounts having different regions'() {
     setup:
     def credentialsRepository = new MapBackedCredentialsRepository<NetflixAmazonCredentials>(AmazonCloudProvider.ID, null)
 
-    // create 500 accounts with varying regions
+    // create 500 accounts having a mix of regions. Some will have regions that match default regions, some will
+    // have regions that don't match default regions, and some will not have regions at all
     List<Account> accounts = new ArrayList<>()
     for (number in 0..499) {
       Account account = new Account(name: 'prod' + number, accountId: number)
@@ -200,6 +201,10 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
           new CredentialsConfig.Region(name: 'us-west-2')
         ])
       }
+
+      // all other accounts would end up using the default regions from credentials config in this case. This is
+      // to test that with multiThreading enabled, we don't run into ConcurrentModificationException errors when
+      // sorting these regions per account
       accounts.add(account)
     }
     AccountsConfiguration accountsConfig = new AccountsConfiguration(accounts: accounts)
@@ -211,6 +216,8 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
       setAccessKeyId("accessKey")
       setSecretAccessKey("secret")
     }}
+
+    credentialsConfig.loadAccounts.setMultiThreadingEnabled(multiThreadingEnabled)
 
     credentialsConfig.setDefaultRegions(
       defaultRegionsInConfig.stream()
@@ -224,7 +231,6 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
           })
         .collect(Collectors.toList()))
 
-
     CredentialsDefinitionSource<Account> amazonCredentialsSource = { -> accountsConfig.getAccounts() } as CredentialsDefinitionSource
     AmazonCredentialsParser<Account, NetflixAmazonCredentials> ci = new AmazonCredentialsParser<>(
       provider, lookup, NetflixAmazonCredentials.class, credentialsConfig, accountsConfig)
@@ -236,6 +242,7 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
     loader.load()
 
     then:
+    // verify invocations to list regions
     if (defaultRegionsInConfig.isEmpty()) {
       // just the one call to load all the regions will be made in the absence of any default regions in the config
       1 * lookup.listRegions() >> [
@@ -261,6 +268,7 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
 
     0 * lookup.listRegions
 
+    // verify accounts
     accountsConfig.getAccounts().size() == 500
 
     // test an account that has 1 region which is a default region
@@ -322,8 +330,10 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
     }
 
     where:
-    defaultRegionsInConfig    | _
-    ['us-east-1','us-west-2'] | _
-    []                        | _
+    multiThreadingEnabled | defaultRegionsInConfig
+    true                  | ['us-east-1','us-west-2']
+    false                 | ['us-east-1','us-west-2']
+    true                  | []
+    false                 | []
   }
 }
