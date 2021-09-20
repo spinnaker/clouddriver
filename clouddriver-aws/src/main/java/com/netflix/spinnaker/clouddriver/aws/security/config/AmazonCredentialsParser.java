@@ -55,15 +55,12 @@ public class AmazonCredentialsParser<
       Class<V> credentialsType,
       CredentialsConfig credentialsConfig,
       AccountsConfiguration accountsConfig) {
-    this.credentialsProvider = Objects.requireNonNull(credentialsProvider, "credentialsProvider");
-    this.awsAccountInfoLookup =
-        new DefaultAWSAccountInfoLookup(credentialsProvider, amazonClientProvider);
-    this.templateValues = Collections.emptyMap();
-    this.objectMapper = new ObjectMapper();
-    this.credentialTranslator = findTranslator(credentialsType, this.objectMapper);
-    this.credentialsConfig = credentialsConfig;
-    this.defaultRegions = createDefaults(credentialsConfig.getDefaultRegions());
-    this.accountsConfig = accountsConfig;
+    this(
+        credentialsProvider,
+        new DefaultAWSAccountInfoLookup(credentialsProvider, amazonClientProvider),
+        credentialsType,
+        credentialsConfig,
+        accountsConfig);
   }
 
   public AmazonCredentialsParser(
