@@ -75,10 +75,10 @@ public class KubernetesCluster {
 
   public String createNamespace(String accountName) throws IOException, InterruptedException {
     List<String> existing =
-      namespacesByAccount.computeIfAbsent(accountName, k -> new ArrayList<>());
+        namespacesByAccount.computeIfAbsent(accountName, k -> new ArrayList<>());
     String newNamespace = String.format("%s-testns%02d", accountName, existing.size());
     List<String> allNamespaces =
-      Arrays.asList(execKubectl("get ns -o=jsonpath='{.items[*].metadata.name}'").split(" "));
+        Arrays.asList(execKubectl("get ns -o=jsonpath='{.items[*].metadata.name}'").split(" "));
     if (!allNamespaces.contains(newNamespace)) {
       execKubectl("create ns " + newNamespace);
     }
@@ -91,7 +91,7 @@ public class KubernetesCluster {
   }
 
   public String execKubectl(String args, Map<String, Object> manifest)
-    throws IOException, InterruptedException {
+      throws IOException, InterruptedException {
     String json = manifestToJson(manifest);
     ProcessBuilder builder = new ProcessBuilder();
     List<String> cmd = new ArrayList<>();
@@ -114,8 +114,8 @@ public class KubernetesCluster {
       fail("Command %s did not return after one minute", cmd);
     }
     assertThat(process.exitValue())
-      .as("Running %s returned non-zero exit code. Output:\n%s", cmd, output)
-      .isEqualTo(0);
+        .as("Running %s returned non-zero exit code. Output:\n%s", cmd, output)
+        .isEqualTo(0);
     System.out.println("kubectl " + args + ":\n" + output);
     return output.trim();
   }
@@ -137,9 +137,9 @@ public class KubernetesCluster {
     Path kind = Paths.get(IT_BUILD_HOME.toString(), "kind");
     if (!kind.toFile().exists()) {
       String url =
-        String.format(
-          "https://github.com/kubernetes-sigs/kind/releases/download/v%s/kind-%s-%s",
-          KIND_VERSION, os, arch);
+          String.format(
+              "https://github.com/kubernetes-sigs/kind/releases/download/v%s/kind-%s-%s",
+              KIND_VERSION, os, arch);
       System.out.println("Downloading kind from " + url);
       downloadFile(kind, url);
     }
@@ -147,9 +147,9 @@ public class KubernetesCluster {
     Path kubectl = Paths.get(IT_BUILD_HOME.toString(), "kubectl");
     if (!kubectl.toFile().exists()) {
       String url =
-        String.format(
-          "https://storage.googleapis.com/kubernetes-release/release/v%s/bin/%s/%s/kubectl",
-          KUBECTL_VERSION, os, arch);
+          String.format(
+              "https://storage.googleapis.com/kubernetes-release/release/v%s/bin/%s/%s/kubectl",
+              KUBECTL_VERSION, os, arch);
       System.out.println("Downloading kubectl from " + url);
       downloadFile(kubectl, url);
     }
@@ -157,8 +157,8 @@ public class KubernetesCluster {
 
   private void downloadFile(Path binary, String url) throws IOException {
     try (InputStream is = new URL(url).openStream();
-         ReadableByteChannel rbc = Channels.newChannel(is);
-         FileOutputStream fos = new FileOutputStream(binary.toFile())) {
+        ReadableByteChannel rbc = Channels.newChannel(is);
+        FileOutputStream fos = new FileOutputStream(binary.toFile())) {
       fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
       fos.flush();
       assertThat(binary.toFile().setExecutable(true, false)).isEqualTo(true);
@@ -188,8 +188,8 @@ public class KubernetesCluster {
     System.out.println(output);
     process.waitFor();
     assertThat(process.exitValue())
-      .as("Running %s returned non-zero exit code. Output:\n%s", cmd, output)
-      .isEqualTo(0);
+        .as("Running %s returned non-zero exit code. Output:\n%s", cmd, output)
+        .isEqualTo(0);
     return output;
   }
 }
