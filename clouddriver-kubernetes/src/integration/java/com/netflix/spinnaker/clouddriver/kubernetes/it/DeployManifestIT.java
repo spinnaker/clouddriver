@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.logging.log4j.util.Strings;
+import org.junit.Ignore;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -729,6 +730,7 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the manifest is deployed with the original image tag in the manifest\n===")
+  @Ignore("This test is only supported 1.27.x onward")
   @Test
   public void shouldNotBindArtifacts() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
@@ -1048,6 +1050,7 @@ public class DeployManifestIT extends BaseTest {
           + "  And sending disable manifest one time\n"
           + "Then there are two replicasets with only the last one receiving traffic\n===")
   @Test
+  @Ignore("This test is only supported 1.26.x onward")
   public void shouldDeployRedBlackMultidoc() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "red-black-multidoc";

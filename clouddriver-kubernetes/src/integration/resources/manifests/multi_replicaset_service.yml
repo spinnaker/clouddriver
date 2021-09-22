@@ -1,16 +1,16 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: ReplicaSet
 metadata:
   name: nginx
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nginx
+      service: other
   template:
     metadata:
       labels:
-        app: nginx
+        service: other
     spec:
       containers:
         - image: 'index.docker.io/library/nginx:1.14.0'
@@ -21,11 +21,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  labels:
-    app: nginx
   name: nginx
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - name: http
       port: 80
