@@ -87,6 +87,9 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
           new CredentialsConfig.Region(name: 'us-west-2')
         ])
       }
+      // all other accounts would end up using the default regions from credentials config in this case. This is
+      // to test that with multiThreading enabled, we don't run into ConcurrentModificationException errors when
+      // sorting these regions per account
       accounts.add(account)
     }
     AccountsConfiguration accountsConfig = new AccountsConfiguration(accounts: accounts)

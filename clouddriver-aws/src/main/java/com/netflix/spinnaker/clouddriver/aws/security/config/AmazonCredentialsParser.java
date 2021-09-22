@@ -201,6 +201,7 @@ public class AmazonCredentialsParser<
     return result;
   }
 
+  // TODO: verify if this is safe to be removed if it is not used anywhere else apart from tests
   public List<V> load(CredentialsConfig source) throws Throwable {
     final CredentialsConfig config = objectMapper.convertValue(source, CredentialsConfig.class);
     if (accountsConfig.getAccounts() == null || accountsConfig.getAccounts().isEmpty()) {

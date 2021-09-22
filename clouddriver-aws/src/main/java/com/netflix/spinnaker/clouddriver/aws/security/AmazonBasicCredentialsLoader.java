@@ -117,6 +117,7 @@ public class AmazonBasicCredentialsLoader<
     log.info("attempting to parse {} amazon accounts provided as input", definitions.size());
     Set<String> definitionNames = definitions.stream().map(T::getName).collect(Collectors.toSet());
 
+    // TODO: make a change in BasicCredentialsLoader in kork to separate this out into a new method
     log.info(
         "removing all the accounts from the credentials repository that are not present in the provided input");
     credentialsRepository.getAll().stream()
