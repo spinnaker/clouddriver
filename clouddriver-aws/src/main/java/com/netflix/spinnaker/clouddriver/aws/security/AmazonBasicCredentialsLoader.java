@@ -201,7 +201,12 @@ public class AmazonBasicCredentialsLoader<
           definitions.stream()
               .filter(t -> t.getName().equals(cred.getName()))
               .findFirst()
-              .ifPresent(definition -> loadedDefinitions.put(cred.getName(), definition));
+              .ifPresentOrElse(
+                  definition -> loadedDefinitions.put(cred.getName(), definition),
+                  () ->
+                      log.warn(
+                          "could not find the parsed aws account: '{}' in the input credential definitions.",
+                          cred.getName()));
         }
       } catch (Exception e) {
         // failure to load an account should not prevent clouddriver from starting up.
