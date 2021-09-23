@@ -18,7 +18,8 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.it;
 
 import static io.restassured.RestAssured.get;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.base.Splitter;
 import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.KubeTestUtils;
@@ -34,15 +35,21 @@ import org.junit.jupiter.api.Test;
 
 public class InfrastructureIT extends BaseTest {
 
-  private static String ns;
-  private static String deploymentName;
-  private static String serviceName;
+  private static final int CACHE_TIMEOUT_MIN = 5;
+  private static final String DEPLOYMENT_1_NAME = "deployment1";
+  private static final String NETWORK_POLICY_1_NAME = "default-deny-ingress";
+  private static final String NETWORK_POLICY_2_NAME = "default-deny-ingress-second";
+  private static final String SERVICE_1_NAME = "service1";
+  private static final String APP_SECURITY_GROUPS = "security-groups";
+  private static final String APP_SERVER_GROUP_MGRS = "server-group-managers";
+  private static final String APP_LOAD_BALANCERS = "load-balancers";
+  private static String account1Ns;
+  private static String account2Ns;
 
   @BeforeAll
-  public static void setUpAll() {
-    ns = kubeCluster.getAvailableNamespace();
-    deploymentName = "clusternginx";
-    serviceName = "lbnginx";
+  public static void setUpAll() throws IOException, InterruptedException {
+    account1Ns = kubeCluster.createNamespace(ACCOUNT1_NAME);
+    account2Ns = kubeCluster.createNamespace(ACCOUNT2_NAME);
   }
 
   @DisplayName(
@@ -53,16 +60,30 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetClusters() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT2_NAME,
+        account2Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
-          System.out.println("> Sending get clusters request");
-          Response resp = get(baseUrl() + "/applications/" + APP1_NAME + "/clusters");
+          String url = baseUrl() + "/applications/" + APP_SERVER_GROUP_MGRS + "/clusters";
+          System.out.println("> GET " + url);
+          Response resp = get(url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -70,16 +91,18 @@ public class InfrastructureIT extends BaseTest {
           List<Object> clustersAcc1 = resp.jsonPath().getList(ACCOUNT1_NAME);
           List<Object> clustersAcc2 = resp.jsonPath().getList(ACCOUNT1_NAME);
           return clustersAcc1 != null
-              && clustersAcc1.contains("deployment " + deploymentName)
+              && clustersAcc1.contains("deployment " + DEPLOYMENT_1_NAME)
               && clustersAcc2 != null
-              && clustersAcc2.contains("deployment " + deploymentName);
+              && clustersAcc2.contains("deployment " + DEPLOYMENT_1_NAME);
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'deployment "
-            + deploymentName
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
+            + DEPLOYMENT_1_NAME
             + "' cluster to return from GET /applications/"
-            + APP1_NAME
+            + APP_SERVER_GROUP_MGRS
             + "/clusters");
   }
 
@@ -91,17 +114,31 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetClustersByAccount() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT2_NAME, "default", "deployment", deploymentName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT2_NAME,
+        account2Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
-          System.out.println("> Sending get clusters request");
-          Response resp =
-              get(baseUrl() + "/applications/" + APP1_NAME + "/clusters/" + ACCOUNT1_NAME);
+          String url =
+              baseUrl() + "/applications/" + APP_SERVER_GROUP_MGRS + "/clusters/" + ACCOUNT1_NAME;
+          System.out.println("> GET " + url);
+          Response resp = get(url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -115,19 +152,21 @@ public class InfrastructureIT extends BaseTest {
                       "find { it.account == '"
                           + ACCOUNT1_NAME
                           + "' && it.name == 'deployment "
-                          + deploymentName
+                          + DEPLOYMENT_1_NAME
                           + "'}");
           Map<Object, Object> account2Map =
               resp.jsonPath().getMap("find { it.account == '" + ACCOUNT2_NAME + "'}");
           return (account1Map != null && !account1Map.isEmpty())
               && (account2Map == null || account2Map.isEmpty());
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'deployment "
-            + deploymentName
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
+            + DEPLOYMENT_1_NAME
             + "' cluster to return from GET /applications/"
-            + APP1_NAME
+            + APP_SERVER_GROUP_MGRS
             + "/clusters/"
             + ACCOUNT1_NAME);
   }
@@ -140,25 +179,38 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetClustersByAccountAndName() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        "other",
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
-          System.out.println("> Sending get clusters request");
-          Response resp =
-              get(
-                  baseUrl()
-                      + "/applications/"
-                      + APP1_NAME
-                      + "/clusters/"
-                      + ACCOUNT1_NAME
-                      + "/deployment "
-                      + deploymentName
-                      + "?expand=true");
+          String url =
+              baseUrl()
+                  + "/applications/"
+                  + APP_SERVER_GROUP_MGRS
+                  + "/clusters/"
+                  + ACCOUNT1_NAME
+                  + "/deployment "
+                  + DEPLOYMENT_1_NAME
+                  + "?expand=true";
+          System.out.println("> GET " + url);
+          Response resp = get(url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -172,18 +224,20 @@ public class InfrastructureIT extends BaseTest {
                       "find { it.accountName == '"
                           + ACCOUNT1_NAME
                           + "' && it.name == 'deployment "
-                          + deploymentName
+                          + DEPLOYMENT_1_NAME
                           + "' && it.application == '"
-                          + APP1_NAME
+                          + APP_SERVER_GROUP_MGRS
                           + "'}");
           return map != null && !map.isEmpty() && resp.jsonPath().getList("$").size() == 1;
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'deployment "
-            + deploymentName
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
+            + DEPLOYMENT_1_NAME
             + "' cluster to return from GET /applications/"
-            + APP1_NAME
+            + APP_SERVER_GROUP_MGRS
             + "/clusters/"
             + ACCOUNT1_NAME);
   }
@@ -196,25 +250,37 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetClustersByAccountNameAndType() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        "other",
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
-          System.out.println("> Sending get clusters request");
-          Response resp =
-              get(
-                  baseUrl()
-                      + "/applications/"
-                      + APP1_NAME
-                      + "/clusters/"
-                      + ACCOUNT1_NAME
-                      + "/deployment "
-                      + deploymentName
-                      + "/kubernetes?expand=true");
+          String url =
+              baseUrl()
+                  + "/applications/"
+                  + APP_SERVER_GROUP_MGRS
+                  + "/clusters/"
+                  + ACCOUNT1_NAME
+                  + "/deployment "
+                  + DEPLOYMENT_1_NAME
+                  + "/kubernetes?expand=true";
+          System.out.println("> GET " + url);
+          Response resp = get(url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -223,15 +289,17 @@ public class InfrastructureIT extends BaseTest {
           }
           resp.then().statusCode(200);
           return resp.jsonPath().getString("accountName").equals(ACCOUNT1_NAME)
-              && resp.jsonPath().getString("name").equals("deployment " + deploymentName)
-              && resp.jsonPath().getString("application").equals(APP1_NAME);
+              && resp.jsonPath().getString("name").equals("deployment " + DEPLOYMENT_1_NAME)
+              && resp.jsonPath().getString("application").equals(APP_SERVER_GROUP_MGRS);
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'deployment "
-            + deploymentName
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
+            + DEPLOYMENT_1_NAME
             + "' cluster to return from GET /applications/"
-            + APP1_NAME
+            + APP_SERVER_GROUP_MGRS
             + "/clusters/"
             + ACCOUNT1_NAME);
   }
@@ -244,31 +312,33 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetServerGroups() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
-        ns,
+        account1Ns,
         "deployment",
-        deploymentName,
-        APP1_NAME,
-        "index.docker.io/library/nginx:1.14.0",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        "index.docker.io/library/alpine:3.11",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
-        ns,
+        account1Ns,
         "deployment",
-        deploymentName,
-        APP1_NAME,
-        "index.docker.io/library/nginx:1.15.0",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        "index.docker.io/library/alpine:3.12",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
-          System.out.println("> Sending get server groups request");
-          Response resp =
-              get(baseUrl() + "/applications/" + APP1_NAME + "/serverGroups?expand=true");
+          String url =
+              baseUrl() + "/applications/" + APP_SERVER_GROUP_MGRS + "/serverGroups?expand=true";
+          System.out.println("> GET " + url);
+          Response resp = get(url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -279,15 +349,17 @@ public class InfrastructureIT extends BaseTest {
                       "findAll { it.account == '"
                           + ACCOUNT1_NAME
                           + "' && it.region == '"
-                          + ns
+                          + account1Ns
                           + "' && it.cluster == 'deployment "
-                          + deploymentName
+                          + DEPLOYMENT_1_NAME
                           + "'}");
           return list != null && list.size() > 1;
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for at least two server groups to be returned from GET /applications/{app}/serverGroups");
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for at least two server groups to be returned from GET /applications/{app}/serverGroups");
   }
 
   @DisplayName(
@@ -298,17 +370,31 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetServerGroupsForApplications() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", "other", APP2_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP2_NAME,
+        kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
-          System.out.println("> Sending get server groups request");
-          Response resp =
-              get(baseUrl() + "/serverGroups?applications=" + APP1_NAME + "," + APP2_NAME);
+          String url =
+              baseUrl() + "/serverGroups?applications=" + APP_SERVER_GROUP_MGRS + "," + APP2_NAME;
+          System.out.println("> GET " + url);
+          Response resp = get(url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -319,13 +405,15 @@ public class InfrastructureIT extends BaseTest {
                       "findAll { it.account == '"
                           + ACCOUNT1_NAME
                           + "' && it.region == '"
-                          + ns
+                          + account1Ns
                           + "'}");
           return list != null && list.size() > 1;
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for at least two server groups to be returned from GET /serverGroups?applications");
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for at least two server groups to be returned from GET /serverGroups?applications");
   }
 
   @DisplayName(
@@ -336,23 +424,24 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetServerGroupByMoniker() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
-        ns,
+        account1Ns,
         "deployment",
-        deploymentName,
-        APP1_NAME,
-        "index.docker.io/library/nginx:1.14.0",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        "index.docker.io/library/alpine:3.11",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
-        ns,
+        account1Ns,
         "deployment",
-        deploymentName,
-        APP1_NAME,
-        "index.docker.io/library/nginx:1.15.0",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        "index.docker.io/library/alpine:3.12",
         kubeCluster);
 
     List<String> rsNames =
@@ -360,9 +449,9 @@ public class InfrastructureIT extends BaseTest {
             .splitToList(
                 kubeCluster.execKubectl(
                     "get -n "
-                        + ns
+                        + account1Ns
                         + " rs -o=jsonpath='{.items[?(@.metadata.ownerReferences[*].name==\""
-                        + deploymentName
+                        + DEPLOYMENT_1_NAME
                         + "\")].metadata.name}'"));
     assertTrue(rsNames.size() > 1, "Expected more than one replicaset deployed");
 
@@ -374,10 +463,10 @@ public class InfrastructureIT extends BaseTest {
                   + "/serverGroups/"
                   + ACCOUNT1_NAME
                   + "/"
-                  + ns
+                  + account1Ns
                   + "/replicaSet "
                   + rsNames.get(0);
-          System.out.println("> Sending get server groups request to " + url);
+          System.out.println("> GET " + url);
           Response resp = get(url);
 
           // ------------------------- then --------------------------
@@ -388,9 +477,11 @@ public class InfrastructureIT extends BaseTest {
           resp.then().statusCode(200);
           return resp.jsonPath().getString("name").equals("replicaSet " + rsNames.get(0));
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'replicaSet "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'replicaSet "
             + rsNames.get(0)
             + "' to return from GET /serverGroups/{account}/{region}/{name}");
   }
@@ -403,23 +494,24 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetServerGroupByApplication() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
-        ns,
+        account1Ns,
         "deployment",
-        deploymentName,
-        APP1_NAME,
-        "index.docker.io/library/nginx:1.14.0",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        "index.docker.io/library/alpine:3.11",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
-        ns,
+        account1Ns,
         "deployment",
-        deploymentName,
-        APP1_NAME,
-        "index.docker.io/library/nginx:1.15.0",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        "index.docker.io/library/alpine:3.12",
         kubeCluster);
 
     List<String> rsNames =
@@ -427,9 +519,9 @@ public class InfrastructureIT extends BaseTest {
             .splitToList(
                 kubeCluster.execKubectl(
                     "get -n "
-                        + ns
+                        + account1Ns
                         + " rs -o=jsonpath='{.items[?(@.metadata.ownerReferences[*].name==\""
-                        + deploymentName
+                        + DEPLOYMENT_1_NAME
                         + "\")].metadata.name}'"));
     assertTrue(rsNames.size() > 1, "Expected more than one replicaset deployed");
 
@@ -439,14 +531,14 @@ public class InfrastructureIT extends BaseTest {
           String url =
               baseUrl()
                   + "/applications/"
-                  + APP1_NAME
+                  + APP_SERVER_GROUP_MGRS
                   + "/serverGroups/"
                   + ACCOUNT1_NAME
                   + "/"
-                  + ns
+                  + account1Ns
                   + "/replicaSet "
                   + rsNames.get(0);
-          System.out.println("> Sending get server groups request to " + url);
+          System.out.println("> GET " + url);
           Response resp = get(url);
 
           // ------------------------- then --------------------------
@@ -457,9 +549,11 @@ public class InfrastructureIT extends BaseTest {
           resp.then().statusCode(200);
           return resp.jsonPath().getString("name").equals("replicaSet " + rsNames.get(0));
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'replicaSet "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'replicaSet "
             + rsNames.get(0)
             + "' to return from GET /applications/{application}/serverGroups/{account}/{region}/{name}/");
   }
@@ -472,75 +566,30 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetInstanceByAccountRegionId() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
-            .withValue("metadata.name", deploymentName)
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.name", DEPLOYMENT_1_NAME)
+            .withValue("metadata.namespace", account1Ns)
             .withValue("spec.replicas", 2)
             .asList();
     List<Map<String, Object>> body =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
             .withValue("deployManifest.account", ACCOUNT1_NAME)
-            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.moniker.app", APP_SERVER_GROUP_MGRS)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + deploymentName);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
 
     List<String> allPodNames =
         Splitter.on(" ")
             .splitToList(
                 kubeCluster.execKubectl(
-                    "get -n " + ns + " pod -o=jsonpath='{.items[*].metadata.name}'"));
+                    "get -n " + account1Ns + " pod -o=jsonpath='{.items[*].metadata.name}'"));
     List<String> podNames = new ArrayList<>();
     for (String name : allPodNames) {
-      if (name.startsWith(deploymentName)) {
-        podNames.add(name);
-      }
-    }
-    assertFalse(podNames.isEmpty());
-
-    KubeTestUtils.repeatUntilTrue(
-        () -> {
-          // ------------------------- when --------------------------
-          String url =
-              baseUrl() + "/instances/" + ACCOUNT1_NAME + "/" + ns + "/pod " + podNames.get(0);
-          System.out.println("> Sending get instances request to " + url);
-          Response resp = get(url);
-
-          // ------------------------- then --------------------------
-          System.out.println(resp.asString());
-          if (resp.statusCode() == 404) {
-            return false;
-          }
-          resp.then().statusCode(200);
-          return resp.jsonPath().getString("displayName").equals(podNames.get(0));
-        },
-        1,
-        TimeUnit.MINUTES,
-        "Waited 1 minute for 'pod "
-            + podNames.get(0)
-            + "' to return from GET /instances/{account}/{region}/{name}/");
-  }
-
-  @DisplayName(
-      ".\n===\n"
-          + "Given a kubernetes deployment\n"
-          + "When sending get instance logs request for application, region and name\n"
-          + "Then the pod logs should be returned\n===")
-  @Test
-  public void shouldGetInstanceLogs() throws InterruptedException, IOException {
-    // ------------------------- given --------------------------
-    KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
-
-    List<String> allPodNames =
-        Splitter.on(" ")
-            .splitToList(
-                kubeCluster.execKubectl(
-                    "get -n " + ns + " pod -o=jsonpath='{.items[*].metadata.name}'"));
-    List<String> podNames = new ArrayList<>();
-    for (String name : allPodNames) {
-      if (name.startsWith(deploymentName)) {
+      if (name.startsWith(DEPLOYMENT_1_NAME)) {
         podNames.add(name);
       }
     }
@@ -554,11 +603,73 @@ public class InfrastructureIT extends BaseTest {
                   + "/instances/"
                   + ACCOUNT1_NAME
                   + "/"
-                  + ns
+                  + account1Ns
+                  + "/pod "
+                  + podNames.get(0);
+          System.out.println("> GET " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          return resp.jsonPath().getString("displayName").equals(podNames.get(0));
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'pod "
+            + podNames.get(0)
+            + "' to return from GET /instances/{account}/{region}/{name}/");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes deployment\n"
+          + "When sending get instance logs request for application, region and name\n"
+          + "Then the pod logs should be returned\n===")
+  @Test
+  public void shouldGetInstanceLogs() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
+
+    List<String> allPodNames =
+        Splitter.on(" ")
+            .splitToList(
+                kubeCluster.execKubectl(
+                    "get -n " + account1Ns + " pod -o=jsonpath='{.items[*].metadata.name}'"));
+    List<String> podNames = new ArrayList<>();
+    for (String name : allPodNames) {
+      if (name.startsWith(DEPLOYMENT_1_NAME)) {
+        podNames.add(name);
+      }
+    }
+    assertFalse(podNames.isEmpty());
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url =
+              baseUrl()
+                  + "/instances/"
+                  + ACCOUNT1_NAME
+                  + "/"
+                  + account1Ns
                   + "/pod "
                   + podNames.get(0)
                   + "/console?provider=kubernetes";
-          System.out.println("> Sending get instance logs request to " + url);
+          System.out.println("> GET " + url);
           Response resp = get(url);
 
           // ------------------------- then --------------------------
@@ -569,9 +680,11 @@ public class InfrastructureIT extends BaseTest {
           resp.then().statusCode(200);
           return resp.jsonPath().getString("output[0].output") != null;
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for logs of pod "
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for logs of pod "
             + podNames.get(0)
             + " to return from GET /instances/{account}/{region}/{name}/console");
   }
@@ -584,16 +697,30 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetLoadBalancers() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_LOAD_BALANCERS);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "service",
+        SERVICE_1_NAME,
+        APP_LOAD_BALANCERS,
+        kubeCluster);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT2_NAME, "default", "service", serviceName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT2_NAME,
+        account2Ns,
+        "service",
+        SERVICE_1_NAME,
+        APP_LOAD_BALANCERS,
+        kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
-          System.out.println("> Sending get load balancers request");
-          Response resp = get(baseUrl() + "/applications/" + APP1_NAME + "/loadBalancers");
+          String url = baseUrl() + "/applications/" + APP_LOAD_BALANCERS + "/loadBalancers";
+          System.out.println("> GET " + url);
+          Response resp = get(url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -604,9 +731,9 @@ public class InfrastructureIT extends BaseTest {
                       "find { it.account == '"
                           + ACCOUNT1_NAME
                           + "' && it.name == 'service "
-                          + serviceName
+                          + SERVICE_1_NAME
                           + "' && it.namespace == '"
-                          + ns
+                          + account1Ns
                           + "'}");
           Map<Object, Object> lbAcc2 =
               resp.jsonPath()
@@ -614,16 +741,20 @@ public class InfrastructureIT extends BaseTest {
                       "find { it.account == '"
                           + ACCOUNT2_NAME
                           + "' && it.name == 'service "
-                          + serviceName
-                          + "' && it.namespace == 'default'}");
+                          + SERVICE_1_NAME
+                          + "' && it.namespace == '"
+                          + account2Ns
+                          + "'}");
           return lbAcc1 != null && !lbAcc1.isEmpty() && lbAcc2 != null && !lbAcc2.isEmpty();
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'service "
-            + serviceName
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'service "
+            + SERVICE_1_NAME
             + "' to return from GET /applications/"
-            + APP1_NAME
+            + APP_LOAD_BALANCERS
             + "/loadBalancers");
   }
 
@@ -636,24 +767,31 @@ public class InfrastructureIT extends BaseTest {
   public void shouldGetLoadBalancerByAccountRegionAndName()
       throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_LOAD_BALANCERS);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "service", serviceName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "service",
+        SERVICE_1_NAME,
+        APP_LOAD_BALANCERS,
+        kubeCluster);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "service", "other", APP1_NAME, kubeCluster);
+        baseUrl(), ACCOUNT1_NAME, account1Ns, "service", "other", APP_LOAD_BALANCERS, kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
-          System.out.println("> Sending get load balancers request");
-          Response resp =
-              get(
-                  baseUrl()
-                      + "/kubernetes/loadBalancers/"
-                      + ACCOUNT1_NAME
-                      + "/"
-                      + ns
-                      + "/service "
-                      + serviceName);
+          String url =
+              baseUrl()
+                  + "/kubernetes/loadBalancers/"
+                  + ACCOUNT1_NAME
+                  + "/"
+                  + account1Ns
+                  + "/service "
+                  + SERVICE_1_NAME;
+          System.out.println("> GET " + url);
+          Response resp = get(url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -667,22 +805,24 @@ public class InfrastructureIT extends BaseTest {
                       "findAll { it.account == '"
                           + ACCOUNT1_NAME
                           + "' && it.region == '"
-                          + ns
+                          + account1Ns
                           + "' && it.name == 'service "
-                          + serviceName
+                          + SERVICE_1_NAME
                           + "' && it.moniker.app == '"
-                          + APP1_NAME
+                          + APP_LOAD_BALANCERS
                           + "'}");
           return list != null && !list.isEmpty();
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for 'service "
-            + serviceName
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'service "
+            + SERVICE_1_NAME
             + "' to return from GET /kubernetes/loadBalancers/"
             + ACCOUNT1_NAME
             + "/"
-            + ns
+            + account1Ns
             + "/service other");
   }
 
@@ -694,22 +834,29 @@ public class InfrastructureIT extends BaseTest {
   @Test
   public void shouldGetManifestByAccountLocationName() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_LOAD_BALANCERS);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_LOAD_BALANCERS,
+        kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
-          System.out.println("> Sending get manifest request");
-          Response resp =
-              get(
-                  baseUrl()
-                      + "/manifests/"
-                      + ACCOUNT1_NAME
-                      + "/"
-                      + ns
-                      + "/deployment "
-                      + deploymentName);
+          String url =
+              baseUrl()
+                  + "/manifests/"
+                  + ACCOUNT1_NAME
+                  + "/"
+                  + account1Ns
+                  + "/deployment "
+                  + DEPLOYMENT_1_NAME;
+          System.out.println("> GET " + url);
+          Response resp = get(url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -718,17 +865,19 @@ public class InfrastructureIT extends BaseTest {
           }
           resp.then().statusCode(200);
           return resp.jsonPath().getString("account").equals(ACCOUNT1_NAME)
-              && resp.jsonPath().getString("location").equals(ns)
-              && resp.jsonPath().getString("name").equals("deployment " + deploymentName);
+              && resp.jsonPath().getString("location").equals(account1Ns)
+              && resp.jsonPath().getString("name").equals("deployment " + DEPLOYMENT_1_NAME);
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for GET /manifests/"
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /manifests/"
             + ACCOUNT1_NAME
             + "/"
-            + ns
+            + account1Ns
             + "/deployment "
-            + deploymentName
+            + DEPLOYMENT_1_NAME
             + " to return valid data");
   }
 
@@ -741,24 +890,26 @@ public class InfrastructureIT extends BaseTest {
   //  @Test
   public void shouldGetRawResources() throws InterruptedException {
     // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns);
+    String appName = "getrawresources";
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
             .withValue("metadata.name", "myconfig")
-            .withValue("metadata.namespace", ns)
+            .withValue("metadata.namespace", account1Ns)
             .asList();
     List<Map<String, Object>> body =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
             .withValue("deployManifest.account", ACCOUNT1_NAME)
-            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "configMap myconfig-v000");
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "configMap myconfig-v000");
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
           // ------------------------- when --------------------------
           System.out.println("> Sending get rawResources request");
-          Response resp = get(baseUrl() + "/applications/" + APP1_NAME + "/rawResources");
+          Response resp = get(baseUrl() + "/applications/" + appName + "/rawResources");
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -769,10 +920,434 @@ public class InfrastructureIT extends BaseTest {
           List<Object> result = resp.jsonPath().getList("$");
           return result != null && !result.isEmpty();
         },
-        1,
+        CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
-        "Waited 1 minute for GET /applications/"
-            + APP1_NAME
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /applications/"
+            + appName
             + "/rawResources to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given two kubernetes network policies\n"
+          + "When sending get securityGroups\n"
+          + "Then response should contain two lists with the security group for each\n===")
+  @Test
+  public void shouldListSecurityGroups() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    System.out.println(
+        "> Using namespace "
+            + account1Ns
+            + " and "
+            + account2Ns
+            + ", appName: "
+            + APP_SECURITY_GROUPS);
+
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "networkPolicy",
+        NETWORK_POLICY_1_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT2_NAME,
+        account2Ns,
+        "networkPolicy",
+        NETWORK_POLICY_1_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url = baseUrl() + "/securityGroups";
+          System.out.println("> GET " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+
+          resp.then().statusCode(200);
+          List<Object> list1 = resp.jsonPath().getList(ACCOUNT1_NAME + ".kubernetes." + account1Ns);
+          List<Object> list2 = resp.jsonPath().getList(ACCOUNT2_NAME + ".kubernetes." + account2Ns);
+          return list1 != null && !list1.isEmpty() && list2 != null && !list2.isEmpty();
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups"
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given two kubernetes network policies for one account\n"
+          + "When sending get securityGroups/{account}\n"
+          + "Then response should contain a list with security groups of size 2\n===")
+  @Test
+  public void shouldListSecurityGroupsByAccount() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SECURITY_GROUPS);
+
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "networkPolicy",
+        NETWORK_POLICY_1_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "networkPolicy",
+        NETWORK_POLICY_2_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url = baseUrl() + "/securityGroups/" + ACCOUNT1_NAME;
+          System.out.println("> GET " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List<Object> securityGroupList = resp.jsonPath().getList("kubernetes." + account1Ns);
+          return securityGroupList != null && securityGroupList.size() == 2;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given two kubernetes network policies for different namespaces\n"
+          + "When sending get securityGroups/{account}?region={region}\n"
+          + "Then response should contain a list with security groups of size 1\n===")
+  @Test
+  public void shouldListSecurityGroupsByAccountAndRegion()
+      throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SECURITY_GROUPS);
+
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "networkPolicy",
+        NETWORK_POLICY_1_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT2_NAME,
+        account2Ns,
+        "networkPolicy",
+        NETWORK_POLICY_2_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url = baseUrl() + "/securityGroups/" + ACCOUNT1_NAME + "?region=" + account1Ns;
+          System.out.println("> GET " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List<Object> securityGroupList = resp.jsonPath().getList("kubernetes." + account1Ns);
+          return securityGroupList != null && securityGroupList.size() == 1;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + "?region="
+            + account1Ns
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes network policies for one account\n"
+          + "When sending get securityGroups/{account}/{cloudprovider}\n"
+          + "Then response should contain the securityGroup\n===")
+  @Test
+  public void shouldListSecurityGroupsByAccountAndCloudProvider()
+      throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SECURITY_GROUPS);
+
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "networkPolicy",
+        NETWORK_POLICY_1_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url = baseUrl() + "/securityGroups/" + ACCOUNT1_NAME + "/kubernetes";
+          System.out.println("> GET " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List<Object> securityGroupList = resp.jsonPath().getList(account1Ns);
+          return securityGroupList != null && securityGroupList.size() > 0;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + "/kubernetes"
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given two kubernetes network policies for one account\n"
+          + "When sending get securityGroups/{account}/{cloudprovider}/{name}\n"
+          + "Then response should contain the security group specified in name\n===")
+  @Test
+  public void shouldListSecurityGroupsByAccountAndCloudProviderAndName()
+      throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SECURITY_GROUPS);
+
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "networkPolicy",
+        NETWORK_POLICY_1_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "networkPolicy",
+        NETWORK_POLICY_2_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url =
+              baseUrl()
+                  + "/securityGroups/"
+                  + ACCOUNT1_NAME
+                  + "/kubernetes/networkpolicy "
+                  + NETWORK_POLICY_1_NAME;
+          System.out.println("> GET " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List<Object> securityGroupList = resp.jsonPath().getList(account1Ns);
+          return securityGroupList != null && securityGroupList.size() == 1;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + "/kubernetes/networkpolicy "
+            + NETWORK_POLICY_1_NAME
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes network policy for one account\n"
+          + "When sending get securityGroups/{account}/{cloudProvider}/{region}/{securityGroupNameOrId}\n"
+          + "Then response should contain the security group specified in securityGroupNameOrId\n===")
+  @Test
+  public void shouldGetSecurityGroupByAccountAndName() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SECURITY_GROUPS);
+
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "networkPolicy",
+        NETWORK_POLICY_1_NAME,
+        APP_SECURITY_GROUPS,
+        kubeCluster);
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url =
+              baseUrl()
+                  + "/securityGroups/"
+                  + ACCOUNT1_NAME
+                  + "/kubernetes/"
+                  + account1Ns
+                  + "/networkolicy "
+                  + NETWORK_POLICY_1_NAME;
+          System.out.println("> GET " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          var displayName = resp.jsonPath().getString("displayName");
+          return displayName != null && displayName.equals(NETWORK_POLICY_1_NAME);
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for GET /securityGroups/"
+            + ACCOUNT1_NAME
+            + "/kubernetes/"
+            + account1Ns
+            + "/networkolicy "
+            + NETWORK_POLICY_1_NAME
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes deployments\n"
+          + "When sending get clusters /applications/{appName}/serverGroupManagers\n"
+          + "Then the deployment should be present in serverGroups list of the response\n===")
+  @Test
+  public void shouldGetServerGroupManagerForApplication() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url =
+              baseUrl() + "/applications/" + APP_SERVER_GROUP_MGRS + "/serverGroupManagers";
+          System.out.println("> GET " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List<Object> serverGroupList =
+              resp.jsonPath()
+                  .getList(
+                      "findAll { it.account == '"
+                          + ACCOUNT1_NAME
+                          + "' && it.namespace == '"
+                          + account1Ns
+                          + "' && it.name == 'deployment "
+                          + DEPLOYMENT_1_NAME
+                          + "'}");
+          return serverGroupList != null && serverGroupList.size() == 1;
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
+            + "deployment"
+            + "' cluster to return from GET /applications/"
+            + APP_SERVER_GROUP_MGRS
+            + "/serverGroupManagers");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes deployment of one application made by spinnaker\n"
+          + "When sending get /applications/{application} request\n"
+          + "Then an application object should be returned\n===")
+  @Test
+  public void shouldGetApplicationInCluster() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
+    KubeTestUtils.deployIfMissing(
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "deployment",
+        DEPLOYMENT_1_NAME,
+        APP_SERVER_GROUP_MGRS,
+        kubeCluster);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url = baseUrl() + "/applications/" + APP_SERVER_GROUP_MGRS;
+          System.out.println("> GET " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200).and();
+          var appNameResp = resp.jsonPath().getString("name");
+          return appNameResp != null && appNameResp.equals(APP_SERVER_GROUP_MGRS);
+        },
+        CACHE_TIMEOUT_MIN,
+        TimeUnit.MINUTES,
+        "Waited "
+            + CACHE_TIMEOUT_MIN
+            + " minutes for 'deployment "
+            + "deployment"
+            + "' cluster to return from GET /applications/"
+            + APP_SERVER_GROUP_MGRS);
   }
 }
