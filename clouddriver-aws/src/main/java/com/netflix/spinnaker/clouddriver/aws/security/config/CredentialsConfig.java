@@ -152,7 +152,7 @@ public class CredentialsConfig {
      * <p>Adjust this number appropriately based on: - number of aws many accounts, - number of
      * clouddriver pods (so that aws api calls are not rate-limited)
      */
-    private int numberOfThreads = 15;
+    private int numberOfThreads = 5;
 
     /**
      * Only applicable when multiThreadingEnabled: true. This specifies the max amount of time for

@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.aws.security.config;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.util.CollectionUtils;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
@@ -32,8 +33,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
-import javax.validation.constraints.NotEmpty;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -90,8 +89,7 @@ public class AmazonCredentialsParser<
     this.defaultRegionNames = new ArrayList<>();
 
     // look in the credentials config to find default region names
-    if (credentialsConfig.getDefaultRegions() != null
-        && !credentialsConfig.getDefaultRegions().isEmpty()) {
+    if (!CollectionUtils.isNullOrEmpty(credentialsConfig.getDefaultRegions())) {
       this.defaultRegionNames =
           credentialsConfig.getDefaultRegions().stream()
               .map(Region::getName)
@@ -100,14 +98,23 @@ public class AmazonCredentialsParser<
   }
 
   /**
-   * method to initialize the regions specified in an AWS account in the configuration. Before
-   * calling this function, the regions cache should be updated with any default regions specified
-   * in the configuration.
+   * method to initialize the regions specified in an AWS account in the configuration.
    *
-   * <p>Live call to get regions from the AWS API will be made if: - An account's region does not
-   * have availability zones defined and that region doesn't exist in the region cache.
+   * <p>Live call to get regions from the AWS API will be made if:
+   *
+   * <p>- An account's region does not have availability zones defined and that region doesn't exist
+   * in the region cache.
    */
-  private List<Region> initRegions(@Nonnull @NotEmpty List<Region> toInit) {
+  private List<Region> initRegions(List<Region> toInit) {
+    // initialize regions cache if it hasn't been done already. We do this here and not in
+    // toInit.isNullOrEmpty() because we need the default region values if a region in toInit list
+    // has no availability zones specified.
+    initializeRegionsCacheWithDefaultRegions();
+
+    if (CollectionUtils.isNullOrEmpty(toInit)) {
+      return getRegionsFromCache(this.defaultRegionNames);
+    }
+
     Map<String, Region> toInitByName =
         toInit.stream().collect(Collectors.toMap(Region::getName, Function.identity()));
 
@@ -115,11 +122,11 @@ public class AmazonCredentialsParser<
     List<String> toLookup = new ArrayList<>();
     for (Region region : toInit) {
       // only attempt to lookup regions that don't have any availability zones set in the config
-      if (region.getAvailabilityZones() == null || region.getAvailabilityZones().isEmpty()) {
-        Region fromDefault = regionCache.getOrDefault(region.getName(), null);
+      if (CollectionUtils.isNullOrEmpty(region.getAvailabilityZones())) {
+        Region fromCache = regionCache.get(region.getName());
         // no need to lookup the region if it already exists in the cache
-        if (fromDefault != null) {
-          result.add(fromDefault);
+        if (fromCache != null) {
+          result.add(fromCache);
         } else {
           toLookup.add(region.getName());
         }
@@ -152,6 +159,71 @@ public class AmazonCredentialsParser<
     }
 
     return result;
+  }
+
+  /**
+   * method to initialize the regions cache by processing the default regions which may have been
+   * specified in the configuration.
+   *
+   * <p>Live call to get regions from the AWS API will be made if:
+   *
+   * <p>1. no default regions exist in the config - in this case, it will fetch all AWS regions
+   *
+   * <p>2. default regions exist in the config but they don't have availability zones defined
+   */
+  private void initializeRegionsCacheWithDefaultRegions() {
+    // synchronized block is added here to handle the multi-threading case where multiple threads
+    // may attempt to initialize the regions cache at the same time when it is empty in the
+    // beginning. This block will reduce the number of api calls made to look up regions
+    // by only allowing one of the threads to do that.
+    synchronized (this) {
+      if (!regionCache.containsKey(DEFAULT_REGIONS_PROCESSED_KEY)) {
+        // if there are no default regions specified, then fetch all the AWS regions.
+        if (defaultRegionNames.isEmpty()) {
+          log.info("No default regions specified in the configuration. Retrieving all the regions");
+          // save all the newly found regions in the cache
+          toRegion(awsAccountInfoLookup.listRegions())
+              .forEach(
+                  region -> {
+                    log.info("adding region: {} to regions cache", region.getName());
+                    regionCache.putIfAbsent(region.getName(), region);
+                  });
+        } else {
+          List<String> toLookup = new ArrayList<>();
+          for (Region region : credentialsConfig.getDefaultRegions()) {
+            log.info("Found default region: {} in the configuration", region.getName());
+            if (region.getAvailabilityZones() != null && !region.getAvailabilityZones().isEmpty()) {
+              log.info("Adding default region: {} to the regions cache", region.getName());
+              regionCache.put(region.getName(), region);
+            } else {
+              toLookup.add(region.getName());
+            }
+          }
+
+          if (!toLookup.isEmpty()) {
+            log.info("Fetching default regions: {}", toLookup);
+            List<AmazonCredentials.AWSRegion> newRegions =
+                awsAccountInfoLookup.listRegions(toLookup);
+
+            // save all the newly found regions in the cache
+            toRegion(newRegions)
+                .forEach(
+                    region -> {
+                      log.info("adding default region: {} to the regions cache", region.getName());
+                      Region fromDefault =
+                          find(credentialsConfig.getDefaultRegions(), region.getName());
+                      if (fromDefault != null) {
+                        region.setPreferredZones(fromDefault.getPreferredZones());
+                        region.setDeprecated(fromDefault.getDeprecated());
+                      }
+                      regionCache.put(region.getName(), region);
+                    });
+          }
+        }
+        // this helps us know that we have processed default regions. The value here doesn't matter.
+        regionCache.put(DEFAULT_REGIONS_PROCESSED_KEY, new Region());
+      }
+    }
   }
 
   private static Region find(List<Region> src, String name) {
@@ -192,7 +264,7 @@ public class AmazonCredentialsParser<
           .forEach(
               region -> {
                 log.info("adding region: {} to regions cache", region.getName());
-                regionCache.put(region.getName(), region);
+                regionCache.putIfAbsent(region.getName(), region);
               });
     }
     return regionNames.stream().map(regionCache::get).collect(Collectors.toList());
@@ -261,7 +333,7 @@ public class AmazonCredentialsParser<
     }
 
     log.info("Setting regions for aws account: {}", account.getName());
-    setAccountRegions(account);
+    account.setRegions(initRegions(account.getRegions()));
     account.setDefaultSecurityGroups(
         account.getDefaultSecurityGroups() != null
             ? account.getDefaultSecurityGroups()
@@ -314,80 +386,6 @@ public class AmazonCredentialsParser<
       }
     }
     return credentialTranslator.translate(credentialsProvider, account);
-  }
-
-  private void setAccountRegions(Account account) {
-    // initialize regions cache if it hasn't been done already
-    initializeRegionsCacheWithDefaultRegions();
-
-    if (account.getRegions() == null || account.getRegions().isEmpty()) {
-      account.setRegions(getRegionsFromCache(this.defaultRegionNames));
-    } else {
-      account.setRegions(initRegions(account.getRegions()));
-    }
-  }
-
-  /**
-   * method to initialize the regions cache by processing the default regions which may have been
-   * specified in the configuration.
-   *
-   * <p>Live call to get regions from the AWS API will be made if: 1. no default regions exist in
-   * the config - in this case, it will fetch all AWS regions 2. default regions exist in the config
-   * but they don't have availability zones defined
-   */
-  private void initializeRegionsCacheWithDefaultRegions() {
-    // synchronized block is added here to handle the multi-threading case where multiple threads
-    // may attempt to initialize the regions cache at the same time when it is empty in the
-    // beginning. This block will reduce the number of api calls made to look up regions
-    // by only allowing one of the threads to do that.
-    synchronized (this) {
-      if (!regionCache.containsKey(DEFAULT_REGIONS_PROCESSED_KEY)) {
-        // if there are no default regions specified, then fetch all the AWS regions.
-        if (defaultRegionNames.isEmpty()) {
-          log.info("No default regions specified in the configuration. Retrieving all the regions");
-          // save all the newly found regions in the cache
-          toRegion(awsAccountInfoLookup.listRegions())
-              .forEach(
-                  region -> {
-                    log.info("adding region: {} to regions cache", region.getName());
-                    regionCache.putIfAbsent(region.getName(), region);
-                  });
-        } else {
-          List<String> toLookup = new ArrayList<>();
-          for (Region region : credentialsConfig.getDefaultRegions()) {
-            log.info("Found default region: {} in the configuration", region.getName());
-            if (region.getAvailabilityZones() != null && !region.getAvailabilityZones().isEmpty()) {
-              log.info("Adding default region: {} to the regions cache", region.getName());
-              regionCache.put(region.getName(), region);
-            } else {
-              toLookup.add(region.getName());
-            }
-          }
-
-          if (!toLookup.isEmpty()) {
-            log.info("Fetching default regions: {}", toLookup);
-            List<AmazonCredentials.AWSRegion> newRegions =
-                awsAccountInfoLookup.listRegions(toLookup);
-
-            // save all the newly found regions in the cache
-            toRegion(newRegions)
-                .forEach(
-                    region -> {
-                      log.info("adding default region: {} to the regions cache", region.getName());
-                      Region fromDefault =
-                          find(credentialsConfig.getDefaultRegions(), region.getName());
-                      if (fromDefault != null) {
-                        region.setPreferredZones(fromDefault.getPreferredZones());
-                        region.setDeprecated(fromDefault.getDeprecated());
-                      }
-                      regionCache.put(region.getName(), region);
-                    });
-          }
-        }
-        // this helps us know that we have processed default regions. The value here doesn't matter.
-        regionCache.put(DEFAULT_REGIONS_PROCESSED_KEY, new Region());
-      }
-    }
   }
 
   private static String templateFirstNonNull(Map<String, String> substitutions, String... values) {

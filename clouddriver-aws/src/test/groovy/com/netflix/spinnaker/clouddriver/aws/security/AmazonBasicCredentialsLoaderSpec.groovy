@@ -171,6 +171,9 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
     // verify accounts
     accountsConfig.getAccounts().size() == 500
 
+    // verify we have saved 500 accounts in the credentials repository
+    credentialsRepository.getAll().size() == 500
+
     // test an account that has 1 region which is a default region
     with (accountsConfig.getAccounts().first()) { Account account ->
       account.name == "prod0"
@@ -205,7 +208,9 @@ class AmazonBasicCredentialsLoaderSpec extends Specification{
       (!account.regions.find { it.name == 'us-west-2' }.deprecated)
     }
 
-    // test an account that does not have any regions
+    // test an account that did not have any default regions specified in the account definition.
+    // It should use the defaults created for the accounts based on what was set as the default
+    // in the credentials config
     with (accountsConfig.getAccounts().last()) { Account account ->
       account.name == "prod499"
       account.environment == "prod499"
