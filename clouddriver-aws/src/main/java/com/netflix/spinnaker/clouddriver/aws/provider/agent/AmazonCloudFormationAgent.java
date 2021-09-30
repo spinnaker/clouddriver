@@ -43,8 +43,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class AmazonCloudFormationAgent
-    implements OnDemandAgent, AccountAware, AgentIntervalAware {
+public class AmazonCloudFormationAgent implements OnDemandAgent, AccountAware, AgentIntervalAware {
   private final AmazonClientProvider amazonClientProvider;
   private final NetflixAmazonCredentials account;
   private final String region;
@@ -163,8 +162,7 @@ public class AmazonCloudFormationAgent
 
   private String getAgentType() {
     return String.format(
-        "%s/%s/%s",
-        account.getName(), region, AmazonCloudFormationAgent.class.getSimpleName());
+        "%s/%s/%s", account.getName(), region, AmazonCloudFormationAgent.class.getSimpleName());
   }
 
   @Override
