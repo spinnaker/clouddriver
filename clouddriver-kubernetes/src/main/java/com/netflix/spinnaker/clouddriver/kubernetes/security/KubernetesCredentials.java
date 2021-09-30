@@ -193,7 +193,9 @@ public class KubernetesCredentials {
     this.context = managedAccount.getContext();
 
     this.onlySpinnakerManaged = managedAccount.isOnlySpinnakerManaged();
-    this.checkPermissionsOnStartup = managedAccount.isCheckPermissionsOnStartup();
+    // we allow the k8s-agent to manage how it'll check access to kinds
+    this.checkPermissionsOnStartup =
+        kubectlExecutable != null ? false : managedAccount.isCheckPermissionsOnStartup();
     this.cachingPolicies = managedAccount.getCachingPolicies();
 
     this.oAuthServiceAccount = managedAccount.getOAuthServiceAccount();
