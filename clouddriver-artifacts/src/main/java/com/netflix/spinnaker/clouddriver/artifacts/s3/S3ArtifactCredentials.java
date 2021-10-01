@@ -30,6 +30,7 @@ import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import groovy.util.logging.Slf4j;
 import java.io.InputStream;
+import javax.annotation.Nullable;
 import lombok.Getter;
 
 @NonnullByDefault
@@ -45,8 +46,13 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
   private final String awsAccessKeyId;
   private final String awsSecretAccessKey;
   private final String signerOverride;
+  private AmazonS3 amazonS3;
 
-  S3ArtifactCredentials(S3ArtifactAccount account) throws IllegalArgumentException {
+  S3ArtifactCredentials(S3ArtifactAccount account) {
+    this(account, null);
+  }
+
+  S3ArtifactCredentials(S3ArtifactAccount account, @Nullable AmazonS3 amazonS3) {
     name = account.getName();
     apiEndpoint = account.getApiEndpoint();
     apiRegion = account.getApiRegion();
@@ -54,9 +60,14 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
     awsAccessKeyId = account.getAwsAccessKeyId();
     awsSecretAccessKey = account.getAwsSecretAccessKey();
     signerOverride = account.getSignerOverride();
+    this.amazonS3 = amazonS3;
   }
 
   private AmazonS3 getS3Client() {
+    if (amazonS3 != null) {
+      return amazonS3;
+    }
+
     AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
     if (!signerOverride.isEmpty()) {
       ClientConfiguration configuration = PredefinedClientConfigurations.defaultConfig();
@@ -78,7 +89,8 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
       builder.withCredentials(new AWSStaticCredentialsProvider(awsStaticCreds));
     }
 
-    return builder.build();
+    amazonS3 = builder.build();
+    return amazonS3;
   }
 
   @Override
