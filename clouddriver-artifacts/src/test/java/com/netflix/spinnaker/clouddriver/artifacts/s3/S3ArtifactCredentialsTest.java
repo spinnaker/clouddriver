@@ -18,19 +18,25 @@ package com.netflix.spinnaker.clouddriver.artifacts.s3;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.S3Object;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -87,6 +93,23 @@ class S3ArtifactCredentialsTest {
   }
 
   @Test
+  void normalDownloadWithValidation() throws IOException {
+    S3ArtifactValidator s3ArtifactValidator = spy(DummyS3ArtifactValidator.class);
+    S3ArtifactCredentials s3ArtifactCredentials =
+        new S3ArtifactCredentials(account, Optional.of(s3ArtifactValidator), amazonS3);
+    try (InputStream artifactStream = s3ArtifactCredentials.download(artifact)) {
+      String actual = new String(artifactStream.readAllBytes(), StandardCharsets.UTF_8);
+      assertEquals(CONTENTS, actual);
+    }
+
+    ArgumentCaptor<S3Object> s3ObjectCaptor = ArgumentCaptor.forClass(S3Object.class);
+    verify(s3ArtifactValidator).validate(eq(amazonS3), s3ObjectCaptor.capture());
+
+    assertEquals(BUCKET_NAME, s3ObjectCaptor.getValue().getBucketName());
+    assertEquals(KEY_NAME, s3ObjectCaptor.getValue().getKey());
+  }
+
+  @Test
   void invalidReference() {
     Artifact otherArtifact =
         Artifact.builder().name("invalid-reference").reference("no-s3-prefix").build();
@@ -106,5 +129,12 @@ class S3ArtifactCredentialsTest {
     assertThatThrownBy(() -> s3ArtifactCredentials.download(otherArtifact))
         .isInstanceOf(AmazonS3Exception.class)
         .hasMessageContaining("The specified bucket does not exist");
+  }
+
+  static class DummyS3ArtifactValidator implements S3ArtifactValidator {
+    @Override
+    public InputStream validate(AmazonS3 amazonS3, S3Object s3obj) {
+      return s3obj.getObjectContent();
+    }
   }
 }
