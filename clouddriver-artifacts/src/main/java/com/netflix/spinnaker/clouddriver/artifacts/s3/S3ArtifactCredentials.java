@@ -28,13 +28,11 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import groovy.util.logging.Slf4j;
 import java.io.InputStream;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
 @NonnullByDefault
-@Slf4j
 public class S3ArtifactCredentials implements ArtifactCredentials {
   public static final String CREDENTIALS_TYPE = "artifacts-s3";
   @Getter private final String name;
