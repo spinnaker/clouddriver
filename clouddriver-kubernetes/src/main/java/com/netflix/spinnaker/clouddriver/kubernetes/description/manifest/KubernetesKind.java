@@ -54,6 +54,10 @@ public class KubernetesKind {
       createWithAlias("daemonSet", "ds", KubernetesApiGroup.APPS);
   public static final KubernetesKind DEPLOYMENT =
       createWithAlias("deployment", "deploy", KubernetesApiGroup.APPS);
+  public static final KubernetesKind CSI_DRIVERS =
+      createWithAlias("csidriver", null, KubernetesApiGroup.STORAGE_K8S_IO);
+  public static final KubernetesKind CSI_NODES =
+      createWithAlias("csinode", null, KubernetesApiGroup.STORAGE_K8S_IO);
   public static final KubernetesKind EVENT =
       createWithAlias("event", null, KubernetesApiGroup.CORE);
   public static final KubernetesKind HORIZONTAL_POD_AUTOSCALER =
