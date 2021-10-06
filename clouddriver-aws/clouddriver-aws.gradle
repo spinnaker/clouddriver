@@ -50,6 +50,7 @@ dependencies {
   implementation "com.squareup.retrofit:converter-jackson"
   implementation "com.squareup.retrofit:retrofit"
   implementation "io.reactivex:rxjava"
+  implementation "org.apache.commons:commons-lang3"
   implementation "org.apache.httpcomponents:httpclient"
   implementation "org.apache.httpcomponents:httpcore"
   implementation "org.codehaus.groovy:groovy-all"

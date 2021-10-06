@@ -189,6 +189,9 @@ public class ProviderHelpers {
         newlyAddedAgents.add(
             new AmazonCertificateCachingAgent(
                 amazonClientProvider, credentials, region.getName(), objectMapper, registry));
+        newlyAddedAgents.add(
+            new AwsCertificateManagerCachingAgent(
+                amazonClientProvider, credentials, region.getName(), objectMapper, registry));
 
         if (dynamicConfigService.isEnabled("aws.features.cloud-formation", false)) {
           newlyAddedAgents.add(

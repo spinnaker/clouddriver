@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.aws.model
 import com.netflix.spinnaker.clouddriver.model.Certificate
 import groovy.transform.Canonical
 
-@Canonical
+@Canonical(includeSuperProperties=true, includeSuperFields=true)
 class AmazonCertificate extends Certificate {
   String arn
   Date uploadDate
