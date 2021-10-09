@@ -279,12 +279,12 @@ public final class Replacer {
           .build();
 
   private static final Replacer CRON_JOB_DOCKER_IMAGE =
-    builder()
-      .path("$.spec.jobTemplate.spec.template.spec.containers.[?].image")
-      .legacyReplaceFilter(a -> filter(where("image").is(a.getName())))
-      .replacePathFromPlaceholder("image")
-      .type(KubernetesArtifactType.DockerImage)
-      .build();
+      builder()
+          .path("$.spec.jobTemplate.spec.template.spec.containers.[?].image")
+          .legacyReplaceFilter(a -> filter(where("image").is(a.getName())))
+          .replacePathFromPlaceholder("image")
+          .type(KubernetesArtifactType.DockerImage)
+          .build();
 
   public static Replacer dockerImage() {
     return DOCKER_IMAGE;
