@@ -108,6 +108,7 @@ public class Applications {
                   throws ResourceNotFoundException {
                 return safelyCall(() -> api.findById(guid))
                     .map(Applications.this::map)
+                    .flatMap(sg -> sg)
                     .orElseThrow(ResourceNotFoundException::new);
               }
             });
