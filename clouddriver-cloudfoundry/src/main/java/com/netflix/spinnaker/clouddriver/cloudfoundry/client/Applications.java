@@ -35,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceBin
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Package;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
 import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
@@ -43,6 +44,7 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -74,7 +76,8 @@ public class Applications {
       Processes processes,
       Integer resultsPerPage,
       boolean onlySpinnakerManaged,
-      ForkJoinPool forkJoinPool) {
+      ForkJoinPool forkJoinPool,
+      CloudFoundryConfigurationProperties.LocalCacheConfig localCacheConfig) {
     this.account = account;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
@@ -84,7 +87,19 @@ public class Applications {
     this.resultsPerPage = resultsPerPage;
     this.onlySpinnakerManaged = onlySpinnakerManaged;
     this.forkJoinPool = forkJoinPool;
+
+    CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder();
+    if (localCacheConfig.getApplicationsAccessExpirySeconds() >= 0) {
+      builder.expireAfterAccess(
+          localCacheConfig.getApplicationsAccessExpirySeconds(), TimeUnit.SECONDS);
+    }
+    if (localCacheConfig.getApplicationsWriteExpirySeconds() >= 0) {
+      builder.expireAfterWrite(
+          localCacheConfig.getApplicationsWriteExpirySeconds(), TimeUnit.SECONDS);
+    }
+
     this.serverGroupCache =
+<<<<<<< HEAD
         CacheBuilder.newBuilder()
             .build(
                 new CacheLoader<String, CloudFoundryServerGroup>() {
@@ -96,6 +111,19 @@ public class Applications {
                         .orElseThrow(ResourceNotFoundException::new);
                   }
                 });
+=======
+        builder.build(
+            new CacheLoader<>() {
+              @Override
+              public CloudFoundryServerGroup load(@Nonnull String guid)
+                  throws ResourceNotFoundException {
+                return safelyCall(() -> api.findById(guid))
+                    .map(Applications.this::map)
+                    .flatMap(sg -> sg)
+                    .orElseThrow(ResourceNotFoundException::new);
+              }
+            });
+>>>>>>> d12b5f056 (fix(cloudfoundry): add configurable cache expiry for clients (#5508))
   }
 
   @Nullable
