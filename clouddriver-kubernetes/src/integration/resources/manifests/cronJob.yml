@@ -16,4 +16,4 @@ spec:
                 - tail
                 - -f
                 - /dev/null
-            restartPolicy: Never
+          restartPolicy: Never
