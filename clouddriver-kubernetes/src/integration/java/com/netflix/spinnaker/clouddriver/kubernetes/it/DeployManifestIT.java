@@ -1195,12 +1195,12 @@ public class DeployManifestIT extends BaseTest {
   }
 
   @DisplayName(
-    ".\n===\n"
-      + "Given a cron job manifest without image tag\n"
-      + "  And required docker artifact present\n"
-      + "When sending cron job manifest request\n"
-      + "  And waiting on manifest stable\n"
-      + "Then the docker artifact is scheduled\n===")
+      ".\n===\n"
+          + "Given a cron job manifest without image tag\n"
+          + "  And required docker artifact present\n"
+          + "When sending cron job manifest request\n"
+          + "  And waiting on manifest stable\n"
+          + "Then the docker artifact is scheduled\n===")
   @Test
   public void shouldBindRequiredCronJobDockerImage() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
@@ -1210,43 +1210,40 @@ public class DeployManifestIT extends BaseTest {
     String imageWithTag = "index.docker.io/library/alpine:3.12";
 
     List<Map<String, Object>> manifest =
-      KubeTestUtils.loadYaml("classpath:manifests/cronJob.yml")
-        .withValue("metadata.namespace", account1Ns)
-        .withValue("metadata.name", DEPLOYMENT_1_NAME)
-        .withValue("spec.jobTemplate.spec.template.spec.containers[0].image", imageNoTag)
-        .asList();
+        KubeTestUtils.loadYaml("classpath:manifests/cronJob.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", DEPLOYMENT_1_NAME)
+            .withValue("spec.jobTemplate.spec.template.spec.containers[0].image", imageNoTag)
+            .asList();
     Map<String, Object> artifact =
-      KubeTestUtils.loadJson("classpath:requests/artifact.json")
-        .withValue("name", imageNoTag)
-        .withValue("type", "docker/image")
-        .withValue("reference", imageWithTag)
-        .withValue("version", imageWithTag.substring(imageNoTag.length() + 1))
-        .asMap();
+        KubeTestUtils.loadJson("classpath:requests/artifact.json")
+            .withValue("name", imageNoTag)
+            .withValue("type", "docker/image")
+            .withValue("reference", imageWithTag)
+            .withValue("version", imageWithTag.substring(imageNoTag.length() + 1))
+            .asMap();
 
     // ------------------------- when --------------------------
     List<Map<String, Object>> body =
-      KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
-        .withValue("deployManifest.account", ACCOUNT1_NAME)
-        .withValue("deployManifest.moniker.app", appName)
-        .withValue("deployManifest.manifests", manifest)
-        .withValue("deployManifest.requiredArtifacts[0]", artifact)
-        .asList();
-    KubeTestUtils.deployAndWaitStable(
-      baseUrl(), body, account1Ns, "cronjob " + DEPLOYMENT_1_NAME);
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .withValue("deployManifest.requiredArtifacts[0]", artifact)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "cronjob " + DEPLOYMENT_1_NAME);
 
     // ------------------------- then --------------------------
     String imageDeployed =
-      kubeCluster.execKubectl(
-        "-n "
-          + account1Ns
-          + " get cronjobs "
-          + DEPLOYMENT_1_NAME
-          + " -o=jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'");
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get cronjobs "
+                + DEPLOYMENT_1_NAME
+                + " -o=jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'");
     assertEquals(
-      imageWithTag,
-      imageDeployed,
-      "Expected correct " + DEPLOYMENT_1_NAME + " image to be scheduled");
+        imageWithTag,
+        imageDeployed,
+        "Expected correct " + DEPLOYMENT_1_NAME + " image to be scheduled");
   }
-
-
 }
