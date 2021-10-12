@@ -99,19 +99,6 @@ public class Applications {
     }
 
     this.serverGroupCache =
-<<<<<<< HEAD
-        CacheBuilder.newBuilder()
-            .build(
-                new CacheLoader<String, CloudFoundryServerGroup>() {
-                  @Override
-                  public CloudFoundryServerGroup load(@Nonnull String guid)
-                      throws ResourceNotFoundException {
-                    return safelyCall(() -> api.findById(guid))
-                        .map(Applications.this::map)
-                        .orElseThrow(ResourceNotFoundException::new);
-                  }
-                });
-=======
         builder.build(
             new CacheLoader<>() {
               @Override
@@ -119,11 +106,9 @@ public class Applications {
                   throws ResourceNotFoundException {
                 return safelyCall(() -> api.findById(guid))
                     .map(Applications.this::map)
-                    .flatMap(sg -> sg)
                     .orElseThrow(ResourceNotFoundException::new);
               }
             });
->>>>>>> d12b5f056 (fix(cloudfoundry): add configurable cache expiry for clients (#5508))
   }
 
   @Nullable
