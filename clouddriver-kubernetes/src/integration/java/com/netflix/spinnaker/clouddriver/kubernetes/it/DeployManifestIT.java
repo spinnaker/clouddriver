@@ -1231,7 +1231,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .withValue("deployManifest.requiredArtifacts[0]", artifact)
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "cronjob " + DEPLOYMENT_1_NAME);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "cronJob " + DEPLOYMENT_1_NAME);
 
     // ------------------------- then --------------------------
     String imageDeployed =
