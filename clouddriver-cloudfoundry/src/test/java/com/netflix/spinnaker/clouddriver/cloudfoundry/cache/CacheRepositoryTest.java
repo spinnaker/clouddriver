@@ -79,21 +79,21 @@ class CacheRepositoryTest {
             .build();
 
     CloudFoundryServerGroup serverGroupWithoutInstances =
-      CloudFoundryServerGroup.builder()
-        .name("demo-staging-v001")
-        .account("devaccount")
-        .createdTime(1L)
-        .space(CloudFoundrySpace.fromRegion("myorg > staging"))
-        .droplet(
-          CloudFoundryDroplet.builder()
-            .id("dropletid")
-            .name("dropletname")
-            .buildpacks(
-              singletonList(
-                CloudFoundryBuildpack.builder().buildpackName("java").build()))
-            .sourcePackage(CloudFoundryPackage.builder().checksum("check").build())
-            .build())
-        .build();
+        CloudFoundryServerGroup.builder()
+            .name("demo-staging-v001")
+            .account("devaccount")
+            .createdTime(1L)
+            .space(CloudFoundrySpace.fromRegion("myorg > staging"))
+            .droplet(
+                CloudFoundryDroplet.builder()
+                    .id("dropletid")
+                    .name("dropletname")
+                    .buildpacks(
+                        singletonList(
+                            CloudFoundryBuildpack.builder().buildpackName("java").build()))
+                    .sourcePackage(CloudFoundryPackage.builder().checksum("check").build())
+                    .build())
+            .build();
 
     CloudFoundryCluster cluster =
         CloudFoundryCluster.builder()
@@ -103,17 +103,20 @@ class CacheRepositoryTest {
             .build();
 
     CloudFoundryCluster clusterWithoutInstances =
-      CloudFoundryCluster.builder()
-        .accountName("devaccount")
-        .name("demo-staging")
-        .serverGroups(singleton(serverGroupWithoutInstances))
-        .build();
+        CloudFoundryCluster.builder()
+            .accountName("devaccount")
+            .name("demo-staging")
+            .serverGroups(singleton(serverGroupWithoutInstances))
+            .build();
 
     CloudFoundryApplication app =
         CloudFoundryApplication.builder().name("demo").clusters(singleton(cluster)).build();
 
     CloudFoundryApplication appWithoutInstances =
-      CloudFoundryApplication.builder().name("demo-without-instances").clusters(singleton(clusterWithoutInstances)).build();
+        CloudFoundryApplication.builder()
+            .name("demo-without-instances")
+            .clusters(singleton(clusterWithoutInstances))
+            .build();
 
     CloudFoundryClient client = mock(CloudFoundryClient.class);
     Applications apps = mock(Applications.class);
@@ -226,13 +229,13 @@ class CacheRepositoryTest {
   @Test
   void findServerGroupWithoutInstances() {
     assertThat(
-      repo.findServerGroupByKey(
-        Keys.getServerGroupKey("devaccount", "demo-staging-v001", "myorg > staging"), FULL))
-      .hasValueSatisfying(
-        serverGroup -> {
-          assertThat(serverGroup.getName()).isEqualTo("demo-staging-v001");
-          assertThat(serverGroup.getInstances()).isNotNull();
-          assertThat(serverGroup.getInstances()).isEmpty();
-        });
+            repo.findServerGroupByKey(
+                Keys.getServerGroupKey("devaccount", "demo-staging-v001", "myorg > staging"), FULL))
+        .hasValueSatisfying(
+            serverGroup -> {
+              assertThat(serverGroup.getName()).isEqualTo("demo-staging-v001");
+              assertThat(serverGroup.getInstances()).isNotNull();
+              assertThat(serverGroup.getInstances()).isEmpty();
+            });
   }
 }
