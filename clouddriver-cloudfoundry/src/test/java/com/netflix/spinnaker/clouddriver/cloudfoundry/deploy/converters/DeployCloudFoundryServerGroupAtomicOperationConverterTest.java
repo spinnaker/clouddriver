@@ -275,4 +275,24 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                     List.of(
                         new ProcessRequest().setType("web").setInstances(2).setMemory("800M"))));
   }
+<<<<<<< HEAD
+=======
+
+  @Test
+  void convertRandomRoutes() {
+    DeployCloudFoundryServerGroupDescription.ApplicationAttributes applicationAttributes =
+        converter.convertManifest(
+            ImmutableMap.of("applications", List.of(Map.of("random-route", true))));
+
+    assertThat(applicationAttributes.getRandomRoute()).isTrue();
+  }
+
+  @Test
+  void convertTimeout() {
+    DeployCloudFoundryServerGroupDescription.ApplicationAttributes applicationAttributes =
+        converter.convertManifest(ImmutableMap.of("applications", List.of(Map.of("timeout", 60))));
+
+    assertThat(applicationAttributes.getTimeout() == 60);
+  }
+>>>>>>> a9fb8cc89 (fix(cloudfoundry): add timeout to converter (#5567))
 }

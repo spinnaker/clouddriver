@@ -183,6 +183,11 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
               attrs.setStack(app.getStack());
               attrs.setCommand(app.getCommand());
               attrs.setProcesses(app.getProcesses());
+<<<<<<< HEAD
+=======
+              attrs.setRandomRoute(app.getRandomRoute());
+              attrs.setTimeout(app.getTimeout());
+>>>>>>> a9fb8cc89 (fix(cloudfoundry): add timeout to converter (#5567))
               return attrs;
             })
         .get();
@@ -216,6 +221,13 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
 
     @Nullable private String command;
 
+<<<<<<< HEAD
+=======
+    @Nullable private Boolean randomRoute;
+
+    @Nullable private Integer timeout;
+
+>>>>>>> a9fb8cc89 (fix(cloudfoundry): add timeout to converter (#5567))
     private List<ProcessRequest> processes = Collections.emptyList();
   }
 }
