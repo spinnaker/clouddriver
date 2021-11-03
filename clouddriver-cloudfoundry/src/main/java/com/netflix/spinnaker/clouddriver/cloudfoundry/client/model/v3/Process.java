@@ -33,6 +33,7 @@ public class Process {
   private HealthCheck healthCheck;
 
   @Data
+  @JsonInclude(value = JsonInclude.Include.NON_NULL)
   public static class HealthCheck {
 
     private HealthCheck() {}
@@ -67,6 +68,7 @@ public class Process {
   }
 
   @Data
+  @JsonInclude(value = JsonInclude.Include.NON_NULL)
   public static class HealthCheckData {
 
     private HealthCheckData() {}
