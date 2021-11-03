@@ -33,7 +33,7 @@ public class ProcessTest {
 
     Map<String, Object> converted = mapper.convertValue(healthCheck, Map.class);
 
-    assertThat(converted.entrySet().size() == 0);
+    assertThat(converted.entrySet().size()).isEqualTo(0);
   }
 
   @Test
@@ -48,6 +48,9 @@ public class ProcessTest {
 
     Map<String, Object> converted = mapper.convertValue(healthCheck, Map.class);
 
-    assertThat(((int) ((Map) converted.get("data")).get("timeout")) == 90);
+    Map<String, Object> data = (Map) converted.get("data");
+    assertThat(data).isNotNull();
+    assertThat(((int) data.get("timeout"))).isEqualTo(90);
+    assertThat(data.entrySet().size()).isEqualTo(1);
   }
 }
