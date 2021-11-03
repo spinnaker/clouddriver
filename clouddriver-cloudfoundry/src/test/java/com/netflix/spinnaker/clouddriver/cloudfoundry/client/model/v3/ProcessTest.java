@@ -25,6 +25,21 @@ import org.junit.jupiter.api.Test;
 public class ProcessTest {
 
   @Test
+  void buildObjectTest0() {
+    ObjectMapper mapper = new ObjectMapper();
+
+    Process.HealthCheck healthCheck =
+      new Process.HealthCheck.HealthCheckBuilder().type(null).data(null).build();
+
+    Process process = new Process().setHealthCheck(healthCheck);
+
+    Map<String, Object> converted = mapper.convertValue(process, Map.class);
+
+    assertThat(converted.entrySet().size()).isEqualTo(3);
+    assertThat(converted.get("healthCheck")).isNull();
+  }
+
+  @Test
   void buildObjectTest1() {
     ObjectMapper mapper = new ObjectMapper();
 
