@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import javax.annotation.Nullable;
 import lombok.*;
 
@@ -27,7 +28,9 @@ public class Process {
   private int memoryInMb;
   private int diskInMb;
 
-  @Nullable private HealthCheck healthCheck;
+  @JsonInclude(value = JsonInclude.Include.CUSTOM, valueFilter = HealthCheck.class)
+  @Nullable
+  private HealthCheck healthCheck;
 
   @Data
   public static class HealthCheck {
@@ -35,7 +38,10 @@ public class Process {
     private HealthCheck() {}
 
     @Nullable private String type;
-    @Nullable private HealthCheckData data;
+
+    @JsonInclude(value = JsonInclude.Include.CUSTOM, valueFilter = HealthCheckData.class)
+    @Nullable
+    private HealthCheckData data;
 
     public static class HealthCheckBuilder {
       private String type;
