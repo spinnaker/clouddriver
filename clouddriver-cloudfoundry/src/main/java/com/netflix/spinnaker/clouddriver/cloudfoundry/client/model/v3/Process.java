@@ -41,8 +41,7 @@ public class Process {
 
     @Nullable private String type;
 
-    @Nullable
-    private HealthCheckData data;
+    @Nullable private HealthCheckData data;
 
     public static class HealthCheckBuilder {
       private String type;

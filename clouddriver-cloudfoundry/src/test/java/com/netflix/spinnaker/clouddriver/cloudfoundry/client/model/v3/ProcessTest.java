@@ -29,7 +29,7 @@ public class ProcessTest {
     ObjectMapper mapper = new ObjectMapper();
 
     Process.HealthCheck healthCheck =
-      new Process.HealthCheck.HealthCheckBuilder().type(null).data(null).build();
+        new Process.HealthCheck.HealthCheckBuilder().type(null).data(null).build();
 
     Process process = new Process().setHealthCheck(healthCheck);
 
