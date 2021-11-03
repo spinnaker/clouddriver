@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 import lombok.*;
 
 @Data
+@JsonInclude(value = JsonInclude.Include.NON_NULL)
 public class Process {
   private String type;
   private String guid;
@@ -28,8 +29,8 @@ public class Process {
   private int memoryInMb;
   private int diskInMb;
 
-  @JsonInclude(value = JsonInclude.Include.CUSTOM, valueFilter = HealthCheck.class)
   @Nullable
+  @JsonInclude(value = JsonInclude.Include.CUSTOM, valueFilter = HealthCheck.class)
   private HealthCheck healthCheck;
 
   @Data
@@ -40,9 +41,7 @@ public class Process {
 
     @Nullable private String type;
 
-    @JsonInclude(value = JsonInclude.Include.CUSTOM, valueFilter = HealthCheckData.class)
-    @Nullable
-    private HealthCheckData data;
+    @Nullable private HealthCheckData data;
 
     public static class HealthCheckBuilder {
       private String type;

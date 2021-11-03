@@ -25,6 +25,21 @@ import org.junit.jupiter.api.Test;
 public class ProcessTest {
 
   @Test
+  void buildObjectTest0() {
+    ObjectMapper mapper = new ObjectMapper();
+
+    Process.HealthCheck healthCheck =
+        new Process.HealthCheck.HealthCheckBuilder().type(null).data(null).build();
+
+    Process process = new Process().setHealthCheck(healthCheck);
+
+    Map<String, Object> converted = mapper.convertValue(process, Map.class);
+
+    assertThat(converted.entrySet().size()).isEqualTo(3);
+    assertThat(converted.get("healthCheck")).isNull();
+  }
+
+  @Test
   void buildObjectTest1() {
     ObjectMapper mapper = new ObjectMapper();
 
@@ -33,7 +48,7 @@ public class ProcessTest {
 
     Map<String, Object> converted = mapper.convertValue(healthCheck, Map.class);
 
-    assertThat(converted.entrySet().size() == 0);
+    assertThat(converted.entrySet().size()).isEqualTo(0);
   }
 
   @Test
@@ -48,6 +63,9 @@ public class ProcessTest {
 
     Map<String, Object> converted = mapper.convertValue(healthCheck, Map.class);
 
-    assertThat(((int) ((Map) converted.get("data")).get("timeout")) == 90);
+    Map<String, Object> data = (Map) converted.get("data");
+    assertThat(data).isNotNull();
+    assertThat(((int) data.get("timeout"))).isEqualTo(90);
+    assertThat(data.entrySet().size()).isEqualTo(1);
   }
 }
