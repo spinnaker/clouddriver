@@ -392,6 +392,18 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
     return inspectDigests
   }
 
+  int getCacheThreads() {
+    return cacheThreads
+  }
+
+  long getCacheIntervalSeconds() {
+    return cacheIntervalSeconds
+  }
+
+  DockerRegistryCredentials getCredentials() {
+    return credentials
+  }
+
   @Override
   String getCloudProvider() {
     return CLOUD_PROVIDER
