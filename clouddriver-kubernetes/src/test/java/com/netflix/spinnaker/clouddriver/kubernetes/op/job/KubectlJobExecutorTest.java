@@ -33,20 +33,27 @@ import ch.qos.logback.core.read.ListAppender;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.io.Resources;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.gson.Gson;
+import com.netflix.spinnaker.clouddriver.data.task.InMemoryTaskRepository;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutionException;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobResult;
 import com.netflix.spinnaker.clouddriver.jobs.JobResult.Result;
+import com.netflix.spinnaker.clouddriver.jobs.local.JobExecutorLocal;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric.ContainerMetric;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ManifestFetcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryRegistry;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -58,6 +65,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
+import org.apache.commons.exec.CommandLine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -119,15 +127,12 @@ final class KubectlJobExecutorTest {
   }
 
   @Test
-  void topPodMultipleContainers() throws Exception {
+  void topPodMultipleContainers() {
     when(jobExecutor.runJob(any(JobRequest.class)))
         .thenReturn(
             JobResult.<String>builder()
                 .result(Result.SUCCESS)
-                .output(
-                    Resources.toString(
-                        KubectlJobExecutor.class.getResource("top-pod.txt"),
-                        StandardCharsets.UTF_8))
+                .output(ManifestFetcher.getResource(KubectlJobExecutorTest.class, "top-pod.txt"))
                 .error("")
                 .build());
 
@@ -409,7 +414,7 @@ final class KubectlJobExecutorTest {
   }
 
   @Test
-  void kubectlRetryHandlingForConfiguredErrorsThatSucceedAfterAFewRetries() throws IOException {
+  void kubectlRetryHandlingForConfiguredErrorsThatSucceedAfterAFewRetries() {
     // setup
     kubernetesConfigurationProperties.getJobExecutor().getRetries().setEnabled(true);
 
@@ -431,10 +436,7 @@ final class KubectlJobExecutorTest {
         .thenReturn(
             JobResult.<String>builder()
                 .result(Result.SUCCESS)
-                .output(
-                    Resources.toString(
-                        KubectlJobExecutor.class.getResource("top-pod.txt"),
-                        StandardCharsets.UTF_8))
+                .output(ManifestFetcher.getResource(KubectlJobExecutorTest.class, "top-pod.txt"))
                 .error("")
                 .build());
 
@@ -555,11 +557,157 @@ final class KubectlJobExecutorTest {
     assertTrue(thrown.getMessage().contains("unknown exception"));
   }
 
+  @DisplayName(
+      "test to verify that kubectl commands that read data from stdin can succeed in subsequent retry attempts")
+  @Test
+  void kubectlRetryHandlingForKubectlCallsThatUseStdinWhichSucceedAfterAFewRetries() {
+    // setup
+    kubernetesConfigurationProperties.getJobExecutor().getRetries().setEnabled(true);
+
+    // fetch a test manifest
+    KubernetesManifest inputManifest =
+        ManifestFetcher.getManifest(KubectlJobExecutorTest.class, "job.yml").get(0);
+
+    KubectlJobExecutor kubectlJobExecutor =
+        new TestScriptJobExecutor(
+            new JobExecutorLocal(/* timeoutMinutes */ 1),
+            kubernetesConfigurationProperties,
+            new SimpleMeterRegistry(),
+            TestScriptJobExecutor.RetryBehavior.SUCCESS_AFTER_INITIAL_FAILURE);
+
+    // We are using a real job executor. Therefore, we can simulate the call `kubectl apply -f -`
+    // by substituting kubectl with a test script that accepts stdin
+    KubernetesManifest returnedManifest =
+        kubectlJobExecutor.deploy(
+            mockKubernetesCredentials(
+                "src/test/resources/com/netflix/spinnaker/clouddriver/kubernetes/op/job/mock-kubectl-stdin-command.sh"),
+            inputManifest,
+            new InMemoryTaskRepository().create("starting", "starting"),
+            "starting");
+
+    // even after retries occur, the inputStream should not empty. This is verified by
+    // checking the stdout generated from the script
+    assertThat(returnedManifest.getFullResourceName())
+        .isEqualTo(inputManifest.getFullResourceName());
+  }
+
+  @DisplayName(
+      "test to verify that kubectl commands that read data from stdin fail after all retries. In each retry attempt,"
+          + " the input stream data should still be made available to the call")
+  @Test
+  void kubectlRetryHandlingForKubectlCallsThatUseStdinWhichContinueFailingAfterAllRetries() {
+    // setup
+    kubernetesConfigurationProperties.getJobExecutor().getRetries().setEnabled(true);
+
+    // fetch a test manifest
+    KubernetesManifest inputManifest =
+        ManifestFetcher.getManifest(KubectlJobExecutorTest.class, "job.yml").get(0);
+
+    KubectlJobExecutor kubectlJobExecutor =
+        new TestScriptJobExecutor(
+            new JobExecutorLocal(/* timeoutMinutes */ 1),
+            kubernetesConfigurationProperties,
+            new SimpleMeterRegistry(),
+            TestScriptJobExecutor.RetryBehavior.FAILED);
+
+    // We are using a real job executor. Therefore, we can simulate the call `kubectl apply -f -`
+    // by substituting kubectl with a test script that accepts stdin
+    KubectlJobExecutor.KubectlException thrown =
+        assertThrows(
+            KubectlJobExecutor.KubectlException.class,
+            () ->
+                kubectlJobExecutor.deploy(
+                    mockKubernetesCredentials(
+                        "src/test/resources/com/netflix/spinnaker/clouddriver/kubernetes/op/job/mock-kubectl-stdin-command.sh"),
+                    inputManifest,
+                    new InMemoryTaskRepository().create("starting", "starting"),
+                    "starting"));
+
+    assertThat(thrown.getMessage()).contains("Deploy failed for manifest: job my-job");
+    // verify that the final error contained stdin data
+    assertThat(thrown.getMessage()).contains(new Gson().toJson(inputManifest));
+  }
+
   /** Returns a mock KubernetesCredentials object */
   private static KubernetesCredentials mockKubernetesCredentials() {
+    return mockKubernetesCredentials("");
+  }
+
+  /**
+   * Returns a mock KubernetesCredentials object which has a custom path set for the kubectl
+   * executable
+   */
+  private static KubernetesCredentials mockKubernetesCredentials(String pathToExecutable) {
     KubernetesCredentials credentials = mock(KubernetesCredentials.class);
     when(credentials.getAccountName()).thenReturn("mock-account");
-    when(credentials.getKubectlExecutable()).thenReturn("");
+    when(credentials.getKubectlExecutable()).thenReturn(pathToExecutable);
     return credentials;
+  }
+
+  /**
+   * This is a helper class that is meant to execute a custom command instead of kubectl commands.
+   * Only meant to be used in tests where mocking certain kubectl calls prove to be tricky. This is
+   * currently used in tests that verify retry behavior for such calls.
+   */
+  private static class TestScriptJobExecutor extends KubectlJobExecutor {
+    /**
+     * depending on the custom script provided, to simulate retry attempts, we need to let the
+     * script know when to emit an error message vs when to emit a success message. These enums help
+     * govern that
+     */
+    private enum RetryBehavior {
+      SUCCESS_AFTER_INITIAL_FAILURE,
+      FAILED
+    }
+
+    private final RetryBehavior retryBehavior;
+
+    // this keeps a track of how many times has the createJobRequest() been invoked.
+
+    private int createJobRequestInvokedCounter;
+
+    TestScriptJobExecutor(
+        JobExecutor jobExecutor,
+        KubernetesConfigurationProperties kubernetesConfigurationProperties,
+        MeterRegistry meterRegistry,
+        RetryBehavior retryBehavior) {
+
+      super(jobExecutor, kubernetesConfigurationProperties, meterRegistry);
+      this.retryBehavior = retryBehavior;
+      this.createJobRequestInvokedCounter = 1;
+    }
+
+    @Override
+    JobRequest createJobRequest(List<String> command, Optional<KubernetesManifest> manifest) {
+      // command[0] contains the path to the custom script. This path is read from the credentials
+      // object used for running the command.
+      // Note: CommandLine requires a File object containing the path to the script to be able to
+      // execute these scripts. This is different from running executables like kubectl.
+      CommandLine commandLine = new CommandLine(new File(command.get(0)));
+
+      // this adds a special argument to the test script. The script can use this to decide at
+      // runtime if it needs to exit successfully or with a failure.
+      // This will be the first argument to the script
+      if (createJobRequestInvokedCounter > 1
+          && retryBehavior == RetryBehavior.SUCCESS_AFTER_INITIAL_FAILURE) {
+        commandLine.addArgument("success");
+      }
+
+      createJobRequestInvokedCounter++;
+
+      // update the command line to include all the other arguments to the script
+      for (int i = 1; i < command.size(); i++) {
+        commandLine.addArgument(command.get(i));
+      }
+
+      // depending on the presence of the manifest, an appropriate job request is created
+      if (manifest.isPresent()) {
+        String manifestAsJson = new Gson().toJson(manifest.get());
+        return new JobRequest(
+            commandLine, new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8)));
+      }
+
+      return new JobRequest(commandLine, new ByteArrayInputStream(new byte[0]));
+    }
   }
 }
