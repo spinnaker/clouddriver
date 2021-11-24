@@ -17,11 +17,7 @@ package com.netflix.spinnaker.clouddriver.sql
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spinnaker.clouddriver.data.task.DefaultTaskStatus
-import com.netflix.spinnaker.clouddriver.data.task.SagaId
-import com.netflix.spinnaker.clouddriver.data.task.Status
-import com.netflix.spinnaker.clouddriver.data.task.Task
-import com.netflix.spinnaker.clouddriver.data.task.TaskState
+import com.netflix.spinnaker.clouddriver.data.task.*
 import java.io.IOException
 import java.lang.String.format
 import java.sql.ResultSet
@@ -42,6 +38,7 @@ class TaskMapper(
     val tasks = mutableMapOf<String, SqlTask>()
     val results = mutableMapOf<String, MutableList<Any>>()
     val history = mutableMapOf<String, MutableList<Status>>()
+    val taskOutputs = mutableMapOf<String, MutableList<TaskOutput>>()
 
     while (rs.next()) {
       when {
@@ -83,12 +80,26 @@ class TaskMapper(
             )
           )
         }
+        rs.getString("manifest") != null -> {
+          if (!taskOutputs.containsKey(rs.getString("task_id"))) {
+            taskOutputs[rs.getString("task_id")] = mutableListOf()
+          }
+          taskOutputs[rs.getString("task_id")]!!.add(
+            TaskDisplayOutput(
+              rs.getString("manifest"),
+              rs.getString("phase"),
+              rs.getString("std_out"),
+              rs.getString("std_error")
+            )
+          )
+        }
       }
     }
 
     return tasks.values.map { task ->
       task.hydrateResultObjects(results.getOrDefault(task.id, mutableListOf()))
       task.hydrateHistory(history.getOrDefault(task.id, mutableListOf()))
+      task.hydrateTaskOutputs(taskOutputs.getOrDefault(task.id, mutableListOf()))
       task
     }
   }
