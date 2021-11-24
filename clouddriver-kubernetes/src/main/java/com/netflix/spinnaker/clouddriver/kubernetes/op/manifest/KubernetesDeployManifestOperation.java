@@ -155,30 +155,9 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
                       + holder.manifest.getFullResourceName()
                       + " to kubernetes master...");
           log.debug("Manifest in {} to be deployed: {}", accountName, holder.manifest);
-          try {
-            OperationResult manifestOperationResult =
-                deployer.deploy(credentials, holder.manifest, strategy.getDeployStrategy());
-            // deploy returns a new OperationsResult with the manifest added to it - so at this
-            // point,
-            // its size will be 1
-            if (manifestOperationResult.getManifests().size() == 1) {
-              Optional<KubernetesManifest> returnedManifest =
-                  manifestOperationResult.getManifests().stream().findFirst();
-              returnedManifest.ifPresent(
-                  kubernetesManifest ->
-                      getTask()
-                          .updateOutput(
-                              kubernetesManifest.getFullResourceName(),
-                              OP_NAME,
-                              kubernetesManifest.getOutput().orElse(""),
-                              kubernetesManifest.getErrorLogs().orElse("")));
-            }
-            result.merge(manifestOperationResult);
-          } catch (Exception e) {
-            getTask()
-                .updateOutput(holder.manifest.getFullResourceName(), OP_NAME, "", e.toString());
-            throw e;
-          }
+          result.merge(
+              deployer.deploy(
+                  credentials, holder.manifest, strategy.getDeployStrategy(), getTask(), OP_NAME));
 
           result.getCreatedArtifacts().add(holder.artifact);
           getTask()

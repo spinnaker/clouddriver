@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.MapType;
 import com.google.common.io.CharStreams;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.converter.manifest.KubernetesDeployManifestConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesDeployManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
@@ -51,7 +52,9 @@ public class KubernetesDeployManifestConverterTest {
         Mockito.mock(CredentialsRepository.class);
     Mockito.when(credentialsRepository.getOne("kubernetes"))
         .thenReturn(Mockito.mock(KubernetesNamedAccountCredentials.class));
-    converter = new KubernetesDeployManifestConverter(credentialsRepository, null);
+    converter =
+        new KubernetesDeployManifestConverter(
+            credentialsRepository, null, new KubernetesConfigurationProperties());
     mapper = converter.getObjectMapper();
     mapType = mapper.getTypeFactory().constructMapType(Map.class, String.class, Object.class);
   }
@@ -145,7 +148,9 @@ public class KubernetesDeployManifestConverterTest {
     CredentialsRepository<KubernetesNamedAccountCredentials> credentialsRepository =
         Mockito.mock(CredentialsRepository.class);
     Mockito.when(credentialsRepository.getOne("kubernetes")).thenReturn(accountCredentials);
-    converter = new KubernetesDeployManifestConverter(credentialsRepository, null);
+    converter =
+        new KubernetesDeployManifestConverter(
+            credentialsRepository, null, new KubernetesConfigurationProperties());
 
     String listTemplate = getResourceAsString("list-manifest.json");
     String deploymentJson = getResourceAsString("deployment-manifest.json");
