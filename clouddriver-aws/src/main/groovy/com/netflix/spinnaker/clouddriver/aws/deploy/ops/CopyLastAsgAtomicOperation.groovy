@@ -18,15 +18,21 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.ops
 
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
+import com.amazonaws.services.autoscaling.model.DescribeLifecycleHooksRequest
+import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification
 import com.amazonaws.services.ec2.model.DescribeSubnetsRequest
 import com.amazonaws.services.ec2.model.LaunchTemplateVersion
+import com.amazonaws.services.ec2.model.ResponseLaunchTemplateData
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest
 import com.netflix.frigga.Names
 import com.netflix.frigga.autoscaling.AutoScalingGroupNameBuilder
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AsgConfigHelper
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.BasicAmazonDeployDescription
 import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.BasicAmazonDeployHandler
+import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties
 import com.netflix.spinnaker.clouddriver.aws.deploy.validators.BasicAmazonDeployDescriptionValidator
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonAsgLifecycleHook
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetData
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
@@ -135,7 +141,7 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
         String iamInstanceProfile
         String imageId
         String instanceType
-        String spotPrice
+        String spotMaxPrice
         String keyName
         String kernelId
         String ramdiskId
@@ -148,41 +154,73 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
 
         List<String> securityGroups
         List<String> classicLinkVPCSecurityGroups = null
-        if (ancestorAsg.launchTemplate != null) {
-          LaunchTemplateVersion launchTemplateVersion = sourceRegionScopedProvider
-            .launchTemplateService.getLaunchTemplateVersion(ancestorAsg.launchTemplate)
-            .orElseThrow({
-              new IllegalStateException("Requested launch template $ancestorAsg.launchTemplate was not found")
-            })
+        if (ancestorAsg.launchTemplate != null || ancestorAsg.mixedInstancesPolicy != null) {
+          final boolean isMip = ancestorAsg.mixedInstancesPolicy != null
 
-          def launchTemplateData = launchTemplateVersion.launchTemplateData
+          LaunchTemplateSpecification ancestorLtSpec
+          if (isMip) {
+            ancestorLtSpec = ancestorAsg.mixedInstancesPolicy.launchTemplate.launchTemplateSpecification
+          } else {
+            ancestorLtSpec = ancestorAsg.launchTemplate
+          }
+
+          LaunchTemplateVersion launchTemplateVersion = sourceRegionScopedProvider
+            .launchTemplateService.getLaunchTemplateVersion(ancestorLtSpec)
+            .orElseThrow({
+              new IllegalStateException("Requested launch template $ancestorLtSpec was not found")
+            })
+          final ResponseLaunchTemplateData ancestorLtData = launchTemplateVersion.getLaunchTemplateData()
+
+          imageId = ancestorLtData.imageId
+          keyName = ancestorLtData.keyName
+          kernelId = ancestorLtData.kernelId
+          userData = ancestorLtData.userData
+          ramdiskId = ancestorLtData.ramDiskId
+          instanceType = ancestorLtData.instanceType
+          securityGroups = ancestorLtData.securityGroups
+          ebsOptimized = ancestorLtData.ebsOptimized
+          iamInstanceProfile = ancestorLtData.iamInstanceProfile?.name
+          instanceMonitoring = ancestorLtData.monitoring?.enabled
+          spotMaxPrice = isMip
+            ? ancestorAsg.mixedInstancesPolicy.instancesDistribution.spotMaxPrice
+            : ancestorLtData.instanceMarketOptions?.spotOptions?.maxPrice
 
           newDescription.setLaunchTemplate = true
-          imageId = launchTemplateData.imageId
-          keyName = launchTemplateData.keyName
-          kernelId = launchTemplateData.kernelId
-          userData = launchTemplateData.userData
-          ramdiskId = launchTemplateData.ramDiskId
-          instanceType = launchTemplateData.instanceType
-          securityGroups = launchTemplateData.securityGroups
-          ebsOptimized = launchTemplateData.ebsOptimized
-          iamInstanceProfile = launchTemplateData.iamInstanceProfile?.name
-          instanceMonitoring = launchTemplateData.monitoring?.enabled
-          spotPrice = launchTemplateData.instanceMarketOptions?.spotOptions?.maxPrice
-          newDescription.requireIMDSv2 = description.requireIMDSv2 != null ? description.requireIMDSv2 : launchTemplateData.metadataOptions?.httpTokens == "required"
-          if (!launchTemplateData.networkInterfaces?.empty && launchTemplateData.networkInterfaces*.associatePublicIpAddress?.any()) {
+          newDescription.enableEnclave = description.enableEnclave != null ? description.enableEnclave :  ancestorLtData.enclaveOptions?.getEnabled()
+          newDescription.requireIMDSv2 = description.requireIMDSv2 != null ? description.requireIMDSv2 : ancestorLtData.metadataOptions?.httpTokens == "required"
+          newDescription.associateIPv6Address = description.associateIPv6Address
+          newDescription.unlimitedCpuCredits = description.unlimitedCpuCredits != null
+            ? description.unlimitedCpuCredits
+            : AsgConfigHelper.getUnlimitedCpuCreditsFromAncestorLt(ancestorLtData.creditSpecification, InstanceTypeUtils.isBurstingSupportedByAllTypes(description.getAllInstanceTypes()))
+
+          if (!ancestorLtData.networkInterfaces?.empty && ancestorLtData.networkInterfaces*.associatePublicIpAddress?.any()) {
             associatePublicIpAddress = true
           }
-          if (!launchTemplateData.networkInterfaces?.empty) {
+          if (!ancestorLtData.networkInterfaces?.empty) {
             // Network interfaces are the source of truth for launch template security groups
-            def networkInterface = launchTemplateData.networkInterfaces.find({it.deviceIndex == 0 })
+            def networkInterface = ancestorLtData.networkInterfaces.find({it.deviceIndex == 0 })
             if (networkInterface != null) {
               securityGroups = networkInterface.groups
+              if (description.associateIPv6Address == null) {
+                newDescription.associateIPv6Address = networkInterface.getIpv6AddressCount() > 0 ? true : false
+              }
             }
           }
 
-          // unlimited CPU credits is not applicable for all instance types. So, simply use the incoming request's value to keep the description valid.
-          newDescription.unlimitedCpuCredits = description.unlimitedCpuCredits
+          if (isMip) {
+            def ancestorInstancesDistribution = ancestorAsg.mixedInstancesPolicy.instancesDistribution
+            newDescription.onDemandAllocationStrategy = description.onDemandAllocationStrategy != null ? description.onDemandAllocationStrategy : ancestorInstancesDistribution.onDemandAllocationStrategy
+            newDescription.onDemandBaseCapacity = description.onDemandBaseCapacity != null ? description.onDemandBaseCapacity : ancestorInstancesDistribution.onDemandBaseCapacity
+            newDescription.onDemandPercentageAboveBaseCapacity = description.onDemandPercentageAboveBaseCapacity != null ? description.onDemandPercentageAboveBaseCapacity : ancestorInstancesDistribution.onDemandPercentageAboveBaseCapacity
+            newDescription.spotAllocationStrategy = description.spotAllocationStrategy != null ? description.spotAllocationStrategy : ancestorInstancesDistribution.spotAllocationStrategy
+            newDescription.spotInstancePools = description.spotInstancePools != null
+              ? description.spotInstancePools
+              : newDescription.spotAllocationStrategy == "lowest-price" ? ancestorInstancesDistribution.spotInstancePools : null // return the spotInstancePools in ASG iff it is compatible with the spotAllocationStrategy
+
+            newDescription.launchTemplateOverridesForInstanceType = description.launchTemplateOverridesForInstanceType != null && !description.launchTemplateOverridesForInstanceType.isEmpty()
+              ? description.launchTemplateOverridesForInstanceType
+              : AsgConfigHelper.getDescriptionOverrides(ancestorAsg.mixedInstancesPolicy.launchTemplate.overrides)
+          }
         } else {
           def ancestorLaunchConfiguration = sourceRegionScopedProvider
             .asgService.getLaunchConfiguration(ancestorAsg.launchConfigurationName)
@@ -192,7 +230,7 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
           kernelId = ancestorLaunchConfiguration.kernelId
           userData = ancestorLaunchConfiguration.userData
           ramdiskId = ancestorLaunchConfiguration.ramdiskId
-          spotPrice = ancestorLaunchConfiguration.spotPrice
+          spotMaxPrice = ancestorLaunchConfiguration.spotPrice
           ebsOptimized = ancestorLaunchConfiguration.ebsOptimized
           instanceType = ancestorLaunchConfiguration.instanceType
           securityGroups = ancestorLaunchConfiguration.securityGroups
@@ -239,9 +277,14 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
         newDescription.ebsOptimized = description.ebsOptimized != null ? description.ebsOptimized : ebsOptimized
         newDescription.classicLinkVpcId = description.classicLinkVpcId != null ? description.classicLinkVpcId : classicLinkVPCId
         newDescription.classicLinkVpcSecurityGroups = description.classicLinkVpcSecurityGroups != null ? description.classicLinkVpcSecurityGroups : translateSecurityGroupIds(classicLinkVPCSecurityGroups)
-        newDescription.tags = description.tags != null ? description.tags : ancestorAsg.tags.collectEntries {
+        newDescription.tags = description.tags != null ? description.tags : ancestorAsg.tags?.collectEntries {
           [(it.getKey()): it.getValue()]
         }
+        newDescription.blockDevices = description.blockDevices != null ? description.blockDevices : basicAmazonDeployHandler.buildBlockDeviceMappingsFromSourceAsg(sourceRegionScopedProvider, ancestorAsg, description)
+        newDescription.capacityRebalance = description.capacityRebalance != null ? description.capacityRebalance : ancestorAsg.capacityRebalance
+        newDescription.lifecycleHooks = description.lifecycleHooks != null && !description.lifecycleHooks.isEmpty()
+          ? description.lifecycleHooks
+          : getLifecycleHooksFromAncestor(sourceRegion, ancestorAsg.autoScalingGroupName, description)
 
         /*
           Copy over the ancestor user data only if the UserDataProviders behavior is disabled and no user data is provided
@@ -253,7 +296,7 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
         }
 
         if (description.spotPrice == null) {
-          newDescription.spotPrice = spotPrice
+          newDescription.spotPrice = spotMaxPrice
         } else if (description.spotPrice) {
           newDescription.spotPrice = description.spotPrice
         } else { // ""
@@ -299,5 +342,24 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
       return data.purpose
     }
     return null
+  }
+
+  private List<AmazonAsgLifecycleHook> getLifecycleHooksFromAncestor(String region, String ancestorAsgName, BasicAmazonDeployDescription description) {
+    def autoscaling = amazonClientProvider.getAutoScaling(description.credentials, region, true)
+    def result = autoscaling.describeLifecycleHooks(new DescribeLifecycleHooksRequest().withAutoScalingGroupName(ancestorAsgName))
+    if (result && result.lifecycleHooks) {
+      return result.lifecycleHooks
+        .stream()
+        .collect { new AmazonAsgLifecycleHook(
+          roleARN: it.roleARN,
+          notificationTargetARN: it.notificationTargetARN,
+          notificationMetadata: it.notificationMetadata,
+          lifecycleTransition: AmazonAsgLifecycleHook.Transition.valueOfName(it.lifecycleTransition),
+          heartbeatTimeout: it.heartbeatTimeout,
+          defaultResult: it.defaultResult)
+      }
+    }
+
+    return []
   }
 }

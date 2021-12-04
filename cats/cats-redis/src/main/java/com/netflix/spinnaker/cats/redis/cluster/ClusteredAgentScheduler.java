@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.cats.redis.cluster;
 
+import static com.netflix.spinnaker.cats.agent.ExecutionInstrumentation.elapsedTimeMs;
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.agent.AgentExecution;
@@ -26,6 +28,7 @@ import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation;
 import com.netflix.spinnaker.cats.cluster.AgentIntervalProvider;
 import com.netflix.spinnaker.cats.cluster.NodeIdentity;
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider;
+import com.netflix.spinnaker.cats.cluster.ShardingFilter;
 import com.netflix.spinnaker.cats.module.CatsModuleAware;
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate;
@@ -60,6 +63,7 @@ public class ClusteredAgentScheduler extends CatsModuleAware
   private final Map<String, NextAttempt> activeAgents = new ConcurrentHashMap<>();
   private final NodeStatusProvider nodeStatusProvider;
   private final DynamicConfigService dynamicConfigService;
+  private final ShardingFilter shardingFilter;
 
   public ClusteredAgentScheduler(
       RedisClientDelegate redisClientDelegate,
@@ -68,7 +72,8 @@ public class ClusteredAgentScheduler extends CatsModuleAware
       NodeStatusProvider nodeStatusProvider,
       String enabledAgentPattern,
       Integer agentLockAcquisitionIntervalSeconds,
-      DynamicConfigService dynamicConfigService) {
+      DynamicConfigService dynamicConfigService,
+      ShardingFilter shardingFilter) {
     this(
         redisClientDelegate,
         nodeIdentity,
@@ -84,7 +89,8 @@ public class ClusteredAgentScheduler extends CatsModuleAware
                 .build()),
         enabledAgentPattern,
         agentLockAcquisitionIntervalSeconds,
-        dynamicConfigService);
+        dynamicConfigService,
+        shardingFilter);
   }
 
   public ClusteredAgentScheduler(
@@ -96,7 +102,8 @@ public class ClusteredAgentScheduler extends CatsModuleAware
       ExecutorService agentExecutionPool,
       String enabledAgentPattern,
       Integer agentLockAcquisitionIntervalSeconds,
-      DynamicConfigService dynamicConfigService) {
+      DynamicConfigService dynamicConfigService,
+      ShardingFilter shardingFilter) {
     this.redisClientDelegate = redisClientDelegate;
     this.nodeIdentity = nodeIdentity;
     this.intervalProvider = intervalProvider;
@@ -104,6 +111,7 @@ public class ClusteredAgentScheduler extends CatsModuleAware
     this.agentExecutionPool = agentExecutionPool;
     this.enabledAgentPattern = Pattern.compile(enabledAgentPattern);
     this.dynamicConfigService = dynamicConfigService;
+    this.shardingFilter = shardingFilter;
     Integer lockInterval =
         agentLockAcquisitionIntervalSeconds == null ? 1 : agentLockAcquisitionIntervalSeconds;
 
@@ -129,7 +137,7 @@ public class ClusteredAgentScheduler extends CatsModuleAware
         new ArrayList<>(agents.entrySet());
     Collections.shuffle(agentsEntrySet);
     for (Map.Entry<String, AgentExecutionAction> agent : agentsEntrySet) {
-      if (!skip.contains(agent.getKey())) {
+      if (shardingFilter.filter(agent.getValue().getAgent()) && !skip.contains(agent.getKey())) {
         final String agentType = agent.getKey();
         AgentIntervalProvider.Interval interval =
             intervalProvider.getInterval(agent.getValue().getAgent());
@@ -332,15 +340,14 @@ public class ClusteredAgentScheduler extends CatsModuleAware
     }
 
     Status execute() {
+      long startTimeMs = System.currentTimeMillis();
       try {
         executionInstrumentation.executionStarted(agent);
-        long startTime = System.nanoTime();
         agentExecution.executeAgent(agent);
-        executionInstrumentation.executionCompleted(
-            agent, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+        executionInstrumentation.executionCompleted(agent, elapsedTimeMs(startTimeMs));
         return Status.SUCCESS;
       } catch (Throwable cause) {
-        executionInstrumentation.executionFailed(agent, cause);
+        executionInstrumentation.executionFailed(agent, cause, elapsedTimeMs(startTimeMs));
         return Status.FAILURE;
       }
     }

@@ -20,7 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.op.handler;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesServerGroupCacheData;
 
-public interface ServerGroupHandler {
+public interface ServerGroupHandler extends CanReceiveTraffic {
   default KubernetesServerGroup fromCacheData(KubernetesServerGroupCacheData cacheData) {
     return KubernetesServerGroup.fromCacheData(cacheData);
   }

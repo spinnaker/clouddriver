@@ -33,7 +33,7 @@ import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spectator.api.Tag;
 import com.netflix.spectator.api.Timer;
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties.ManagedAccount;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.AccountResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
@@ -70,7 +70,9 @@ final class KubernetesCredentialsTest {
                     ImmutableList.of(), new KubernetesUnregisteredCustomResourceHandler())),
             new KubernetesKindRegistry.Factory(
                 new GlobalKubernetesKindRegistry(ImmutableList.of())),
-            new KubernetesSpinnakerKindMap(ImmutableList.of()));
+            new KubernetesSpinnakerKindMap(ImmutableList.of()),
+            new GlobalResourcePropertyRegistry(
+                ImmutableList.of(), new KubernetesUnregisteredCustomResourceHandler()));
     ManagedAccount managedAccount = new ManagedAccount();
     managedAccount.setName("my-account");
     return factory.build(managedAccount);

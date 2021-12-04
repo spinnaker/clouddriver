@@ -58,6 +58,7 @@ final class ReplacerTest {
 
   private static final String NAMESPACE = "ns";
   private static final String ACCOUNT = "my-account";
+  private static final String DEFAULT_DOCKER_IMAGE_BINDING = "match-name-and-tag";
 
   @Test
   void findReplicaSetDockerImages() {
@@ -105,7 +106,11 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            replicaSet,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -190,7 +195,8 @@ final class ReplacerTest {
             .reference("gcr.io/my-other-repository/some-image:some-tag")
             .build();
     ReplaceResult replaceResult =
-        artifactReplacer.replaceAll(pod, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+        artifactReplacer.replaceAll(
+            DEFAULT_DOCKER_IMAGE_BINDING, pod, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1Pod replacedPod =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1Pod.class);
@@ -272,7 +278,11 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            replicaSet,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -345,7 +355,11 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            replicaSet,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -460,7 +474,11 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            replicaSet,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -542,7 +560,11 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            replicaSet,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -673,7 +695,11 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            replicaSet,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -750,7 +776,11 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            replicaSet,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -908,7 +938,11 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            replicaSet,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -984,7 +1018,11 @@ final class ReplacerTest {
             .build();
     ReplaceResult replaceResult =
         artifactReplacer.replaceAll(
-            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            replicaSet,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
 
     V1ReplicaSet replacedReplicaSet =
         KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1ReplicaSet.class);
@@ -1098,7 +1136,8 @@ final class ReplacerTest {
             .putMetadata("account", ACCOUNT)
             .build();
     ReplaceResult replaceResult =
-        artifactReplacer.replaceAll(hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+        artifactReplacer.replaceAll(
+            DEFAULT_DOCKER_IMAGE_BINDING, hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1HorizontalPodAutoscaler replacedHpa =
         KubernetesCacheDataConverter.getResource(
@@ -1154,7 +1193,8 @@ final class ReplacerTest {
             .putMetadata("account", ACCOUNT)
             .build();
     ReplaceResult replaceResult =
-        artifactReplacer.replaceAll(hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+        artifactReplacer.replaceAll(
+            DEFAULT_DOCKER_IMAGE_BINDING, hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1HorizontalPodAutoscaler replacedHpa =
         KubernetesCacheDataConverter.getResource(
@@ -1185,7 +1225,8 @@ final class ReplacerTest {
             .putMetadata("account", ACCOUNT)
             .build();
     ReplaceResult replaceResult =
-        artifactReplacer.replaceAll(hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+        artifactReplacer.replaceAll(
+            DEFAULT_DOCKER_IMAGE_BINDING, hpa, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
 
     V1HorizontalPodAutoscaler replacedHpa =
         KubernetesCacheDataConverter.getResource(
@@ -1224,5 +1265,105 @@ final class ReplacerTest {
                 .endSpec()
                 .build());
     return gson.fromJson(hpa, KubernetesManifest.class);
+  }
+
+  @Test
+  void findCronJobDockerImages() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.cronJobDockerImage()));
+    KubernetesManifest cronJob = getCronJob();
+
+    Set<Artifact> artifacts = artifactReplacer.findAll(cronJob);
+    assertThat(artifacts).hasSize(2);
+
+    Map<String, Artifact> byReference =
+        artifacts.stream().collect(toImmutableMap(Artifact::getReference, a -> a));
+
+    assertThat(byReference.get("gcr.io/my-repository/my-image:my-tag"))
+        .satisfies(
+            artifact -> {
+              assertThat(artifact).isNotNull();
+              assertThat(artifact.getType()).isEqualTo("docker/image");
+              assertThat(artifact.getName()).isEqualTo("gcr.io/my-repository/my-image:my-tag");
+              assertThat(artifact.getReference()).isEqualTo("gcr.io/my-repository/my-image:my-tag");
+            });
+
+    assertThat(byReference.get("gcr.io/my-other-repository/some-image"))
+        .satisfies(
+            artifact -> {
+              assertThat(artifact).isNotNull();
+              assertThat(artifact.getType()).isEqualTo("docker/image");
+              assertThat(artifact.getName()).isEqualTo("gcr.io/my-other-repository/some-image");
+              assertThat(artifact.getReference())
+                  .isEqualTo("gcr.io/my-other-repository/some-image");
+            });
+  }
+
+  @Test
+  void replaceCronJobDockerImages() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.cronJobDockerImage()));
+    KubernetesManifest cronJob = getCronJob();
+
+    Artifact inputArtifact =
+        Artifact.builder()
+            .type("docker/image")
+            .name("gcr.io/my-other-repository/some-image")
+            .reference("gcr.io/my-other-repository/some-image:some-tag")
+            .build();
+    ReplaceResult replaceResult =
+        artifactReplacer.replaceAll(
+            DEFAULT_DOCKER_IMAGE_BINDING,
+            cronJob,
+            ImmutableList.of(inputArtifact),
+            NAMESPACE,
+            ACCOUNT);
+
+    V1beta1CronJob replacedCronJob =
+        KubernetesCacheDataConverter.getResource(replaceResult.getManifest(), V1beta1CronJob.class);
+    assertThat(
+            replacedCronJob
+                .getSpec()
+                .getJobTemplate()
+                .getSpec()
+                .getTemplate()
+                .getSpec()
+                .getContainers())
+        .extracting(V1Container::getImage)
+        .containsExactly(
+            // Only the second image should have been replaced.
+            "gcr.io/my-repository/my-image:my-tag",
+            "gcr.io/my-other-repository/some-image:some-tag");
+
+    Set<Artifact> artifacts = replaceResult.getBoundArtifacts();
+    assertThat(artifacts).hasSize(1);
+    assertThat(Iterables.getOnlyElement(artifacts)).isEqualTo(inputArtifact);
+  }
+
+  private KubernetesManifest getCronJob() {
+    String cronJob =
+        json.serialize(
+            new V1beta1CronJobBuilder()
+                .withNewSpec()
+                .withNewJobTemplate()
+                .withNewSpec()
+                .withNewTemplate()
+                .withNewSpec()
+                .addNewContainer()
+                .withName("my-image-with-tag")
+                .withImage("gcr.io/my-repository/my-image:my-tag")
+                .endContainer()
+                .addNewContainer()
+                .withName("my-image-without-tag")
+                .withImage("gcr.io/my-other-repository/some-image")
+                .endContainer()
+                .endSpec()
+                .endTemplate()
+                .endSpec()
+                .endJobTemplate()
+                .endSpec()
+                .build());
+
+    return gson.fromJson(cronJob, KubernetesManifest.class);
   }
 }

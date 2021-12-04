@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.cats.cache
 
+import org.junit.Rule
+import org.junit.rules.TestName
 import spock.lang.Specification
 import spock.lang.Subject
 import spock.lang.Unroll
@@ -25,7 +27,10 @@ abstract class CacheSpec extends Specification {
     @Subject
     Cache cache
 
+    @Rule TestName testName = new TestName()
+
     def setup() {
+        println "--------------- Test " + testName.getMethodName()
         cache = getSubject()
     }
 
@@ -96,6 +101,7 @@ abstract class CacheSpec extends Specification {
         'bla*'                  | ['blaTEST', 'blaTESTbla', 'blaPest', 'blaFEST']
         'bla[TF]EST'            | ['blaTEST', 'blaFEST']
         'bla????'               | ['blaTEST', 'blaPest', 'blaFEST']
+        'bla____'               | []
         '??a[FTP][Ee][Ss][Tt]*' | ['blaTEST', 'blaTESTbla', 'blaPest', 'blaFEST']
 
         identifiers = ['blaTEST', 'TESTbla', 'blaTESTbla', 'blaPest', 'blaFEST']

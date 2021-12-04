@@ -16,9 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.gitRepo;
 
+import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.credentials.CredentialsTypeProperties;
+import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -34,7 +37,10 @@ class GitRepoArtifactConfiguration {
 
   @Bean
   public CredentialsTypeProperties<GitRepoArtifactCredentials, GitRepoArtifactAccount>
-      gitCredentialsProperties() {
+      gitCredentialsProperties(
+          @Value("${artifacts.git-repo.git-executable:git}") String gitExecutable,
+          JobExecutor jobExecutor,
+          GitRepoFileSystem gitRepoFileSystem) {
     return CredentialsTypeProperties.<GitRepoArtifactCredentials, GitRepoArtifactAccount>builder()
         .type(GitRepoArtifactCredentials.CREDENTIALS_TYPE)
         .credentialsClass(GitRepoArtifactCredentials.class)
@@ -43,12 +49,18 @@ class GitRepoArtifactConfiguration {
         .credentialsParser(
             a -> {
               try {
-                return new GitRepoArtifactCredentials(a);
-              } catch (Exception e) {
+                return new GitRepoArtifactCredentials(
+                    new GitJobExecutor(a, jobExecutor, gitExecutable), gitRepoFileSystem);
+              } catch (IOException e) {
                 log.warn("Failure instantiating git artifact account {}: ", a, e);
                 return null;
               }
             })
         .build();
+  }
+
+  @Bean
+  public GitRepoFileSystem gitRepoFileSystem() {
+    return new GitRepoFileSystem(gitRepoArtifactProviderProperties);
   }
 }

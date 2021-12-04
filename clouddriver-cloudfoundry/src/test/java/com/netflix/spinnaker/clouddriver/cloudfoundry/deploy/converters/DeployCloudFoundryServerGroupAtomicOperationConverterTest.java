@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
@@ -29,7 +30,11 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.ArtifactCredenti
 import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessRequest;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryDomain;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryLoadBalancer;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
@@ -37,8 +42,12 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCrede
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
 import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
@@ -73,22 +82,32 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
 
       when(cloudFoundryClient.getApplications().findServerGroupId(any(), any()))
           .thenReturn("servergroup-id");
+
+      when(cloudFoundryClient.getDomains().getDefault())
+          .thenReturn(CloudFoundryDomain.builder().name("cf-app.com").build());
+      when(cloudFoundryClient.getRoutes().find(any(), any()))
+          .thenReturn(CloudFoundryLoadBalancer.builder().build())
+          .thenReturn(null);
     }
 
     return new CloudFoundryCredentials(
         name,
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
+        "managerUri",
+        "metricsUri",
+        "apiHost",
+        "username",
+        "password",
+        "environment",
+        false,
         false,
         500,
         cacheRepository,
         null,
         ForkJoinPool.commonPool(),
-        emptyMap()) {
+        emptyMap(),
+        new OkHttpClient(),
+        new CloudFoundryConfigurationProperties.ClientConfig(),
+        new CloudFoundryConfigurationProperties.LocalCacheConfig()) {
       public CloudFoundryClient getClient() {
         return cloudFoundryClient;
       }
@@ -121,7 +140,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
 
   private final DeployCloudFoundryServerGroupAtomicOperationConverter converter =
       new DeployCloudFoundryServerGroupAtomicOperationConverter(
-          null, artifactCredentialsRepository);
+          null, artifactCredentialsRepository, emptyList());
 
   @BeforeEach
   void initializeClassUnderTest() {
@@ -168,7 +187,8 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                 .setServices(List.of("service1"))
                 .setRoutes(List.of("www.example.com/foo"))
                 .setEnv(Map.of("token", "ASDF"))
-                .setCommand("some-command"));
+                .setCommand("some-command")
+                .setProcesses(emptyList()));
   }
 
   @Test
@@ -181,7 +201,8 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                 .setInstances(1)
                 .setMemory("1024")
                 .setDiskQuota("1024")
-                .setBuildpacks(List.of("buildpack1")));
+                .setBuildpacks(List.of("buildpack1"))
+                .setProcesses(emptyList()));
   }
 
   @Test
@@ -194,7 +215,8 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                 .setInstances(1)
                 .setMemory("1024")
                 .setDiskQuota("1024")
-                .setBuildpacks(Collections.emptyList()));
+                .setBuildpacks(Collections.emptyList())
+                .setProcesses(emptyList()));
   }
 
   @Test
@@ -207,7 +229,8 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                 .setInstances(1)
                 .setMemory("1024")
                 .setDiskQuota("1024")
-                .setBuildpacks(Collections.emptyList()));
+                .setBuildpacks(Collections.emptyList())
+                .setProcesses(emptyList()));
   }
 
   @Test
@@ -215,19 +238,20 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
     Map<String, Object> description =
         ImmutableMap.of(
             "applicationArtifact",
-                ImmutableMap.of(
-                    "artifactAccount",
-                    "destinationAccount",
-                    "type",
-                    "cloudfoundry/app",
-                    "name",
-                    "server-group-name",
-                    "location",
-                    "cf-region"),
-            "credentials", "test",
+            ImmutableMap.of(
+                "artifactAccount",
+                "destinationAccount",
+                "type",
+                "cloudfoundry/app",
+                "name",
+                "server-group-name",
+                "location",
+                "cf-region"),
+            "credentials",
+            "test",
             "manifest",
-                ImmutableList.of(
-                    ImmutableMap.of("applications", ImmutableList.of(ImmutableMap.of()))));
+            ImmutableList.of(
+                ImmutableMap.of("applications", List.of(Map.of("random-route", true)))));
 
     DeployCloudFoundryServerGroupDescription result = converter.convertDescription(description);
 
@@ -238,5 +262,46 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
     assertThat(result.getApplicationArtifact().getArtifactAccount())
         .isEqualTo("destinationAccount");
     assertThat(result.getApplicationArtifact().getUuid()).isEqualTo("servergroup-id");
+    assertThat(result.getApplicationAttributes().getRoutes()).isNotEmpty();
+  }
+
+  @Test
+  void convertDescriptionWithProcesses() {
+    final Map input =
+        Map.of(
+            "applications",
+            List.of(
+                Map.of(
+                    "processes",
+                    List.of(
+                        new ProcessRequest().setType("web").setInstances(2).setMemory("800M")))));
+
+    assertThat(converter.convertManifest(input))
+        .isEqualToComparingFieldByFieldRecursively(
+            new DeployCloudFoundryServerGroupDescription.ApplicationAttributes()
+                .setInstances(1)
+                .setMemory("1024")
+                .setDiskQuota("1024")
+                .setBuildpacks(Collections.emptyList())
+                .setProcesses(
+                    List.of(
+                        new ProcessRequest().setType("web").setInstances(2).setMemory("800M"))));
+  }
+
+  @Test
+  void convertRandomRoutes() {
+    DeployCloudFoundryServerGroupDescription.ApplicationAttributes applicationAttributes =
+        converter.convertManifest(
+            ImmutableMap.of("applications", List.of(Map.of("random-route", true))));
+
+    assertThat(applicationAttributes.getRandomRoute()).isTrue();
+  }
+
+  @Test
+  void convertTimeout() {
+    DeployCloudFoundryServerGroupDescription.ApplicationAttributes applicationAttributes =
+        converter.convertManifest(ImmutableMap.of("applications", List.of(Map.of("timeout", 60))));
+
+    assertThat(applicationAttributes.getTimeout() == 60);
   }
 }

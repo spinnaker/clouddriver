@@ -46,7 +46,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.Kubernete
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroupManager;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroupSummary;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider.Sort;
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.AccountResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
@@ -588,15 +588,15 @@ final class KubernetesDataProviderIntegrationTest {
                     .map(
                         file ->
                             ManifestFetcher.getManifest(
-                                KubernetesDataProviderIntegrationTest.class, file))
+                                    KubernetesDataProviderIntegrationTest.class, file)
+                                .get(0))
                     .filter(m -> invocation.getArgument(1, List.class).contains(m.getKind()))
                     .collect(toImmutableList()));
     return jobExecutor;
   }
 
   private static KubernetesNamedAccountCredentials getNamedAccountCredentials() {
-    KubernetesConfigurationProperties.ManagedAccount managedAccount =
-        new KubernetesConfigurationProperties.ManagedAccount();
+    ManagedAccount managedAccount = new ManagedAccount();
     managedAccount.setName(ACCOUNT_NAME);
     managedAccount.setNamespaces(manifestsByNamespace.keySet().asList());
     managedAccount.setKinds(ImmutableList.of("deployment", "replicaSet", "service", "pod"));
@@ -610,7 +610,9 @@ final class KubernetesDataProviderIntegrationTest {
             new ConfigFileService(new CloudConfigResourceService()),
             new AccountResourcePropertyRegistry.Factory(resourcePropertyRegistry),
             new KubernetesKindRegistry.Factory(new GlobalKubernetesKindRegistry()),
-            kindMap);
+            kindMap,
+            new GlobalResourcePropertyRegistry(
+                ImmutableList.of(), new KubernetesUnregisteredCustomResourceHandler()));
     return new KubernetesNamedAccountCredentials(managedAccount, credentialFactory);
   }
 

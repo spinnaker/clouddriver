@@ -16,8 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client;
 
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.collectPageResources;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.safelyCall;
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.*;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ConfigFeatureFlag.ConfigFlag.SERVICE_INSTANCE_SHARING;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.State.*;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.Type.*;
@@ -25,6 +24,7 @@ import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Ser
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceInstance.Type.USER_PROVIDED_SERVICE_INSTANCE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
+import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.isBlank;
@@ -36,7 +36,10 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.ServiceInstance
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.ServiceInstanceResponse;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.CreateSharedServiceInstances;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryService;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryServiceInstance;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryServicePlan;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -45,7 +48,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import okhttp3.ResponseBody;
 import org.springframework.util.StringUtils;
+import retrofit2.Call;
 
 @RequiredArgsConstructor
 public class ServiceInstances {
@@ -53,9 +58,18 @@ public class ServiceInstances {
   private final ConfigService configApi;
   private final Spaces spaces;
 
+  public List<Resource<ServiceBinding>> findAllServiceBindingsByServiceName(
+      String region, String serviceName) {
+    CloudFoundryServiceInstance serviceInstance = getServiceInstance(region, serviceName);
+    if (serviceInstance == null) {
+      return emptyList();
+    }
+    return findAllServiceBindingsByService(serviceInstance.getId());
+  }
+
   public void createServiceBinding(CreateServiceBinding createServiceBinding) {
     try {
-      safelyCall(() -> api.createServiceBinding(createServiceBinding)).get();
+      safelyCall(() -> api.createServiceBinding(createServiceBinding));
     } catch (CloudFoundryApiException e) {
       if (e.getErrorCode() == null) throw e;
 
@@ -74,6 +88,12 @@ public class ServiceInstances {
         "service bindings", pg -> api.getAllServiceBindings(singletonList(bindingsQuery)));
   }
 
+  public List<Resource<ServiceBinding>> findAllServiceBindingsByService(String serviceGuid) {
+    String bindingsQuery = "service_instance_guid:" + serviceGuid;
+    return collectPageResources(
+        "service bindings", pg -> api.getAllServiceBindings(singletonList(bindingsQuery)));
+  }
+
   public void deleteServiceBinding(String serviceBindingGuid) {
     safelyCall(() -> api.deleteServiceBinding(serviceBindingGuid));
   }
@@ -82,7 +102,7 @@ public class ServiceInstances {
     List<Resource<Service>> services =
         collectPageResources(
             "services by name", pg -> api.findService(pg, singletonList("label:" + serviceName)));
-    return Optional.ofNullable(services.get(0)).orElse(null);
+    return ofNullable(services.get(0)).orElse(null);
   }
 
   private List<CloudFoundryServicePlan> findAllServicePlansByServiceName(String serviceName) {
@@ -139,6 +159,23 @@ public class ServiceInstances {
     return serviceInstances;
   }
 
+  public List<Resource<? extends AbstractServiceInstance>>
+      findAllVersionedServiceInstancesBySpaceAndName(
+          CloudFoundrySpace space, String serviceInstanceName) {
+    List<String> serviceInstanceQuery =
+        Arrays.asList(
+            "name>=" + serviceInstanceName,
+            "organization_guid:" + space.getOrganization().getId(),
+            "space_guid:" + space.getId());
+    List<Resource<? extends AbstractServiceInstance>> serviceInstances = new ArrayList<>();
+    serviceInstances.addAll(
+        collectPageResources("service instances", pg -> api.all(pg, serviceInstanceQuery)));
+    serviceInstances.addAll(
+        collectPageResources(
+            "service instances", pg -> api.allUserProvided(pg, serviceInstanceQuery)));
+    return serviceInstances;
+  }
+
   // Visible for testing
   CloudFoundryServiceInstance getOsbServiceInstanceByRegion(
       String region, String serviceInstanceName) {
@@ -146,7 +183,7 @@ public class ServiceInstances {
         spaces
             .findSpaceByRegion(region)
             .orElseThrow(() -> new CloudFoundryApiException("Cannot find region '" + region + "'"));
-    return Optional.ofNullable(getOsbServiceInstance(space, serviceInstanceName))
+    return ofNullable(getOsbServiceInstance(space, serviceInstanceName))
         .orElseThrow(
             () ->
                 new CloudFoundryApiException(
@@ -166,7 +203,7 @@ public class ServiceInstances {
       throw new CloudFoundryApiException(
           "Please specify a name for the " + gerund + " service instance");
     }
-    sharingRegions = Optional.ofNullable(sharingRegions).orElse(Collections.emptySet());
+    sharingRegions = ofNullable(sharingRegions).orElse(Collections.emptySet());
     if (sharingRegions.size() == 0) {
       throw new CloudFoundryApiException(
           "Please specify a list of regions for " + gerund + " '" + serviceInstanceName + "'");
@@ -213,9 +250,7 @@ public class ServiceInstances {
   Void checkServiceShareable(
       String serviceInstanceName, CloudFoundryServiceInstance serviceInstance) {
     ConfigFeatureFlag featureFlag =
-        Optional.ofNullable(configApi.getConfigFeatureFlags())
-            .orElse(Collections.emptySet())
-            .stream()
+        safelyCall(configApi::getConfigFeatureFlags).orElse(Collections.emptySet()).stream()
             .filter(it -> it.getName() == SERVICE_INSTANCE_SHARING)
             .findFirst()
             .orElseThrow(
@@ -227,18 +262,18 @@ public class ServiceInstances {
           "'service_instance_sharing' flag must be enabled in order to share services");
     }
     ServicePlan plan =
-        Optional.ofNullable(api.findServicePlanByServicePlanId(serviceInstance.getPlanId()))
+        safelyCall(() -> api.findServicePlanByServicePlanId(serviceInstance.getPlanId()))
             .map(Resource::getEntity)
             .orElseThrow(
                 () ->
                     new CloudFoundryApiException(
                         "The service plan for 'new-service-plan-name' was not found"));
     String extraString =
-        Optional.ofNullable(api.findServiceByServiceId(plan.getServiceGuid()))
+        safelyCall(() -> api.findServiceByServiceId(plan.getServiceGuid()))
             .map(Resource::getEntity)
             .map(
                 s ->
-                    Optional.ofNullable(s.getExtra())
+                    ofNullable(s.getExtra())
                         .orElseThrow(
                             () ->
                                 new CloudFoundryApiException(
@@ -314,7 +349,7 @@ public class ServiceInstances {
 
     unshareFromSpaces.forEach(
         space ->
-            Optional.ofNullable(spaces.getServiceInstanceByNameAndSpace(serviceInstanceName, space))
+            ofNullable(spaces.getServiceInstanceByNameAndSpace(serviceInstanceName, space))
                 .map(
                     si ->
                         safelyCall(
@@ -334,21 +369,19 @@ public class ServiceInstances {
             .findSpaceByRegion(region)
             .orElseThrow(() -> new CloudFoundryApiException("Cannot find region '" + region + "'"));
     Supplier<CloudFoundryServiceInstance> si =
-        () -> Optional.ofNullable(getOsbServiceInstance(space, serviceInstanceName)).orElse(null);
+        () -> ofNullable(getOsbServiceInstance(space, serviceInstanceName)).orElse(null);
 
     Supplier<CloudFoundryServiceInstance> up =
-        () ->
-            Optional.ofNullable(getUserProvidedServiceInstance(space, serviceInstanceName))
-                .orElse(null);
+        () -> ofNullable(getUserProvidedServiceInstance(space, serviceInstanceName)).orElse(null);
 
-    return Optional.ofNullable(si.get()).orElseGet(up);
+    return ofNullable(si.get()).orElseGet(up);
   }
 
   @Nullable
   @VisibleForTesting
   CloudFoundryServiceInstance getOsbServiceInstance(
       CloudFoundrySpace space, @Nullable String serviceInstanceName) {
-    return Optional.ofNullable(getServiceInstance(api::all, space, serviceInstanceName))
+    return ofNullable(getServiceInstance(api::all, space, serviceInstanceName))
         .map(
             r ->
                 CloudFoundryServiceInstance.builder()
@@ -356,6 +389,7 @@ public class ServiceInstances {
                     .planId(r.getEntity().getServicePlanGuid())
                     .type(r.getEntity().getType().toString())
                     .status(r.getEntity().getLastOperation().getState().toString())
+                    .lastOperationDescription(r.getEntity().getLastOperation().getDescription())
                     .id(r.getMetadata().getGuid())
                     .build())
         .orElse(null);
@@ -365,7 +399,7 @@ public class ServiceInstances {
   @VisibleForTesting
   CloudFoundryServiceInstance getUserProvidedServiceInstance(
       CloudFoundrySpace space, @Nullable String serviceInstanceName) {
-    return Optional.ofNullable(getServiceInstance(api::allUserProvided, space, serviceInstanceName))
+    return ofNullable(getServiceInstance(api::allUserProvided, space, serviceInstanceName))
         .map(
             r ->
                 CloudFoundryServiceInstance.builder()
@@ -379,7 +413,7 @@ public class ServiceInstances {
 
   @Nullable
   private <T> Resource<T> getServiceInstance(
-      BiFunction<Integer, List<String>, Page<T>> func,
+      BiFunction<Integer, List<String>, Call<Page<T>>> func,
       CloudFoundrySpace space,
       @Nullable String serviceInstanceName) {
     if (isBlank(serviceInstanceName)) {
@@ -445,7 +479,8 @@ public class ServiceInstances {
   }
 
   private void destroyServiceInstance(
-      Function<Integer, Page<ServiceBinding>> fetchPage, Runnable delete) {
+      Function<Integer, Call<Page<ServiceBinding>>> fetchPage,
+      Supplier<Call<ResponseBody>> delete) {
     List<Resource<ServiceBinding>> serviceBindings =
         collectPageResources("service bindings", fetchPage);
     if (!serviceBindings.isEmpty()) {
@@ -454,7 +489,7 @@ public class ServiceInstances {
               + serviceBindings.size()
               + " service binding(s) exist");
     }
-    safelyCall(delete::run);
+    safelyCall(delete);
   }
 
   public ServiceInstanceResponse createServiceInstance(
@@ -500,10 +535,12 @@ public class ServiceInstances {
             api::updateServiceInstance,
             api::all,
             c -> getOsbServiceInstance(space, c.getName()),
-            (c, r) -> {
-              if (!r.getPlanId().equals(c.getServicePlanGuid())) {
+            (createServiceInstance, r) -> {
+              if (!r.getPlanId().equals(createServiceInstance.getServicePlanGuid())) {
                 throw new CloudFoundryApiException(
-                    "A service with name '" + c.getName() + "' exists but has a different plan");
+                    "A service with name '"
+                        + createServiceInstance.getName()
+                        + "' exists but has a different plan");
               }
             },
             updatable,
@@ -547,9 +584,9 @@ public class ServiceInstances {
   private <T extends AbstractCreateServiceInstance, S extends AbstractServiceInstance>
       ServiceInstanceResponse createServiceInstance(
           T command,
-          Function<T, Resource<S>> create,
-          BiFunction<String, T, Resource<S>> update,
-          BiFunction<Integer, List<String>, Page<S>> getAllServices,
+          Function<T, Call<Resource<S>>> create,
+          BiFunction<String, T, Call<Resource<S>>> update,
+          BiFunction<Integer, List<String>, Call<Page<S>>> getAllServices,
           Function<T, CloudFoundryServiceInstance> getServiceInstance,
           BiConsumer<T, CloudFoundryServiceInstance> updateValidation,
           boolean updatable,

@@ -38,14 +38,11 @@ plugins {
 }
 
 allprojects {
-  repositories {
-    jcenter()
-  }
+  apply plugin: 'io.spinnaker.project'
 }
 
 subprojects {
-  group = "com.netflix.spinnaker.clouddriver"
-  apply plugin: 'io.spinnaker.project'
+  group = "io.spinnaker.clouddriver"
 
   if (name != "clouddriver-bom" && name != "clouddriver-api") {
     apply plugin: 'java-library'
@@ -58,12 +55,12 @@ subprojects {
     sourceSets.main.groovy.srcDirs += ["src/main/java"]
 
     dependencies {
-      implementation platform("com.netflix.spinnaker.kork:kork-bom:$korkVersion")
+      implementation platform("io.spinnaker.kork:kork-bom:$korkVersion")
 
-      annotationProcessor platform("com.netflix.spinnaker.kork:kork-bom:$korkVersion")
+      annotationProcessor platform("io.spinnaker.kork:kork-bom:$korkVersion")
       annotationProcessor "org.projectlombok:lombok"
       annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
-      testAnnotationProcessor platform("com.netflix.spinnaker.kork:kork-bom:$korkVersion")
+      testAnnotationProcessor platform("io.spinnaker.kork:kork-bom:$korkVersion")
       testAnnotationProcessor "org.projectlombok:lombok"
       testRuntimeOnly "org.junit.vintage:junit-vintage-engine" // Required for Spock tests to execute along with Junit5 tests.
     }

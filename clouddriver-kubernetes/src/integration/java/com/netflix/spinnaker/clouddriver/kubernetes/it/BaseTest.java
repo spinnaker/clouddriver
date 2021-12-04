@@ -21,9 +21,11 @@ import static org.hamcrest.Matchers.hasItems;
 
 import com.netflix.spinnaker.clouddriver.Main;
 import com.netflix.spinnaker.clouddriver.kubernetes.it.containers.KubernetesCluster;
+import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.TestLifecycleListener;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.TestPropertySource;
@@ -32,17 +34,20 @@ import org.springframework.test.context.TestPropertySource;
     classes = {Main.class},
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = {"spring.config.location = classpath:clouddriver.yml"})
+@ExtendWith(TestLifecycleListener.class)
 public abstract class BaseTest {
 
   public static final String APP1_NAME = "testApp1";
+  public static final String APP2_NAME = "testApp2";
   public static final String ACCOUNT1_NAME = "account1";
+  public static final String ACCOUNT2_NAME = "account2";
 
   @LocalServerPort int port;
 
   public static final KubernetesCluster kubeCluster;
 
   static {
-    kubeCluster = KubernetesCluster.getInstance(ACCOUNT1_NAME);
+    kubeCluster = KubernetesCluster.getInstance();
     kubeCluster.start();
     RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
   }

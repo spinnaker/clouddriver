@@ -6,6 +6,7 @@ import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.DefaultJsonCacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.cache.WriteableCache
+import com.netflix.spinnaker.cats.provider.ProviderCacheConfiguration
 import com.netflix.spinnaker.cats.sql.SqlUtil
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND
 import com.netflix.spinnaker.config.SqlConstraints
@@ -58,7 +59,8 @@ class SqlCache(
   tableNamespace: String?,
   private val cacheMetrics: SqlCacheMetrics,
   private val dynamicConfigService: DynamicConfigService,
-  private val sqlConstraints: SqlConstraints
+  private val sqlConstraints: SqlConstraints,
+  private val providerCacheConfiguration: ProviderCacheConfiguration
 ) : WriteableCache {
 
   companion object {
@@ -129,14 +131,20 @@ class SqlCache(
 
     createTables(type)
 
-    if (items.isNullOrEmpty() || items.none { it.id != "_ALL_" }) {
-      return
+    if (!providerCacheConfiguration.supportsFullEviction()) {
+      if (items.isNullOrEmpty() || items.none { it.id != "_ALL_" }) {
+        return
+      }
+    }
+
+    if (items.isNullOrEmpty()) {
+      log.warn("No cacheable items supplied, collection will be cleared (type: {}, agent: {})", type, agentHint)
     }
 
     var agent: String? = agentHint
 
     val first: String? = items
-      .firstOrNull { it.relationships.isNotEmpty() }
+      ?.firstOrNull { it.relationships.isNotEmpty() }
       ?.relationships
       ?.keys
       ?.firstOrNull()
@@ -150,9 +158,9 @@ class SqlCache(
     }
 
     val storeResult = if (authoritative) {
-      storeAuthoritative(type, agent, items, cleanup)
+      storeAuthoritative(type, agent, items ?: mutableListOf(), cleanup)
     } else {
-      storeInformative(type, items, cleanup)
+      storeInformative(type, items ?: mutableListOf(), cleanup)
     }
 
     cacheMetrics.merge(
@@ -164,7 +172,8 @@ class SqlCache(
       relationshipsStored = storeResult.relationshipsStored.get(),
       selectOperations = storeResult.selectQueries.get(),
       writeOperations = storeResult.writeQueries.get(),
-      deleteOperations = storeResult.deleteQueries.get()
+      deleteOperations = storeResult.deleteQueries.get(),
+      duplicates = storeResult.duplicates.get()
     )
   }
 
@@ -437,7 +446,11 @@ class SqlCache(
       jooq
         .select(field("id"))
         .from(table(sqlNames.resourceTableName(type)))
-        .where(field("id").like(glob.replace('*', '%')))
+        // The underscore is treated as a single character wildcard in currently supported sql backends (mysql/psql)
+        // leading to inconsistencies in current usages of `filterIdentifiers()`.
+        //
+        // If single character wildcard is desired, use '?' rather than '_'.
+        .where(field("id").like(glob.replace('*', '%').replace("_", """\_""")))
     }
 
     val ids = try {
@@ -540,7 +553,12 @@ class SqlCache(
     items
       .filter { it.id != "_ALL_" && it.id.length <= sqlConstraints.maxIdLength }
       .forEach {
-        currentIds.add(it.id)
+        if (!currentIds.add(it.id)) {
+            log.warn("agent: '${agent}': type: '$type': only one item with id '${it.id}' allowed")
+            result.duplicates.incrementAndGet()
+            // Skip the rest of this iteration
+            return@forEach
+        }
         val nullKeys = it.attributes
           .filter { e -> e.value == null }
           .keys
@@ -1564,6 +1582,7 @@ class SqlCache(
     val selectQueries = AtomicInteger(0)
     val writeQueries = AtomicInteger(0)
     val deleteQueries = AtomicInteger(0)
+    val duplicates = AtomicInteger(0)
   }
 }
 

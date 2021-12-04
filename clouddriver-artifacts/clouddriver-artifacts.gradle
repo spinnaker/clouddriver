@@ -1,5 +1,22 @@
+plugins {
+  id 'com.adarshr.test-logger' version '2.1.0'
+}
+
 tasks.compileGroovy.enabled = false
-sourceSets.main.java.srcDirs = ['src/main/java']
+sourceSets {
+  main {
+    java.srcDirs = ['src/main/java']
+  }
+  integration {
+    java.srcDirs = ["src/integration/java"]
+    resources.srcDirs = ["src/integration/resources"]
+  }
+}
+
+configurations {
+  integrationImplementation.extendsFrom testImplementation
+  integrationRuntime.extendsFrom testRuntime
+}
 
 dependencies {
   implementation project(":clouddriver-api")
@@ -15,11 +32,11 @@ dependencies {
   implementation "com.google.apis:google-api-services-storage:v1-rev141-1.25.0"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
   implementation "com.netflix.frigga:frigga"
-  implementation "com.netflix.spinnaker.kork:kork-artifacts"
-  implementation "com.netflix.spinnaker.kork:kork-credentials"
-  implementation "com.netflix.spinnaker.kork:kork-annotations"
-  implementation "com.netflix.spinnaker.kork:kork-exceptions"
-  implementation "com.netflix.spinnaker.kork:kork-security"
+  implementation "io.spinnaker.kork:kork-artifacts"
+  implementation "io.spinnaker.kork:kork-credentials"
+  implementation "io.spinnaker.kork:kork-annotations"
+  implementation "io.spinnaker.kork:kork-exceptions"
+  implementation "io.spinnaker.kork:kork-security"
   implementation "com.oracle.oci.sdk:oci-java-sdk-core"
   implementation "com.squareup.okhttp:okhttp"
   implementation "com.sun.jersey:jersey-client:1.9.1"
@@ -29,14 +46,51 @@ dependencies {
   implementation "org.codehaus.groovy:groovy-all"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
-  implementation "org.eclipse.jgit:org.eclipse.jgit:5.7.0.202003110725-r"
-  implementation "org.eclipse.jgit:org.eclipse.jgit.archive:5.7.0.202003110725-r"
 
   testImplementation "com.github.tomakehurst:wiremock:latest.release"
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit-pioneer:junit-pioneer:0.3.0"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
   testImplementation "org.junit.jupiter:junit-jupiter-params"
+  testImplementation "org.junit.platform:junit-platform-runner"
+  testImplementation "org.mockito:mockito-core"
+  testImplementation "org.testcontainers:testcontainers"
+  testImplementation "org.testcontainers:localstack"
   testImplementation "ru.lanwen.wiremock:wiremock-junit5:1.2.0"
+
   testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+
+  integrationImplementation project(":clouddriver-web")
+  integrationImplementation project(":clouddriver-artifacts")
+  integrationImplementation "org.springframework.boot:spring-boot-starter-test"
+  integrationImplementation "org.testcontainers:testcontainers"
+  integrationImplementation "org.testcontainers:mysql"
+  integrationImplementation "org.testcontainers:junit-jupiter"
+  integrationImplementation "mysql:mysql-connector-java"
+  integrationImplementation ("io.rest-assured:rest-assured:4.0.0") {
+    // Exclude groovy pulled in by rest-assured, so we use kork's version
+    exclude group: "org.codehaus.groovy", module: "groovy"
+  }
+}
+
+task integrationTest(type: Test) {
+  description = 'Runs artifacts integration tests.'
+  group = 'verification'
+
+  useJUnitPlatform()
+
+  environment "BUILD_DIR", buildDir
+  environment "GIT_WRAPPER", "${project.rootDir.toString()}/clouddriver-artifacts/src/integration/resources/git-wrapper.sh"
+
+  testClassesDirs = sourceSets.integration.output.classesDirs
+  classpath = sourceSets.integration.runtimeClasspath
+  shouldRunAfter test
+
+  testlogger {
+    theme 'standard'
+    showStandardStreams true
+    showPassedStandardStreams false
+    showFailedStandardStreams true
+    showPassed false
+  }
 }

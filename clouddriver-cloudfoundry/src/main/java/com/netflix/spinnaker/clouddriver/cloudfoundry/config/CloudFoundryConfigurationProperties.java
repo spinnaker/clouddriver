@@ -22,6 +22,7 @@ import java.util.*;
 import lombok.*;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -43,6 +44,10 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
 
   private int apiRequestParallelism = 100;
 
+  @NestedConfigurationProperty private ClientConfig client = new ClientConfig();
+
+  @NestedConfigurationProperty private LocalCacheConfig localCacheConfig = new LocalCacheConfig();
+
   @Override
   public void destroy() {
     this.accounts = new ArrayList<>();
@@ -61,6 +66,7 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
     private String password;
     private String environment;
     private boolean skipSslValidation;
+    private boolean onlySpinnakerManaged;
     private Integer resultsPerPage;
 
     @Deprecated
@@ -69,5 +75,21 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
 
     private Permissions.Builder permissions = new Permissions.Builder();
     private Map<String, Set<String>> spaceFilter = Collections.emptyMap();
+  }
+
+  @Data
+  public static class ClientConfig {
+    private int connectionTimeout = 10000;
+    private int writeTimeout = 10000;
+    private int readTimeout = 10000;
+    private int maxRetries = 3;
+  }
+
+  @Data
+  public static class LocalCacheConfig {
+    private long applicationsAccessExpirySeconds = -1;
+    private long applicationsWriteExpirySeconds = 600;
+    private long routesAccessExpirySeconds = -1;
+    private long routesWriteExpirySeconds = 180;
   }
 }
