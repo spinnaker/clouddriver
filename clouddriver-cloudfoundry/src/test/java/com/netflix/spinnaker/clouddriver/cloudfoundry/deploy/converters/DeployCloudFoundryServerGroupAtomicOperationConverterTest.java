@@ -106,7 +106,8 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
         ForkJoinPool.commonPool(),
         emptyMap(),
         new OkHttpClient(),
-        new CloudFoundryConfigurationProperties.ClientConfig()) {
+        new CloudFoundryConfigurationProperties.ClientConfig(),
+        new CloudFoundryConfigurationProperties.LocalCacheConfig()) {
       public CloudFoundryClient getClient() {
         return cloudFoundryClient;
       }
@@ -294,5 +295,13 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
             ImmutableMap.of("applications", List.of(Map.of("random-route", true))));
 
     assertThat(applicationAttributes.getRandomRoute()).isTrue();
+  }
+
+  @Test
+  void convertTimeout() {
+    DeployCloudFoundryServerGroupDescription.ApplicationAttributes applicationAttributes =
+        converter.convertManifest(ImmutableMap.of("applications", List.of(Map.of("timeout", 60))));
+
+    assertThat(applicationAttributes.getTimeout() == 60);
   }
 }

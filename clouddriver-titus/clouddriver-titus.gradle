@@ -2,11 +2,7 @@ apply plugin: "com.google.protobuf"
 
 ext {
   protobufVersion = '[3.2.0,)'
-  grpcVersion = '[1.10.0,)'
-}
-
-repositories {
-  maven { url 'https://dl.bintray.com/netflixoss' }
+  grpcVersion = '1.37.1'
 }
 
 dependencies {

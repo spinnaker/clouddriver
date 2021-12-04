@@ -27,14 +27,18 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -54,6 +58,7 @@ final class KubernetesHealthIndicatorTest {
   private KubernetesNamedAccountCredentials healthyNamedCredentials;
   private KubernetesNamedAccountCredentials unhealthyNamedCredentialsFirst;
   private KubernetesNamedAccountCredentials unhealthyNamedCredentialsSecond;
+  private KubernetesConfigurationProperties kubernetesConfigurationProperties;
 
   @Mock private KubernetesCredentials.Factory healthyCredentialsFactory;
   @Mock private KubernetesCredentials.Factory unhealthyCredentialsFactory;
@@ -77,6 +82,8 @@ final class KubernetesHealthIndicatorTest {
     unhealthyNamedCredentialsSecond =
         new KubernetesNamedAccountCredentials(
             getManagedAccount(UNHEALTHY_ACCOUNT_NAME_SECOND), unhealthyCredentialsFactory);
+
+    kubernetesConfigurationProperties = new KubernetesConfigurationProperties();
   }
 
   @Test
@@ -84,7 +91,8 @@ final class KubernetesHealthIndicatorTest {
     CredentialsRepository<KubernetesNamedAccountCredentials> repository =
         stubCredentialsRepository(ImmutableList.of());
 
-    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, repository);
+    KubernetesHealthIndicator healthIndicator =
+        new KubernetesHealthIndicator(REGISTRY, repository, kubernetesConfigurationProperties);
 
     healthIndicator.checkHealth();
     Health result = healthIndicator.getHealth(true);
@@ -98,7 +106,8 @@ final class KubernetesHealthIndicatorTest {
     CredentialsRepository<KubernetesNamedAccountCredentials> repository =
         stubCredentialsRepository(ImmutableList.of(healthyNamedCredentials));
 
-    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, repository);
+    KubernetesHealthIndicator healthIndicator =
+        new KubernetesHealthIndicator(REGISTRY, repository, kubernetesConfigurationProperties);
 
     healthIndicator.checkHealth();
     Health result = healthIndicator.getHealth(true);
@@ -107,19 +116,27 @@ final class KubernetesHealthIndicatorTest {
     assertThat(result.getDetails()).isEmpty();
   }
 
-  @Test
-  void reportsErrorForUnhealthyAccount() {
+  @DisplayName(
+      "parameterized test to see how errors are reported based on the verifyAccountHealth flag")
+  @ParameterizedTest(name = "{index} => verifyAccountHealth = {0}")
+  @ValueSource(booleans = {true, false})
+  void reportsErrorForUnhealthyAccount(boolean verifyAccountHealth) {
     CredentialsRepository<KubernetesNamedAccountCredentials> repository =
         stubCredentialsRepository(ImmutableList.of(unhealthyNamedCredentialsFirst));
-
-    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, repository);
+    kubernetesConfigurationProperties.setVerifyAccountHealth(verifyAccountHealth);
+    KubernetesHealthIndicator healthIndicator =
+        new KubernetesHealthIndicator(REGISTRY, repository, kubernetesConfigurationProperties);
 
     healthIndicator.checkHealth();
     Health result = healthIndicator.getHealth(true);
 
     assertThat(result.getStatus()).isEqualTo(Status.UP);
-    assertThat(result.getDetails())
-        .containsOnly(entry(UNHEALTHY_ACCOUNT_NAME_FIRST, ERROR_MESSAGE));
+    if (verifyAccountHealth) {
+      assertThat(result.getDetails())
+          .containsOnly(entry(UNHEALTHY_ACCOUNT_NAME_FIRST, ERROR_MESSAGE));
+    } else {
+      assertThat(result.getDetails()).isEmpty();
+    }
   }
 
   @Test
@@ -131,7 +148,8 @@ final class KubernetesHealthIndicatorTest {
                 unhealthyNamedCredentialsFirst,
                 unhealthyNamedCredentialsSecond));
 
-    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, repository);
+    KubernetesHealthIndicator healthIndicator =
+        new KubernetesHealthIndicator(REGISTRY, repository, kubernetesConfigurationProperties);
 
     healthIndicator.checkHealth();
     Health result = healthIndicator.getHealth(true);
@@ -147,9 +165,8 @@ final class KubernetesHealthIndicatorTest {
             entry(UNHEALTHY_ACCOUNT_NAME_SECOND, ERROR_MESSAGE));
   }
 
-  private static KubernetesConfigurationProperties.ManagedAccount getManagedAccount(String name) {
-    KubernetesConfigurationProperties.ManagedAccount managedAccount =
-        new KubernetesConfigurationProperties.ManagedAccount();
+  private static ManagedAccount getManagedAccount(String name) {
+    ManagedAccount managedAccount = new ManagedAccount();
     managedAccount.setName(name);
     return managedAccount;
   }

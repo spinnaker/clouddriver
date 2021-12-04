@@ -59,7 +59,8 @@ class ApplicationsTest {
           processes,
           resultsPerPage,
           true,
-          ForkJoinPool.commonPool());
+          ForkJoinPool.commonPool(),
+          new CloudFoundryConfigurationProperties.LocalCacheConfig());
   private final String spaceId = "space-guid";
   private final CloudFoundrySpace cloudFoundrySpace =
       CloudFoundrySpace.builder()
@@ -84,7 +85,8 @@ class ApplicationsTest {
             resultsPerPage,
             ForkJoinPool.commonPool(),
             new OkHttpClient().newBuilder(),
-            new CloudFoundryConfigurationProperties.ClientConfig());
+            new CloudFoundryConfigurationProperties.ClientConfig(),
+            new CloudFoundryConfigurationProperties.LocalCacheConfig());
 
     assertThatThrownBy(() -> client.getApplications().all(emptyList()))
         .isInstanceOf(CloudFoundryApiException.class);
@@ -195,11 +197,12 @@ class ApplicationsTest {
 
   @Test
   void allDoesNotSkipVersionedAppWhenOnlySpinnakerManagedTrue() {
+    String guid = "guid";
     Application application =
         new Application()
             .setCreatedAt(ZonedDateTime.now())
             .setUpdatedAt(ZonedDateTime.now())
-            .setGuid("guid")
+            .setGuid(guid)
             .setName("my-app-v000")
             .setState("STARTED")
             .setLinks(
@@ -224,11 +227,12 @@ class ApplicationsTest {
 
   @Test
   void allSkipsUnversionedAppWhenOnlySpinnakerManagedTrue() {
+    String guid = "guid";
     Application application =
         new Application()
             .setCreatedAt(ZonedDateTime.now())
             .setUpdatedAt(ZonedDateTime.now())
-            .setGuid("guid")
+            .setGuid(guid)
             .setName("my-app")
             .setState("STARTED")
             .setLinks(
@@ -243,12 +247,19 @@ class ApplicationsTest {
     when(applicationService.all(any(), any(), any(), any()))
         .thenReturn(Calls.response(Response.success(applicationPagination)));
     when(applicationService.findById(anyString())).thenReturn(Calls.response(application));
-    mockMap(cloudFoundrySpace, "droplet-guid");
 
     List<CloudFoundryApplication> result = apps.all(List.of(spaceId));
     assertThat(result.size()).isEqualTo(0);
 
     verify(applicationService).all(null, resultsPerPage, null, spaceId);
+
+    // these methods should never be called if the app is skipped
+    verify(applicationService, never()).findApplicationEnvById(guid);
+    verify(spaces, never()).findById(guid);
+    verify(processesService, never()).findProcessById(guid);
+    verify(applicationService, never()).instances(guid);
+    verify(applicationService, never()).findPackagesByAppId(guid);
+    verify(applicationService, never()).findDropletByApplicationGuid(guid);
   }
 
   @Test

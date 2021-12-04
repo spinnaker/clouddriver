@@ -34,7 +34,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry;
@@ -130,6 +130,22 @@ final class KubernetesDeployManifestOperationTest {
 
     KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(manifest);
     assertThat(traffic.getLoadBalancers()).containsExactly("service my-service");
+  }
+
+  @Test
+  void doesNotSendTrafficWhenEnableTrafficTrueAndCantHandleTraffic() {
+    KubernetesDeployManifestDescription description =
+        baseDeployDescription("deploy/configmap.yml")
+            .setServices(ImmutableList.of("service my-service"))
+            .setEnableTraffic(true);
+    OperationResult result = deploy(description);
+
+    KubernetesManifest manifest = Iterables.getOnlyElement(result.getManifests());
+    assertThat(manifest.getSpecTemplateLabels().orElse(manifest.getLabels()))
+        .doesNotContain(entry("selector-key", "selector-value"));
+
+    KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(manifest);
+    assertThat(traffic.getLoadBalancers()).doesNotContain("service my-service");
   }
 
   @Test
@@ -328,8 +344,7 @@ final class KubernetesDeployManifestOperationTest {
   }
 
   private static KubernetesNamedAccountCredentials getNamedAccountCredentials() {
-    KubernetesConfigurationProperties.ManagedAccount managedAccount =
-        new KubernetesConfigurationProperties.ManagedAccount();
+    ManagedAccount managedAccount = new ManagedAccount();
     managedAccount.setName("my-account");
 
     NamerRegistry.lookup()

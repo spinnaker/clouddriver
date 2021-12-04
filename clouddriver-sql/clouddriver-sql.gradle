@@ -29,6 +29,8 @@ dependencies {
   implementation "de.huxhorn.sulky:de.huxhorn.sulky.ulid"
   implementation "org.jooq:jooq"
   implementation "org.hibernate.validator:hibernate-validator"
+  implementation "com.fasterxml.jackson.core:jackson-annotations"
+  implementation "com.fasterxml.jackson.core:jackson-databind"
 
   testImplementation project(":clouddriver-core-tck")
 
@@ -47,6 +49,7 @@ dependencies {
   testImplementation "dev.minutest:minutest"
   testImplementation "io.mockk:mockk"
   testImplementation "com.fasterxml.jackson.module:jackson-module-kotlin"
+  testImplementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
 
   testRuntimeOnly "org.junit.platform:junit-platform-launcher"
   testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
