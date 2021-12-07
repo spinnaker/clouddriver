@@ -44,7 +44,7 @@ allprojects {
 }
 
 subprojects {
-  group = "com.netflix.spinnaker.clouddriver"
+  group = "io.spinnaker.clouddriver"
   apply plugin: 'io.spinnaker.project'
 
   configurations.all {
