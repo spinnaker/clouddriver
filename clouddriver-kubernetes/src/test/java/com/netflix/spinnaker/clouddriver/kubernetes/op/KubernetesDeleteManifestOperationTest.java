@@ -17,13 +17,16 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.op;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +43,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesCustomResourceDefinitionHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesCustomResourceHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesDeploymentHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesReplicaSetHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesServiceHandler;
@@ -75,6 +79,7 @@ public class KubernetesDeleteManifestOperationTest {
   private static final GlobalResourcePropertyRegistry resourcePropertyRegistry =
       new GlobalResourcePropertyRegistry(
           ImmutableList.of(
+              new KubernetesDeploymentHandler(),
               new KubernetesReplicaSetHandler(),
               new KubernetesServiceHandler(),
               new KubernetesCustomResourceDefinitionHandler()),
@@ -225,6 +230,53 @@ public class KubernetesDeleteManifestOperationTest {
     assertEquals(
         KubernetesSelectorList.fromMatchLabels(Map.of("foo", "bar")),
         labelSelectorsCaptor.getValue());
+  }
+
+  @Test
+  public void deleteReallyUnregisteredCustomResourceViaManifestName() throws IOException {
+    // Beyond not configuring a spinnaker account with a particular kind (which
+    // is one definition of unregistered), this test exercises what happens when
+    // spinnaker has no idea about a particular kind, via configuration or
+    // discovery at runtime.  In other words, nothing has called
+    // resourcePropertyRegistry.updateCrdProperties with information about the
+    // custom resource this test attempts to delete.
+    String unknownKind = "unknown.bar.com";
+    String pipelineJSON =
+        "{ "
+            + " \"account\": \"kubernetes-account\","
+            + " \"manifestName\": \""
+            + unknownKind
+            + " my-unknown-custom-resource\""
+            + " }";
+
+    Map<String, Object> pipeline = mapper.readValue(pipelineJSON, mapType);
+
+    KubernetesDeleteManifestDescription description = buildDeleteManifestDescription(pipeline);
+
+    KubernetesCredentials mockKubernetesCreds = description.getCredentials().getCredentials();
+
+    IllegalStateException thrown =
+        assertThrows(
+            IllegalStateException.class,
+            () -> new KubernetesDeleteManifestOperation(description).operate(ImmutableList.of()));
+
+    assertThat(thrown.getMessage()).contains("Unable to delete unknown kind '" + unknownKind);
+
+    // With no handler for the given kind, GlobalResourcePropertyRegistry
+    // returns KubernetesUnregisteredCustomResourceHandler which has a kind of
+    // KubernetesKind.NONE.  kubectl always fails with an invocation like:
+    //
+    // $ kubectl delete none
+    // error: the server doesn't have a resource type "none"
+    //
+    // so better to not invoke it and give a more helpful error message.
+    verify(mockKubernetesCreds, never())
+        .delete(
+            any(KubernetesKind.class),
+            anyString(),
+            anyString(),
+            any(KubernetesSelectorList.class),
+            any(V1DeleteOptions.class));
   }
 
   @Test
