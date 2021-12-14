@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @ConditionalOnProperty(
-    value = "dockerRegistry.enabled",
+    value = "docker-registry.enabled",
     havingValue = "false",
     matchIfMissing = true)
 class DockerDefaultConfiguration {

@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.docker.registry.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +60,72 @@ class DockerRegistryCredentialsLifecycleHandlerTest {
     handler.credentialsAdded(dockerRegistryNamedAccountCredentials);
     // We should have yet another one
     assertThat(provider.getAgents()).hasSize(2);
+  }
+
+  @Test
+  public void testMultipleCacheThreads() {
+    DockerRegistryCloudProvider dockerRegistryCloudProvider = new DockerRegistryCloudProvider();
+    DockerRegistryProvider provider = new DockerRegistryProvider(dockerRegistryCloudProvider);
+    DockerRegistryCredentialsLifecycleHandler handler =
+        new DockerRegistryCredentialsLifecycleHandler(provider, dockerRegistryCloudProvider);
+
+    // Check we start with no agents
+    assertThat(provider.getAgents()).isEmpty();
+
+    DockerRegistryNamedAccountCredentials dockerRegistryNamedAccountCredentials =
+        mock(DockerRegistryNamedAccountCredentials.class);
+    DockerRegistryCredentials dockerRegistryCredentials = mock(DockerRegistryCredentials.class);
+
+    when(dockerRegistryNamedAccountCredentials.getName()).thenReturn("docker");
+    when(dockerRegistryNamedAccountCredentials.getCredentials())
+        .thenReturn(dockerRegistryCredentials);
+
+    final int cacheThreads = 3;
+    when(dockerRegistryNamedAccountCredentials.getCacheThreads()).thenReturn(cacheThreads);
+    when(dockerRegistryNamedAccountCredentials.getCacheIntervalSeconds()).thenReturn(10L);
+    when(dockerRegistryNamedAccountCredentials.getRegistry()).thenReturn("registry");
+
+    handler.credentialsAdded(dockerRegistryNamedAccountCredentials);
+    // We should have added an agent per cache thread
+    assertThat(provider.getAgents()).hasSize(cacheThreads);
+  }
+
+  @Test
+  public void testUpdateCredentials() {
+    DockerRegistryCloudProvider dockerRegistryCloudProvider = new DockerRegistryCloudProvider();
+    DockerRegistryProvider provider = new DockerRegistryProvider(dockerRegistryCloudProvider);
+    DockerRegistryCredentialsLifecycleHandler handler =
+        new DockerRegistryCredentialsLifecycleHandler(provider, dockerRegistryCloudProvider);
+
+    // Check we start with no agents
+    assertThat(provider.getAgents()).isEmpty();
+
+    DockerRegistryNamedAccountCredentials dockerRegistryNamedAccountCredentials =
+        mock(DockerRegistryNamedAccountCredentials.class);
+    DockerRegistryCredentials dockerRegistryCredentials = mock(DockerRegistryCredentials.class);
+
+    when(dockerRegistryNamedAccountCredentials.getName()).thenReturn("docker");
+    when(dockerRegistryNamedAccountCredentials.getCredentials())
+        .thenReturn(dockerRegistryCredentials);
+    when(dockerRegistryNamedAccountCredentials.getCacheThreads()).thenReturn(1);
+    when(dockerRegistryNamedAccountCredentials.getCacheIntervalSeconds()).thenReturn(10L);
+    when(dockerRegistryNamedAccountCredentials.getRegistry()).thenReturn("registry");
+
+    handler.credentialsAdded(dockerRegistryNamedAccountCredentials);
+    // We should have added an agent
+    assertThat(provider.getAgents()).hasSize(1);
+    DockerRegistryImageCachingAgent agent =
+        ((DockerRegistryImageCachingAgent) provider.getAgents().stream().findFirst().get());
+    assertEquals(10000L, agent.getAgentInterval());
+
+    // updating a field
+    when(dockerRegistryNamedAccountCredentials.getCacheIntervalSeconds()).thenReturn(20L);
+    handler.credentialsUpdated(dockerRegistryNamedAccountCredentials);
+    // We should have only one
+    assertThat(provider.getAgents()).hasSize(1);
+
+    agent = ((DockerRegistryImageCachingAgent) provider.getAgents().stream().findFirst().get());
+    assertEquals(20000L, agent.getAgentInterval());
   }
 
   @Test

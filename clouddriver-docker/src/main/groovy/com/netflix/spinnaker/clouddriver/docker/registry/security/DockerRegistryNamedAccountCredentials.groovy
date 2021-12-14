@@ -437,7 +437,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
   }
 
   private static final String CLOUD_PROVIDER = "dockerRegistry"
-  final String accountName
+  private final String accountName
   final String environment
   final String accountType
   final String address

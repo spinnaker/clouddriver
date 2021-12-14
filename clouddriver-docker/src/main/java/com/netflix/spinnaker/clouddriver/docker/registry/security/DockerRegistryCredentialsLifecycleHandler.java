@@ -62,7 +62,7 @@ public class DockerRegistryCredentialsLifecycleHandler
       agents.add(
           new DockerRegistryImageCachingAgent(
               cloudProvider,
-              credentials.getAccountName(),
+              credentials.getName(),
               credentials.getCredentials(),
               i,
               credentials.getCacheThreads(),
