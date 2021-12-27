@@ -36,6 +36,7 @@ public class GoogleCredentials extends GoogleCommonCredentials {
     JsonFactory jsonFactory = JacksonFactory.getDefaultInstance()
 
     def credentials = getCredentials()
+    credentials.createScoped("https://www.googleapis.com/auth/cloud-platform");
     def reqInit = setHttpTimeout(credentials)
     def computeBuilder = new Compute.Builder(httpTransport, jsonFactory, reqInit)
         .setApplicationName(applicationName)
