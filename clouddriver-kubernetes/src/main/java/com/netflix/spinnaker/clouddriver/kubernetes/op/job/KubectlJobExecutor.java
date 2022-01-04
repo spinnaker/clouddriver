@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
+import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobResult;
@@ -140,7 +141,9 @@ public class KubectlJobExecutor {
       String namespace,
       String name,
       KubernetesSelectorList labelSelectors,
-      V1DeleteOptions deleteOptions) {
+      V1DeleteOptions deleteOptions,
+      Task task,
+      String opName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("delete");
@@ -173,6 +176,8 @@ public class KubectlJobExecutor {
     JobResult<String> status =
         executeKubectlJob(credentials.getAccountName() + ".delete." + id, new JobRequest(command));
 
+    persistKubectlJobOutput(credentials, status, id, task, opName);
+
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
           "Failed to delete " + id + " from " + namespace + ": " + status.getError());
@@ -195,7 +200,9 @@ public class KubectlJobExecutor {
       KubernetesKind kind,
       String namespace,
       String name,
-      int replicas) {
+      int replicas,
+      Task task,
+      String opName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("scale");
@@ -206,6 +213,8 @@ public class KubectlJobExecutor {
         executeKubectlJob(
             credentials.getAccountName() + ".scale." + kind.toString() + "/" + name,
             new JobRequest(command));
+
+    persistKubectlJobOutput(credentials, status, kind + "/" + name, task, opName);
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
@@ -329,7 +338,12 @@ public class KubectlJobExecutor {
   }
 
   public Void resumeRollout(
-      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
+      KubernetesCredentials credentials,
+      KubernetesKind kind,
+      String namespace,
+      String name,
+      Task task,
+      String opName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("rollout");
@@ -340,6 +354,8 @@ public class KubectlJobExecutor {
         executeKubectlJob(
             credentials.getAccountName() + ".resumeRollout." + kind.toString() + "/" + name,
             new JobRequest(command));
+
+    persistKubectlJobOutput(credentials, status, kind + "/" + name, task, opName);
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
@@ -357,7 +373,12 @@ public class KubectlJobExecutor {
   }
 
   public Void rollingRestart(
-      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
+      KubernetesCredentials credentials,
+      KubernetesKind kind,
+      String namespace,
+      String name,
+      Task task,
+      String opName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("rollout");
@@ -368,6 +389,8 @@ public class KubectlJobExecutor {
         executeKubectlJob(
             credentials.getAccountName() + ".rollingRestart." + kind.toString() + "/" + name,
             new JobRequest(command));
+
+    persistKubectlJobOutput(credentials, status, kind + "/" + name, task, opName);
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
@@ -469,7 +492,8 @@ public class KubectlJobExecutor {
     return status.getOutput();
   }
 
-  public KubernetesManifest deploy(KubernetesCredentials credentials, KubernetesManifest manifest) {
+  public KubernetesManifest deploy(
+      KubernetesCredentials credentials, KubernetesManifest manifest, Task task, String opName) {
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -488,6 +512,8 @@ public class KubectlJobExecutor {
                 command,
                 new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
+    persistKubectlJobOutput(credentials, status, manifest.getFullResourceName(), task, opName);
+
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException("Deploy failed: " + status.getError());
     }
@@ -500,7 +526,7 @@ public class KubectlJobExecutor {
   }
 
   public KubernetesManifest replace(
-      KubernetesCredentials credentials, KubernetesManifest manifest) {
+      KubernetesCredentials credentials, KubernetesManifest manifest, Task task, String opName) {
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -519,6 +545,8 @@ public class KubectlJobExecutor {
                 command,
                 new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
+    persistKubectlJobOutput(credentials, status, manifest.getFullResourceName(), task, opName);
+
     if (status.getResult() != JobResult.Result.SUCCESS) {
       if (status.getError().contains(NOT_FOUND_STRING)) {
         throw new KubectlNotFoundException("Replace failed: " + status.getError());
@@ -533,7 +561,8 @@ public class KubectlJobExecutor {
     }
   }
 
-  public KubernetesManifest create(KubernetesCredentials credentials, KubernetesManifest manifest) {
+  public KubernetesManifest create(
+      KubernetesCredentials credentials, KubernetesManifest manifest, Task task, String opName) {
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -551,6 +580,8 @@ public class KubectlJobExecutor {
             new JobRequest(
                 command,
                 new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
+
+    persistKubectlJobOutput(credentials, status, manifest.getFullResourceName(), task, opName);
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException("Create failed: " + status.getError());
@@ -702,8 +733,10 @@ public class KubectlJobExecutor {
       String namespace,
       String name,
       KubernetesPatchOptions options,
-      List<JsonPatch> patches) {
-    return patch(credentials, kind, namespace, name, options, gson.toJson(patches));
+      List<JsonPatch> patches,
+      Task task,
+      String opName) {
+    return patch(credentials, kind, namespace, name, options, gson.toJson(patches), task, opName);
   }
 
   public Void patch(
@@ -712,8 +745,10 @@ public class KubectlJobExecutor {
       String namespace,
       String name,
       KubernetesPatchOptions options,
-      KubernetesManifest manifest) {
-    return patch(credentials, kind, namespace, name, options, gson.toJson(manifest));
+      KubernetesManifest manifest,
+      Task task,
+      String opName) {
+    return patch(credentials, kind, namespace, name, options, gson.toJson(manifest), task, opName);
   }
 
   private Void patch(
@@ -722,7 +757,9 @@ public class KubectlJobExecutor {
       String namespace,
       String name,
       KubernetesPatchOptions options,
-      String patchBody) {
+      String patchBody,
+      Task task,
+      String opName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("patch");
@@ -746,6 +783,8 @@ public class KubectlJobExecutor {
         executeKubectlJob(
             credentials.getAccountName() + ".patch." + kind.toString() + "/" + name,
             new JobRequest(command));
+
+    persistKubectlJobOutput(credentials, status, kind + "/" + name, task, opName);
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       String errMsg = status.getError();
@@ -940,6 +979,20 @@ public class KubectlJobExecutor {
       // we only need to do it for KubectlException (since that is explicitly thrown above) and not
       // for any other ones.
       return finalResult.build();
+    }
+  }
+
+  private void persistKubectlJobOutput(
+      KubernetesCredentials credentials,
+      JobResult<String> status,
+      String manifestName,
+      Task task,
+      String taskName) {
+    if (kubernetesConfigurationProperties.getJobExecutor().isPersistTaskOutput()) {
+      if (kubernetesConfigurationProperties.getJobExecutor().isEnableTaskOutputForAllAccounts()
+          || credentials.isDebug()) {
+        task.updateOutput(manifestName, taskName, status.getOutput(), status.getError());
+      }
     }
   }
 

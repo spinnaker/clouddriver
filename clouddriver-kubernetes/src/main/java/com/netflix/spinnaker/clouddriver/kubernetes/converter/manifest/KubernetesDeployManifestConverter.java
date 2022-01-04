@@ -22,6 +22,7 @@ import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.D
 import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesDeployManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -50,13 +51,16 @@ public class KubernetesDeployManifestConverter
   private static final String KIND_LIST_ITEMS_KEY = "items";
 
   private final ResourceVersioner resourceVersioner;
+  private final KubernetesConfigurationProperties kubernetesConfigurationProperties;
 
   @Autowired
   public KubernetesDeployManifestConverter(
       CredentialsRepository<KubernetesNamedAccountCredentials> credentialsRepository,
-      ResourceVersioner resourceVersioner) {
+      ResourceVersioner resourceVersioner,
+      KubernetesConfigurationProperties kubernetesConfigurationProperties) {
     this.setCredentialsRepository(credentialsRepository);
     this.resourceVersioner = resourceVersioner;
+    this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
   }
 
   @Override
