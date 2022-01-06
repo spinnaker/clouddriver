@@ -72,7 +72,6 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask, String> {
     List<Map<String, Object>> healthStatus =
         containerInformationService.getHealthStatus(id, serviceName, account, region);
     String address = containerInformationService.getTaskPrivateAddress(account, region, task);
-    String zone = containerInformationService.getTaskZone(account, region, task);
 
     NetworkInterface networkInterface =
         task.getContainers() != null
@@ -92,7 +91,7 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask, String> {
             task.getLastStatus(),
             task.getDesiredStatus(),
             task.getHealthStatus(),
-            zone,
+            task.getAvailabilityZone(),
             healthStatus,
             address,
             networkInterface,
