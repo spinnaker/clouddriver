@@ -112,7 +112,10 @@ public class CredentialsController {
   }
 
   @GetMapping("/type/{accountType}")
-  @PostFilter("hasPermission(filterObject.name, 'ACCOUNT', 'READ')")
+  // ACCOUNT/WRITE permissions are required to view details of an account;
+  // ACCOUNT/READ permissions are only sufficient to view resources that use that account
+  // such as load balancers, security groups, clusters, etc.
+  @PostFilter("hasPermission(filterObject.name, 'ACCOUNT', 'WRITE')")
   public List<? extends CredentialsDefinition> listAccountsByType(
       @PathVariable String accountType,
       @RequestParam OptionalInt limit,
@@ -145,7 +148,10 @@ public class CredentialsController {
   }
 
   @GetMapping("/{accountName}/history")
-  @PreAuthorize("hasPermission(#accountName, 'ACCOUNT', 'READ')")
+  // as with listing accounts, details of the history of an account are restricted to users
+  // with ACCOUNT/WRITE permissions; ACCOUNT/READ permissions are related to viewing resources
+  // that use that account such as clusters, server groups, load balancers, and server groups
+  @PreAuthorize("hasPermission(#accountName, 'ACCOUNT', 'WRITE')")
   public List<AccountDefinitionRepository.Revision> getAccountHistory(
       @PathVariable String accountName) {
     validateAccountStorageEnabled();
