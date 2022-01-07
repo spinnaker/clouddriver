@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountDefinitionRepository;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
+import com.netflix.spinnaker.kork.annotations.Alpha;
 import com.netflix.spinnaker.kork.exceptions.ConfigurationException;
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import java.util.List;
@@ -116,6 +117,7 @@ public class CredentialsController {
   // ACCOUNT/READ permissions are only sufficient to view resources that use that account
   // such as load balancers, security groups, clusters, etc.
   @PostFilter("hasPermission(filterObject.name, 'ACCOUNT', 'WRITE')")
+  @Alpha
   public List<? extends CredentialsDefinition> listAccountsByType(
       @PathVariable String accountType,
       @RequestParam OptionalInt limit,
@@ -126,6 +128,7 @@ public class CredentialsController {
 
   @PostMapping
   @PreAuthorize("isAuthenticated()")
+  @Alpha
   public CredentialsDefinition createAccount(@RequestBody CredentialsDefinition definition) {
     validateAccountStorageEnabled();
     repository.create(definition);
@@ -134,6 +137,7 @@ public class CredentialsController {
 
   @PutMapping
   @PreAuthorize("hasPermission(#definition.name, 'ACCOUNT', 'WRITE')")
+  @Alpha
   public CredentialsDefinition updateAccount(@RequestBody CredentialsDefinition definition) {
     validateAccountStorageEnabled();
     repository.update(definition);
@@ -142,6 +146,7 @@ public class CredentialsController {
 
   @DeleteMapping("/{accountName}")
   @PreAuthorize("hasPermission(#accountName, 'ACCOUNT', 'WRITE')")
+  @Alpha
   public void deleteAccount(@PathVariable String accountName) {
     validateAccountStorageEnabled();
     repository.delete(accountName);
@@ -152,6 +157,7 @@ public class CredentialsController {
   // with ACCOUNT/WRITE permissions; ACCOUNT/READ permissions are related to viewing resources
   // that use that account such as clusters, server groups, load balancers, and server groups
   @PreAuthorize("hasPermission(#accountName, 'ACCOUNT', 'WRITE')")
+  @Alpha
   public List<AccountDefinitionRepository.Revision> getAccountHistory(
       @PathVariable String accountName) {
     validateAccountStorageEnabled();
