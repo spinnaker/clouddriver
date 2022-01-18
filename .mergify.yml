@@ -15,7 +15,7 @@ pull_request_rules:
         method: squash
         name: default
       label: 
-        add: ["auto-merged"]
+        add: ["auto merged"]
   - name: Automatically merge release branch changes on CI success and release manager review
     conditions:
       - base~=^release-
