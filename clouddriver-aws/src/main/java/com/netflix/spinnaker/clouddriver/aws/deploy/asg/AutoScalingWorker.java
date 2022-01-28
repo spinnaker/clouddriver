@@ -136,7 +136,7 @@ public class AutoScalingWorker {
   /** This is used to gradually roll out launch template. */
   private boolean shouldSetLaunchTemplate(final AsgConfiguration asgConfig) {
     // Request level flag that forces launch configurations.
-    if (asgConfig.setLaunchTemplate != null && !asgConfig.setLaunchTemplate) {
+    if (asgConfig.setLaunchTemplate == null || !asgConfig.setLaunchTemplate) {
       return false;
     }
 
@@ -239,7 +239,8 @@ public class AutoScalingWorker {
           }
         } catch (Exception e) {
           log.error(
-              "Unable to verify if application is allowed in shouldSetLaunchTemplate: ${appAccountRegion}");
+              "Unable to verify if application is allowed in shouldSetLaunchTemplate: {}",
+              appAccountRegion);
           return false;
         }
       }
