@@ -68,7 +68,9 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Operat
     } else if (options.containsKey("cascading")) {
       deleteOptions.setOrphanDependents(options.get("cascading").equalsIgnoreCase("false"));
     }
-
+    if (options.containsKey("gracePeriodSeconds")) {
+      deleteOptions.setGracePeriodSeconds(Long.parseLong(options.get("gracePeriodSeconds")));
+    }
     OperationResult result = new OperationResult();
     coordinates.forEach(
         c -> {
