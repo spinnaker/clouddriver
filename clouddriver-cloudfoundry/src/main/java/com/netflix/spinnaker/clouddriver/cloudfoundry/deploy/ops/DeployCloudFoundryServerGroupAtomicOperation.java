@@ -575,7 +575,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation
   private String getProcessGuidByType(List<Process> processes, String type) {
     return processes.stream()
         .filter(p -> p.getType().equalsIgnoreCase(type))
-        .map(Process:getGuid)
+        .map(Process::getGuid)
         .findFirst()
         .orElseThrow(
             () -> new CloudFoundryApiException("Unable to find a process with type: " + type));
