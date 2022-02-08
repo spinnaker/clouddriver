@@ -111,13 +111,13 @@ public class AccountDefinitionService {
       CredentialsDefinition definition, AccountAction action) {
     var credentials =
         objectMapper.convertValue(definition, new TypeReference<Map<String, Object>>() {});
+    var permission =
+        permissionEvaluator.getPermission(AuthenticatedRequest.getSpinnakerUser().orElseThrow());
+    if (permission.isAdmin()) {
+      return;
+    }
     var userRoles =
-        AuthenticatedRequest.getSpinnakerUser()
-            .map(permissionEvaluator::getPermission)
-            .map(
-                view ->
-                    view.getRoles().stream().map(Role.View::getName).collect(Collectors.toSet()))
-            .orElseGet(Set::of);
+        permission.getRoles().stream().map(Role.View::getName).collect(Collectors.toSet());
     var permissions = (Map<String, List<String>>) credentials.getOrDefault("permissions", Map.of());
     var writeRoles = Set.copyOf(permissions.getOrDefault("WRITE", List.of()));
     if (Sets.intersection(userRoles, writeRoles).isEmpty()) {
