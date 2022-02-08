@@ -30,6 +30,8 @@ import io.kubernetes.client.openapi.models.V1DeleteOptions;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KubernetesDeleteManifestOperation implements AtomicOperation<OperationResult> {
   private static final Logger log =
