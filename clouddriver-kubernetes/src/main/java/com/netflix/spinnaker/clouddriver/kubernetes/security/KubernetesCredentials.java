@@ -137,7 +137,7 @@ public class KubernetesCredentials {
           this::namespaceSupplier, NAMESPACE_EXPIRY_SECONDS, TimeUnit.SECONDS);
   @Getter private final Namer<KubernetesManifest> namer;
 
-  private KubernetesCredentials(
+  public KubernetesCredentials(
       Registry registry,
       KubectlJobExecutor jobExecutor,
       KubernetesConfigurationProperties.ManagedAccount managedAccount,
