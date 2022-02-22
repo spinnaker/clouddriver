@@ -24,6 +24,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import java.util.Collection;
@@ -31,14 +33,25 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public class KubernetesCoreCachingAgent extends KubernetesCachingAgent {
+
   public KubernetesCoreCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount,
-      Long agentInterval) {
-    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount, agentInterval);
+      Long agentInterval,
+      KubernetesConfigurationProperties configurationProperties,
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
+    super(
+        namedAccountCredentials,
+        objectMapper,
+        registry,
+        agentIndex,
+        agentCount,
+        agentInterval,
+        configurationProperties,
+        kubernetesSpinnakerKindMap);
   }
 
   @Override
@@ -49,7 +62,7 @@ public class KubernetesCoreCachingAgent extends KubernetesCachingAgent {
     Stream<String> logicalTypes =
         Stream.of(Keys.LogicalKind.APPLICATIONS, Keys.LogicalKind.CLUSTERS, Keys.Kind.ARTIFACT)
             .map(Enum::toString);
-    Stream<String> kubernetesTypes = primaryKinds().stream().map(KubernetesKind::toString);
+    Stream<String> kubernetesTypes = kindsToCache().stream().map(KubernetesKind::toString);
 
     return Stream.concat(logicalTypes, kubernetesTypes)
         .map(AUTHORITATIVE::forType)
@@ -59,5 +72,10 @@ public class KubernetesCoreCachingAgent extends KubernetesCachingAgent {
   @Override
   protected List<KubernetesKind> primaryKinds() {
     return credentials.getGlobalKinds();
+  }
+
+  @Override
+  protected boolean cachesKind(KubernetesKind kind) {
+    return kind.getApiGroup().isNativeGroup();
   }
 }

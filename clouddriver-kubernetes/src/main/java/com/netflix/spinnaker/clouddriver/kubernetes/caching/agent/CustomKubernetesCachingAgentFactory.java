@@ -24,8 +24,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import java.util.Objects;
 
 public class CustomKubernetesCachingAgentFactory {
   public static KubernetesCachingAgent create(
@@ -35,7 +38,9 @@ public class CustomKubernetesCachingAgentFactory {
       Registry registry,
       int agentIndex,
       int agentCount,
-      Long agentInterval) {
+      Long agentInterval,
+      KubernetesConfigurationProperties configurationProperties,
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
     return new Agent(
         kind,
         namedAccountCredentials,
@@ -43,7 +48,9 @@ public class CustomKubernetesCachingAgentFactory {
         registry,
         agentIndex,
         agentCount,
-        agentInterval);
+        agentInterval,
+        configurationProperties,
+        kubernetesSpinnakerKindMap);
   }
 
   private static class Agent extends KubernetesCachingAgent {
@@ -56,14 +63,29 @@ public class CustomKubernetesCachingAgentFactory {
         Registry registry,
         int agentIndex,
         int agentCount,
-        Long agentInterval) {
-      super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount, agentInterval);
+        Long agentInterval,
+        KubernetesConfigurationProperties configurationProperties,
+        KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
+      super(
+          namedAccountCredentials,
+          objectMapper,
+          registry,
+          agentIndex,
+          agentCount,
+          agentInterval,
+          configurationProperties,
+          kubernetesSpinnakerKindMap);
       this.kind = kind;
     }
 
     @Override
     protected ImmutableList<KubernetesKind> primaryKinds() {
       return ImmutableList.of(this.kind);
+    }
+
+    @Override
+    protected boolean cachesKind(KubernetesKind kind) {
+      return Objects.equals(this.kind, kind);
     }
 
     @Override

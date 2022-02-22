@@ -41,12 +41,14 @@ import com.netflix.spinnaker.cats.provider.DefaultProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.*;
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesManifestNamer;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregisteredCustomResourceHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.*;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.moniker.Namer;
@@ -54,6 +56,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.IntStream;
 import lombok.Value;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.platform.runner.JUnitPlatform;
@@ -92,6 +95,15 @@ final class KubernetesCoreCachingAgentTest {
   private static final ResourcePropertyRegistry resourcePropertyRegistry =
       new GlobalResourcePropertyRegistry(
           ImmutableList.of(), new KubernetesUnregisteredCustomResourceHandler());
+  private static final ImmutableList<KubernetesHandler> handlers =
+      ImmutableList.of(
+          new KubernetesDeploymentHandler(),
+          new KubernetesReplicaSetHandler(),
+          new KubernetesServiceHandler(),
+          new KubernetesPodHandler(),
+          new KubernetesConfigMapHandler());
+  private static final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap =
+      new KubernetesSpinnakerKindMap(handlers);
   private static final Namer<KubernetesManifest> NAMER = new KubernetesManifestNamer();
 
   /** A test Deployment manifest */
@@ -154,6 +166,7 @@ final class KubernetesCoreCachingAgentTest {
                   return result.build();
                 });
     when(credentials.getNamer()).thenReturn(NAMER);
+    when(credentials.isValidKind(any(KubernetesKind.class))).thenReturn(true);
     return credentials;
   }
 
@@ -176,12 +189,21 @@ final class KubernetesCoreCachingAgentTest {
    * collection of those agents.
    */
   private static ImmutableCollection<KubernetesCoreCachingAgent> createCachingAgents(
-      KubernetesNamedAccountCredentials credentials, int agentCount) {
+      KubernetesNamedAccountCredentials credentials,
+      int agentCount,
+      KubernetesConfigurationProperties configurationProperties) {
     return IntStream.range(0, agentCount)
         .mapToObj(
             i ->
                 new KubernetesCoreCachingAgent(
-                    credentials, objectMapper, new NoopRegistry(), i, agentCount, 10L))
+                    credentials,
+                    objectMapper,
+                    new NoopRegistry(),
+                    i,
+                    agentCount,
+                    10L,
+                    configurationProperties,
+                    kubernetesSpinnakerKindMap))
         .collect(toImmutableList());
   }
 
@@ -236,8 +258,12 @@ final class KubernetesCoreCachingAgentTest {
         Keys.InfrastructureCacheKey.createKey(
             KubernetesKind.STORAGE_CLASS, ACCOUNT, "", STORAGE_CLASS_NAME);
 
+    KubernetesConfigurationProperties configurationProperties =
+        new KubernetesConfigurationProperties();
+    configurationProperties.getCache().setCacheAll(true);
+
     ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(), numAgents);
+        createCachingAgents(getNamedAccountCredentials(), numAgents, configurationProperties);
     LoadDataResult loadDataResult = processLoadData(cachingAgents, ImmutableMap.of());
 
     assertThat(loadDataResult.getResults()).containsKey(DEPLOYMENT_KIND);
@@ -303,8 +329,12 @@ final class KubernetesCoreCachingAgentTest {
   @ParameterizedTest
   @ValueSource(ints = {1, 2, 10})
   public void authoritativeForLogicalTypes(int numAgents) {
+    KubernetesConfigurationProperties configurationProperties =
+        new KubernetesConfigurationProperties();
+    configurationProperties.getCache().setCacheAll(true);
+
     ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(), numAgents);
+        createCachingAgents(getNamedAccountCredentials(), numAgents, configurationProperties);
     cachingAgents.forEach(
         cachingAgent ->
             assertThat(getAuthoritativeTypes(cachingAgent.getProvidedDataTypes()))
@@ -318,8 +348,12 @@ final class KubernetesCoreCachingAgentTest {
   @ParameterizedTest
   @ValueSource(ints = {1, 2, 10})
   public void authoritativeForKubernetesKinds(int numAgents) {
+    KubernetesConfigurationProperties configurationProperties =
+        new KubernetesConfigurationProperties();
+    configurationProperties.getCache().setCacheAll(true);
+
     ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(), numAgents);
+        createCachingAgents(getNamedAccountCredentials(), numAgents, configurationProperties);
     cachingAgents.forEach(
         cachingAgent ->
             assertThat(getAuthoritativeTypes(cachingAgent.getProvidedDataTypes()))
@@ -328,6 +362,120 @@ final class KubernetesCoreCachingAgentTest {
                         KubernetesKind.NAMESPACE.toString(),
                         KubernetesKind.POD.toString(),
                         KubernetesKind.REPLICA_SET.toString())));
+  }
+
+  /**
+   * kindsToCache returns all registered core kinds, coming from {@link
+   * KubernetesCoreCachingAgentTest#kindProperties}
+   */
+  @Test
+  public void kindsToCacheAll() {
+    KubernetesConfigurationProperties configurationProperties =
+        new KubernetesConfigurationProperties();
+    configurationProperties.getCache().setCacheAll(true);
+    KubernetesNamedAccountCredentials namedAccountCredentials = getNamedAccountCredentials();
+    KubernetesCoreCachingAgent cachingAgent =
+        createCachingAgents(namedAccountCredentials, 1, configurationProperties).asList().get(0);
+
+    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+
+    KubernetesKind[] expected = kindProperties.keySet().toArray(new KubernetesKind[0]);
+    assertThat(kindsToCache).containsExactlyInAnyOrder(expected); // has everything in global kinds
+  }
+
+  /**
+   * kindsToCache returns only core kinds specified in {@link
+   * KubernetesConfigurationProperties.Cache#getCacheKinds()}
+   */
+  @Test
+  public void kindsToCacheFromConfig() {
+    KubernetesConfigurationProperties configurationProperties =
+        new KubernetesConfigurationProperties();
+    configurationProperties.getCache().setCacheAll(false);
+    configurationProperties
+        .getCache()
+        .setCacheKinds(Arrays.asList("deployment", "myCustomKind.my.group"));
+    KubernetesCoreCachingAgent cachingAgent =
+        createCachingAgents(getNamedAccountCredentials(), 1, configurationProperties)
+            .asList()
+            .get(0);
+
+    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+
+    assertThat(kindsToCache)
+        .containsExactlyInAnyOrder(KubernetesKind.fromString("deployment")); // only has core kinds
+  }
+
+  /**
+   * kindsToCache returns only core kinds mapped to SpinnakerKinds that show in classic
+   * infrastructure screens {@link KubernetesCachingAgent#SPINNAKER_UI_KINDS}
+   */
+  @Test
+  public void kindsToCacheSpinnakerUI() {
+    KubernetesConfigurationProperties configurationProperties =
+        new KubernetesConfigurationProperties();
+    KubernetesCoreCachingAgent cachingAgent =
+        createCachingAgents(getNamedAccountCredentials(), 1, configurationProperties)
+            .asList()
+            .get(0);
+
+    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+
+    KubernetesKind[] expected =
+        KubernetesCachingAgent.SPINNAKER_UI_KINDS.stream()
+            .map(kubernetesSpinnakerKindMap::translateSpinnakerKind)
+            .flatMap(Collection::stream)
+            .toArray(KubernetesKind[]::new);
+    assertThat(kindsToCache).containsExactlyInAnyOrder(expected); // only has UI kinds
+  }
+
+  /**
+   * kindsToCache doesn't include kinds specified in {@link
+   * KubernetesConfigurationProperties.Cache#getCacheOmitKinds()}
+   */
+  @Test
+  public void kindsToCacheOmitKind() {
+    KubernetesConfigurationProperties configurationProperties =
+        new KubernetesConfigurationProperties();
+    configurationProperties.getCache().setCacheOmitKinds(Collections.singletonList("deployment"));
+    KubernetesCoreCachingAgent cachingAgent =
+        createCachingAgents(getNamedAccountCredentials(), 1, configurationProperties)
+            .asList()
+            .get(0);
+
+    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+
+    KubernetesKind[] expected =
+        KubernetesCachingAgent.SPINNAKER_UI_KINDS.stream()
+            .map(kubernetesSpinnakerKindMap::translateSpinnakerKind)
+            .flatMap(Collection::stream)
+            .filter(k -> !k.equals(KubernetesKind.DEPLOYMENT))
+            .toArray(KubernetesKind[]::new);
+    assertThat(kindsToCache).containsExactlyInAnyOrder(expected); // excludes Deployment
+  }
+
+  /**
+   * kindsToCache doesn't include invalid kinds. An invalid kind is one that failed access checks
+   * during startup.
+   */
+  @Test
+  public void kindsToCacheInvalidKind() {
+    KubernetesConfigurationProperties configurationProperties =
+        new KubernetesConfigurationProperties();
+    KubernetesNamedAccountCredentials namedCreds = getNamedAccountCredentials();
+    when(namedCreds.getCredentials().isValidKind(KubernetesKind.DEPLOYMENT)).thenReturn(false);
+    KubernetesCoreCachingAgent cachingAgent =
+        createCachingAgents(namedCreds, 1, configurationProperties).asList().get(0);
+
+    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+
+    KubernetesKind[] expected =
+        KubernetesCachingAgent.SPINNAKER_UI_KINDS.stream()
+            .map(kubernetesSpinnakerKindMap::translateSpinnakerKind)
+            .flatMap(Collection::stream)
+            .filter(k -> !k.equals(KubernetesKind.DEPLOYMENT))
+            .toArray(KubernetesKind[]::new);
+    assertThat(kindsToCache).containsExactlyInAnyOrder(expected); // excludes Deployment
   }
 
   private static ImmutableList<String> getAuthoritativeTypes(

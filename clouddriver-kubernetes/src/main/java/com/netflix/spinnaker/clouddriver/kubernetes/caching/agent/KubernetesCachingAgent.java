@@ -31,7 +31,10 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesCachingProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
@@ -41,11 +44,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -58,6 +57,14 @@ import org.slf4j.LoggerFactory;
 public abstract class KubernetesCachingAgent
     implements AgentIntervalAware, CachingAgent, AccountAware {
   private static final Logger log = LoggerFactory.getLogger(KubernetesCachingAgent.class);
+
+  public static final List<SpinnakerKind> SPINNAKER_UI_KINDS =
+      Arrays.asList(
+          SpinnakerKind.SERVER_GROUP_MANAGERS,
+          SpinnakerKind.SERVER_GROUPS,
+          SpinnakerKind.INSTANCES,
+          SpinnakerKind.LOAD_BALANCERS,
+          SpinnakerKind.SECURITY_GROUPS);
 
   @Getter @Nonnull protected final String accountName;
   protected final Registry registry;
@@ -72,13 +79,19 @@ public abstract class KubernetesCachingAgent
 
   @Getter protected final Long agentInterval;
 
+  protected final KubernetesConfigurationProperties configurationProperties;
+
+  protected final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+
   protected KubernetesCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount,
-      Long agentInterval) {
+      Long agentInterval,
+      KubernetesConfigurationProperties configurationProperties,
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
     this.accountName = namedAccountCredentials.getName();
     this.credentials = namedAccountCredentials.getCredentials();
     this.objectMapper = objectMapper;
@@ -86,16 +99,66 @@ public abstract class KubernetesCachingAgent
     this.agentIndex = agentIndex;
     this.agentCount = agentCount;
     this.agentInterval = agentInterval;
+    this.configurationProperties = configurationProperties;
+    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
   }
 
   protected Map<String, Object> defaultIntrospectionDetails() {
     Map<String, Object> result = new HashMap<>();
     result.put("namespaces", getNamespaces());
-    result.put("kinds", primaryKinds());
+    result.put("kinds", kindsToCache());
     return result;
   }
 
   protected abstract List<KubernetesKind> primaryKinds();
+
+  protected abstract boolean cachesKind(KubernetesKind kind);
+
+  protected List<KubernetesKind> kindsToCache() {
+    List<KubernetesKind> cacheKinds;
+
+    if (configurationProperties.getCache().isCacheAll()) {
+      cacheKinds = primaryKinds();
+
+    } else if (configurationProperties.getCache().getCacheKinds() != null
+        && configurationProperties.getCache().getCacheKinds().size() > 0) {
+      // If provider config specifies what kinds to cache, use it
+      cacheKinds =
+          configurationProperties.getCache().getCacheKinds().stream()
+              .map(KubernetesKind::fromString)
+              .filter(this::cachesKind)
+              .filter(credentials::isValidKind)
+              .collect(Collectors.toList());
+
+    } else {
+      // Only cache kinds used in Spinnaker's classic infrastructure screens, which are the kinds
+      // mapped to Spinnaker kinds like ServerGroups, Instances, etc.
+      cacheKinds =
+          kubernetesSpinnakerKindMap.allKubernetesKinds().stream()
+              .filter(this::cachesKind)
+              .filter(credentials::isValidKind)
+              .filter(
+                  k -> {
+                    SpinnakerKind spinnakerKind =
+                        kubernetesSpinnakerKindMap.translateKubernetesKind(k);
+                    return SPINNAKER_UI_KINDS.contains(spinnakerKind);
+                  })
+              .collect(Collectors.toList());
+    }
+
+    // Filter out explicitly omitted kinds in provider config
+    if (configurationProperties.getCache().getCacheOmitKinds() != null
+        && configurationProperties.getCache().getCacheOmitKinds().size() > 0) {
+      List<KubernetesKind> omitKinds =
+          configurationProperties.getCache().getCacheOmitKinds().stream()
+              .map(KubernetesKind::fromString)
+              .collect(Collectors.toList());
+      cacheKinds =
+          cacheKinds.stream().filter(k -> !omitKinds.contains(k)).collect(Collectors.toList());
+    }
+
+    return cacheKinds;
+  }
 
   private ImmutableList<KubernetesManifest> loadResources(
       @Nonnull Iterable<KubernetesKind> kubernetesKinds, Optional<String> optionalNamespace) {
@@ -129,7 +192,7 @@ public abstract class KubernetesCachingAgent
   }
 
   private ImmutableSetMultimap<ResourceScope, KubernetesKind> primaryKindsByScope() {
-    return primaryKinds().stream()
+    return kindsToCache().stream()
         .collect(
             ImmutableSetMultimap.toImmutableSetMultimap(
                 k -> credentials.getKindProperties(k).getResourceScope(), Function.identity()));

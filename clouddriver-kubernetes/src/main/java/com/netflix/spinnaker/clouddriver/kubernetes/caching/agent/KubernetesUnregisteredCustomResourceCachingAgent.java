@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 
@@ -35,13 +37,23 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
       Registry registry,
       int agentIndex,
       int agentCount,
-      Long agentInterval) {
-    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount, agentInterval);
+      Long agentInterval,
+      KubernetesConfigurationProperties configurationProperties,
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
+    super(
+        namedAccountCredentials,
+        objectMapper,
+        registry,
+        agentIndex,
+        agentCount,
+        agentInterval,
+        configurationProperties,
+        kubernetesSpinnakerKindMap);
   }
 
   @Override
   public ImmutableSet<AgentDataType> getProvidedDataTypes() {
-    return primaryKinds().stream()
+    return kindsToCache().stream()
         .map(k -> AUTHORITATIVE.forType(k.toString()))
         .collect(toImmutableSet());
   }
@@ -49,5 +61,10 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
   @Override
   protected ImmutableList<KubernetesKind> primaryKinds() {
     return credentials.getCrds();
+  }
+
+  @Override
+  protected boolean cachesKind(KubernetesKind kind) {
+    return !kind.getApiGroup().isNativeGroup();
   }
 }
