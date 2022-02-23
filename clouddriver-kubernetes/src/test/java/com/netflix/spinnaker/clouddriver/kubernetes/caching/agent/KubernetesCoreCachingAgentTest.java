@@ -365,11 +365,11 @@ final class KubernetesCoreCachingAgentTest {
   }
 
   /**
-   * kindsToCache returns all registered core kinds, coming from {@link
+   * filteredPrimaryKinds returns all registered core kinds, coming from {@link
    * KubernetesCoreCachingAgentTest#kindProperties}
    */
   @Test
-  public void kindsToCacheAll() {
+  public void filteredPrimaryKindsAll() {
     KubernetesConfigurationProperties configurationProperties =
         new KubernetesConfigurationProperties();
     configurationProperties.getCache().setCacheAll(true);
@@ -377,18 +377,19 @@ final class KubernetesCoreCachingAgentTest {
     KubernetesCoreCachingAgent cachingAgent =
         createCachingAgents(namedAccountCredentials, 1, configurationProperties).asList().get(0);
 
-    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+    List<KubernetesKind> filteredPrimaryKinds = cachingAgent.filteredPrimaryKinds();
 
     KubernetesKind[] expected = kindProperties.keySet().toArray(new KubernetesKind[0]);
-    assertThat(kindsToCache).containsExactlyInAnyOrder(expected); // has everything in global kinds
+    assertThat(filteredPrimaryKinds)
+        .containsExactlyInAnyOrder(expected); // has everything in global kinds
   }
 
   /**
-   * kindsToCache returns only core kinds specified in {@link
+   * filteredPrimaryKinds returns only core kinds specified in {@link
    * KubernetesConfigurationProperties.Cache#getCacheKinds()}
    */
   @Test
-  public void kindsToCacheFromConfig() {
+  public void filteredPrimaryKindsFromConfig() {
     KubernetesConfigurationProperties configurationProperties =
         new KubernetesConfigurationProperties();
     configurationProperties.getCache().setCacheAll(false);
@@ -400,18 +401,18 @@ final class KubernetesCoreCachingAgentTest {
             .asList()
             .get(0);
 
-    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+    List<KubernetesKind> filteredPrimaryKinds = cachingAgent.filteredPrimaryKinds();
 
-    assertThat(kindsToCache)
+    assertThat(filteredPrimaryKinds)
         .containsExactlyInAnyOrder(KubernetesKind.fromString("deployment")); // only has core kinds
   }
 
   /**
-   * kindsToCache returns only core kinds mapped to SpinnakerKinds that show in classic
+   * filteredPrimaryKinds returns only core kinds mapped to SpinnakerKinds that show in classic
    * infrastructure screens {@link KubernetesCachingAgent#SPINNAKER_UI_KINDS}
    */
   @Test
-  public void kindsToCacheSpinnakerUI() {
+  public void filteredPrimaryKindsSpinnakerUI() {
     KubernetesConfigurationProperties configurationProperties =
         new KubernetesConfigurationProperties();
     KubernetesCoreCachingAgent cachingAgent =
@@ -419,22 +420,23 @@ final class KubernetesCoreCachingAgentTest {
             .asList()
             .get(0);
 
-    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+    List<KubernetesKind> filteredPrimaryKinds = cachingAgent.filteredPrimaryKinds();
 
     KubernetesKind[] expected =
         KubernetesCachingAgent.SPINNAKER_UI_KINDS.stream()
             .map(kubernetesSpinnakerKindMap::translateSpinnakerKind)
             .flatMap(Collection::stream)
+            .filter(kindProperties::containsKey)
             .toArray(KubernetesKind[]::new);
-    assertThat(kindsToCache).containsExactlyInAnyOrder(expected); // only has UI kinds
+    assertThat(filteredPrimaryKinds).containsExactlyInAnyOrder(expected); // only has UI kinds
   }
 
   /**
-   * kindsToCache doesn't include kinds specified in {@link
+   * filteredPrimaryKinds doesn't include kinds specified in {@link
    * KubernetesConfigurationProperties.Cache#getCacheOmitKinds()}
    */
   @Test
-  public void kindsToCacheOmitKind() {
+  public void filteredPrimaryKindsOmitKind() {
     KubernetesConfigurationProperties configurationProperties =
         new KubernetesConfigurationProperties();
     configurationProperties.getCache().setCacheOmitKinds(Collections.singletonList("deployment"));
@@ -443,39 +445,16 @@ final class KubernetesCoreCachingAgentTest {
             .asList()
             .get(0);
 
-    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+    List<KubernetesKind> filteredPrimaryKinds = cachingAgent.filteredPrimaryKinds();
 
     KubernetesKind[] expected =
         KubernetesCachingAgent.SPINNAKER_UI_KINDS.stream()
             .map(kubernetesSpinnakerKindMap::translateSpinnakerKind)
             .flatMap(Collection::stream)
+            .filter(kindProperties::containsKey)
             .filter(k -> !k.equals(KubernetesKind.DEPLOYMENT))
             .toArray(KubernetesKind[]::new);
-    assertThat(kindsToCache).containsExactlyInAnyOrder(expected); // excludes Deployment
-  }
-
-  /**
-   * kindsToCache doesn't include invalid kinds. An invalid kind is one that failed access checks
-   * during startup.
-   */
-  @Test
-  public void kindsToCacheInvalidKind() {
-    KubernetesConfigurationProperties configurationProperties =
-        new KubernetesConfigurationProperties();
-    KubernetesNamedAccountCredentials namedCreds = getNamedAccountCredentials();
-    when(namedCreds.getCredentials().isValidKind(KubernetesKind.DEPLOYMENT)).thenReturn(false);
-    KubernetesCoreCachingAgent cachingAgent =
-        createCachingAgents(namedCreds, 1, configurationProperties).asList().get(0);
-
-    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
-
-    KubernetesKind[] expected =
-        KubernetesCachingAgent.SPINNAKER_UI_KINDS.stream()
-            .map(kubernetesSpinnakerKindMap::translateSpinnakerKind)
-            .flatMap(Collection::stream)
-            .filter(k -> !k.equals(KubernetesKind.DEPLOYMENT))
-            .toArray(KubernetesKind[]::new);
-    assertThat(kindsToCache).containsExactlyInAnyOrder(expected); // excludes Deployment
+    assertThat(filteredPrimaryKinds).containsExactlyInAnyOrder(expected); // excludes Deployment
   }
 
   private static ImmutableList<String> getAuthoritativeTypes(

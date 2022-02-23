@@ -25,18 +25,16 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinna
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 public class KubernetesCachingAgentDispatcher {
   private final ObjectMapper objectMapper;
   private final Registry registry;
@@ -57,6 +55,12 @@ public class KubernetesCachingAgentDispatcher {
 
   public Collection<KubernetesCachingAgent> buildAllCachingAgents(
       KubernetesNamedAccountCredentials credentials) {
+
+    if (!configurationProperties.getCache().isEnabled()) {
+      log.info("Caching is disabled by configuration ('kubernetes.cache.enabled')");
+      return Collections.emptyList();
+    }
+
     KubernetesCredentials kubernetesCredentials = credentials.getCredentials();
     List<KubernetesCachingAgent> result = new ArrayList<>();
     Long agentInterval =

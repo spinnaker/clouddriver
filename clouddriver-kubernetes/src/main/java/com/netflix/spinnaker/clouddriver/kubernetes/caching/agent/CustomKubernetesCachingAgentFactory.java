@@ -28,7 +28,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurati
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import java.util.Objects;
 
 public class CustomKubernetesCachingAgentFactory {
   public static KubernetesCachingAgent create(
@@ -53,6 +52,13 @@ public class CustomKubernetesCachingAgentFactory {
         kubernetesSpinnakerKindMap);
   }
 
+  /**
+   * Instances of this class cache kinds specified in the list
+   * "kubernetes.accounts[*].customResourceDefinitions" in config.
+   *
+   * <p>There's one instance of this class for every kind in the list, and only the kinds that are
+   * allowed by the configuration in "kubernetes.cache.*" are cached.
+   */
   private static class Agent extends KubernetesCachingAgent {
     private final KubernetesKind kind;
 
@@ -81,11 +87,6 @@ public class CustomKubernetesCachingAgentFactory {
     @Override
     protected ImmutableList<KubernetesKind> primaryKinds() {
       return ImmutableList.of(this.kind);
-    }
-
-    @Override
-    protected boolean cachesKind(KubernetesKind kind) {
-      return Objects.equals(this.kind, kind);
     }
 
     @Override

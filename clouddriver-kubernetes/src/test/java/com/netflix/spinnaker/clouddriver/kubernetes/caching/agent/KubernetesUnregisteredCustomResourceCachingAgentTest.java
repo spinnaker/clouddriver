@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -28,9 +27,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProp
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.*;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -42,36 +41,25 @@ public class KubernetesUnregisteredCustomResourceCachingAgentTest {
 
   private static final String ACCOUNT = "my-account";
   private static final ObjectMapper objectMapper = new ObjectMapper();
-  private static final ImmutableList<KubernetesHandler> handlers =
-      ImmutableList.of(
-          new KubernetesDeploymentHandler(),
-          new KubernetesReplicaSetHandler(),
-          new KubernetesServiceHandler(),
-          new KubernetesPodHandler(),
-          new KubernetesConfigMapHandler());
-  private static final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap =
-      new KubernetesSpinnakerKindMap(handlers);
+  private static final String CRD_NAME = "myCustomKind.my.group";
 
   /**
-   * kindsToCache returns only non-core kinds specified in {@link
+   * filteredPrimaryKinds returns only non-core kinds specified in {@link
    * KubernetesConfigurationProperties.Cache#getCacheKinds()}
    */
   @Test
-  public void kindsToCacheFromConfig() {
+  public void filteredPrimaryKindsFromConfig() {
     KubernetesConfigurationProperties configurationProperties =
         new KubernetesConfigurationProperties();
     configurationProperties.getCache().setCacheAll(false);
-    configurationProperties
-        .getCache()
-        .setCacheKinds(Arrays.asList("deployment", "myCustomKind.my.group"));
+    configurationProperties.getCache().setCacheKinds(Arrays.asList("deployment", CRD_NAME));
     KubernetesUnregisteredCustomResourceCachingAgent cachingAgent =
         createCachingAgent(getNamedAccountCredentials(), configurationProperties);
 
-    List<KubernetesKind> kindsToCache = cachingAgent.kindsToCache();
+    List<KubernetesKind> filteredPrimaryKinds = cachingAgent.filteredPrimaryKinds();
 
-    assertThat(kindsToCache)
-        .containsExactlyInAnyOrder(
-            KubernetesKind.fromString("myCustomKind.my.group")); // only has CRD kinds
+    assertThat(filteredPrimaryKinds)
+        .containsExactlyInAnyOrder(KubernetesKind.fromString(CRD_NAME)); // only has CRD kinds
   }
 
   /**
@@ -83,7 +71,7 @@ public class KubernetesUnregisteredCustomResourceCachingAgentTest {
     managedAccount.setName(ACCOUNT);
 
     KubernetesCredentials credentials = mock(KubernetesCredentials.class);
-    when(credentials.isValidKind(any(KubernetesKind.class))).thenReturn(true);
+    when(credentials.getCrds()).thenReturn(ImmutableList.of(KubernetesKind.fromString(CRD_NAME)));
     KubernetesCredentials.Factory credentialFactory = mock(KubernetesCredentials.Factory.class);
     when(credentialFactory.build(managedAccount)).thenReturn(credentials);
     return new KubernetesNamedAccountCredentials(managedAccount, credentialFactory);
@@ -100,6 +88,6 @@ public class KubernetesUnregisteredCustomResourceCachingAgentTest {
         1,
         10L,
         configurationProperties,
-        kubernetesSpinnakerKindMap);
+        new KubernetesSpinnakerKindMap(new ArrayList<>()));
   }
 }

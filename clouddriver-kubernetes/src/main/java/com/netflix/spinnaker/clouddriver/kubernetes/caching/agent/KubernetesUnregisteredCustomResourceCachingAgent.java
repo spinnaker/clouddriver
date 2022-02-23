@@ -28,8 +28,18 @@ import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 
+/**
+ * Instances of this class cache CRDs for one particular account at regular intervals.
+ *
+ * <p>The list of CRDs to cache are the ones dynamically returned from "kubectl get crd" calls in
+ * {@link KubernetesCredentials#getCrds()}, so the kinds cached in this class change dynamically if
+ * CRDs are added or deleted from the cluster of a particular account. From this list, only the
+ * kinds to which clouddriver has access (kubectl get {kind}) and are allowed by configuration are
+ * cached.
+ */
 public class KubernetesUnregisteredCustomResourceCachingAgent extends KubernetesCachingAgent {
   public KubernetesUnregisteredCustomResourceCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
@@ -53,7 +63,7 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
 
   @Override
   public ImmutableSet<AgentDataType> getProvidedDataTypes() {
-    return kindsToCache().stream()
+    return filteredPrimaryKinds().stream()
         .map(k -> AUTHORITATIVE.forType(k.toString()))
         .collect(toImmutableSet());
   }
@@ -61,10 +71,5 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
   @Override
   protected ImmutableList<KubernetesKind> primaryKinds() {
     return credentials.getCrds();
-  }
-
-  @Override
-  protected boolean cachesKind(KubernetesKind kind) {
-    return !kind.getApiGroup().isNativeGroup();
   }
 }

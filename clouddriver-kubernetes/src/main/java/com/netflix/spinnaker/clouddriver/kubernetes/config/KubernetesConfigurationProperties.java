@@ -68,6 +68,9 @@ public class KubernetesConfigurationProperties {
   @Data
   public static class Cache {
 
+    /** Whether caching is enabled in the kubernetes provider. */
+    private boolean enabled = true;
+
     /**
      * Whether to cache all kubernetes kinds or not. If this value is "true", the setting
      * "cacheKinds" is ignored.

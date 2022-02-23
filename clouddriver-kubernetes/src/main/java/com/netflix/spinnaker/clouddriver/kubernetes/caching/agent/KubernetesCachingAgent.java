@@ -54,6 +54,11 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A kubernetes caching agent is a class that caches part of the kubernetes infrastructure. Every
+ * instance of a caching agent is responsible for caching only one account, and only some (but not
+ * all) kubernetes kinds of that account.
+ */
 public abstract class KubernetesCachingAgent
     implements AgentIntervalAware, CachingAgent, AccountAware {
   private static final Logger log = LoggerFactory.getLogger(KubernetesCachingAgent.class);
@@ -106,43 +111,41 @@ public abstract class KubernetesCachingAgent
   protected Map<String, Object> defaultIntrospectionDetails() {
     Map<String, Object> result = new HashMap<>();
     result.put("namespaces", getNamespaces());
-    result.put("kinds", kindsToCache());
+    result.put("kinds", filteredPrimaryKinds());
     return result;
   }
 
   protected abstract List<KubernetesKind> primaryKinds();
 
-  protected abstract boolean cachesKind(KubernetesKind kind);
-
-  protected List<KubernetesKind> kindsToCache() {
-    List<KubernetesKind> cacheKinds;
+  /**
+   * Filters the list of kinds returned from primaryKinds according to configuration.
+   *
+   * @return filtered list of primaryKinds.
+   */
+  protected List<KubernetesKind> filteredPrimaryKinds() {
+    List<KubernetesKind> primaryKinds = primaryKinds();
+    List<KubernetesKind> filteredPrimaryKinds;
 
     if (configurationProperties.getCache().isCacheAll()) {
-      cacheKinds = primaryKinds();
+      filteredPrimaryKinds = primaryKinds;
 
     } else if (configurationProperties.getCache().getCacheKinds() != null
         && configurationProperties.getCache().getCacheKinds().size() > 0) {
       // If provider config specifies what kinds to cache, use it
-      cacheKinds =
+      filteredPrimaryKinds =
           configurationProperties.getCache().getCacheKinds().stream()
               .map(KubernetesKind::fromString)
-              .filter(this::cachesKind)
-              .filter(credentials::isValidKind)
+              .filter(primaryKinds::contains)
               .collect(Collectors.toList());
 
     } else {
       // Only cache kinds used in Spinnaker's classic infrastructure screens, which are the kinds
       // mapped to Spinnaker kinds like ServerGroups, Instances, etc.
-      cacheKinds =
-          kubernetesSpinnakerKindMap.allKubernetesKinds().stream()
-              .filter(this::cachesKind)
-              .filter(credentials::isValidKind)
-              .filter(
-                  k -> {
-                    SpinnakerKind spinnakerKind =
-                        kubernetesSpinnakerKindMap.translateKubernetesKind(k);
-                    return SPINNAKER_UI_KINDS.contains(spinnakerKind);
-                  })
+      filteredPrimaryKinds =
+          SPINNAKER_UI_KINDS.stream()
+              .map(kubernetesSpinnakerKindMap::translateSpinnakerKind)
+              .flatMap(Collection::stream)
+              .filter(primaryKinds::contains)
               .collect(Collectors.toList());
     }
 
@@ -153,11 +156,13 @@ public abstract class KubernetesCachingAgent
           configurationProperties.getCache().getCacheOmitKinds().stream()
               .map(KubernetesKind::fromString)
               .collect(Collectors.toList());
-      cacheKinds =
-          cacheKinds.stream().filter(k -> !omitKinds.contains(k)).collect(Collectors.toList());
+      filteredPrimaryKinds =
+          filteredPrimaryKinds.stream()
+              .filter(k -> !omitKinds.contains(k))
+              .collect(Collectors.toList());
     }
 
-    return cacheKinds;
+    return filteredPrimaryKinds;
   }
 
   private ImmutableList<KubernetesManifest> loadResources(
@@ -192,7 +197,7 @@ public abstract class KubernetesCachingAgent
   }
 
   private ImmutableSetMultimap<ResourceScope, KubernetesKind> primaryKindsByScope() {
-    return kindsToCache().stream()
+    return filteredPrimaryKinds().stream()
         .collect(
             ImmutableSetMultimap.toImmutableSetMultimap(
                 k -> credentials.getKindProperties(k).getResourceScope(), Function.identity()));
