@@ -43,6 +43,7 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.CollectionUtils;
 
 public class KubernetesDeployManifestOperation implements AtomicOperation<OperationResult> {
   private static final Logger log =
@@ -167,11 +168,13 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
   @NotNull
   private List<KubernetesManifest> getManifestsFromDescription() {
     List<KubernetesManifest> inputManifests = description.getManifests();
-    if (inputManifests == null || inputManifests.isEmpty()) {
-      // The stage currently only supports using the `manifests` field but we need to continue to
-      // check `manifest` for backwards compatibility until all existing stages have been updated.
-      @SuppressWarnings("deprecation")
-      KubernetesManifest manifest = description.getManifest();
+
+    // The stage currently only supports using the `manifests` field but we need to continue to
+    // check `manifest` for backwards compatibility until all existing stages have been updated.
+    @SuppressWarnings("deprecation")
+    KubernetesManifest manifest = description.getManifest();
+
+    if (CollectionUtils.isEmpty(inputManifests) && manifest != null) {
       log.warn(
           "Relying on deprecated single manifest input (account: {}, kind: {}, name: {})",
           accountName,
@@ -179,6 +182,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
           manifest.getName());
       inputManifests = ImmutableList.of(manifest);
     }
+
     inputManifests = inputManifests.stream().filter(Objects::nonNull).collect(Collectors.toList());
     return inputManifests;
   }
