@@ -213,7 +213,7 @@ public abstract class KubeTestUtils {
     sendOperation(baseUrl, reqBody, targetNs);
   }
 
-  private static List<String> sendOperation(
+  public static List<String> sendOperation(
       String baseUrl, List<Map<String, Object>> reqBody, String targetNs)
       throws InterruptedException {
 
@@ -397,11 +397,5 @@ public abstract class KubeTestUtils {
     }
 
     deployAndWaitStable(baseUrl, account, namespace, kind, name, app, image);
-  }
-
-  public static List<String> delete(
-      String baseUrl, List<Map<String, Object>> reqBody, String targetNs)
-      throws InterruptedException {
-    return sendOperation(baseUrl, reqBody, targetNs);
   }
 }
