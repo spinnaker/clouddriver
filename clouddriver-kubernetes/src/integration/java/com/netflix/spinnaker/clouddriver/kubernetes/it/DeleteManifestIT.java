@@ -17,20 +17,16 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.it;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.KubeTestUtils;
-import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.opentest4j.AssertionFailedError;
 import org.springframework.http.HttpStatus;
 
 public class DeleteManifestIT extends BaseTest {
@@ -49,20 +45,27 @@ public class DeleteManifestIT extends BaseTest {
           + "Then the secret is deleted\n===")
   @Test
   public void shouldDeleteByStaticTarget() throws IOException, InterruptedException {
-    final String s = "secret";
-    final String sn = "mysecret";
-    Map<String, Object> sm =
+    // ------------------------- given --------------------------
+    final String kind = "secret";
+    final String name = "mysecret";
+    Map<String, Object> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/secret.yml")
             .withValue("metadata.namespace", account1Ns)
-            .withValue("metadata.name", sn)
+            .withValue("metadata.name", name)
             .asMap();
-    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", sm);
-    List<Map<String, Object>> rb = buildStaticRequestBody(String.format("%s %s", s, sn), true);
-    List<String> on = KubeTestUtils.sendOperation(baseUrl(), rb, account1Ns);
-    String ss =
+    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", manifest);
+    // ------------------------- when ---------------------------
+    List<Map<String, Object>> request =
+        buildStaticRequestBody(String.format("%s %s", kind, name), true);
+    List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), request, account1Ns);
+    // ------------------------- then ---------------------------
+    String exist =
         kubeCluster.execKubectl(
-            String.format("-n %s get %s %s --ignore-not-found", account1Ns, s, sn));
-    assertTrue(ss.isBlank() && on.size() == 1 && on.get(0).equals(String.format("%s %s", s, sn)));
+            String.format("-n %s get %s %s --ignore-not-found", account1Ns, kind, name));
+    assertTrue(
+        exist.isBlank()
+            && deletions.size() == 1
+            && deletions.get(0).equals(String.format("%s %s", kind, name)));
   }
 
   @DisplayName(
@@ -72,33 +75,43 @@ public class DeleteManifestIT extends BaseTest {
           + "Then the newest replicaset is deleted\n===")
   @Test
   public void shouldDeleteNewestByDynamicTarget() throws IOException, InterruptedException {
-    String rs = "replicaSet";
-    String c = "newest";
-    String rsn = String.format("nginx-%s-test", c);
-    String rdn = String.format("%s-v001", rsn);
-    List<Map<String, Object>> m =
+    // ------------------------- given --------------------------
+    String kind = "replicaSet";
+    String criteria = "newest";
+    String name = String.format("nginx-%s-test", criteria);
+    String nameToDelete = String.format("%s-v001", name);
+    List<Map<String, Object>> deployManifest =
         KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
-            .withValue("metadata.name", rsn)
+            .withValue("metadata.name", name)
             .asList();
-    List<Map<String, Object>> b =
+    List<Map<String, Object>> deployRequest =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
             .withValue("deployManifest.account", ACCOUNT1_NAME)
             .withValue("deployManifest.namespaceOverride", account1Ns)
             .withValue("deployManifest.moniker.app", APP1_NAME)
-            .withValue("deployManifest.manifests", m)
+            .withValue("deployManifest.manifests", deployManifest)
             .asList();
     for (byte i = 0; i < 2; i++) {
       KubeTestUtils.deployAndWaitStable(
-          baseUrl(), b, account1Ns, String.format("replicaSet %s-v%03d", rsn, i));
+          baseUrl(), deployRequest, account1Ns, String.format("replicaSet %s-v%03d", name, i));
     }
-    List<Map<String, Object>> rb =
+    // ------------------------- when ---------------------------
+    List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
-            String.format("%s %s", rs, rdn), true, String.format("%s %s", rs, rsn), c, rs);
-    List<String> on = KubeTestUtils.sendOperation(baseUrl(), rb, account1Ns);
-    String ss =
+            String.format("%s %s", kind, nameToDelete),
+            true,
+            String.format("%s %s", kind, name),
+            criteria,
+            kind);
+    List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), deleteRequest, account1Ns);
+    // ------------------------- then ---------------------------
+    String exists =
         kubeCluster.execKubectl(
-            String.format("-n %s get %s %s --ignore-not-found", account1Ns, rs, rdn));
-    assertTrue(ss.isBlank() && on.size() == 1 && on.get(0).equals(String.format("%s %s", rs, rdn)));
+            String.format("-n %s get %s %s --ignore-not-found", account1Ns, kind, nameToDelete));
+    assertTrue(
+        exists.isBlank()
+            && deletions.size() == 1
+            && deletions.get(0).equals(String.format("%s %s", kind, nameToDelete)));
   }
 
   @DisplayName(
@@ -108,33 +121,43 @@ public class DeleteManifestIT extends BaseTest {
           + "Then the second newest replicaset is deleted\n===")
   @Test
   public void shouldDeleteSecondNewestByDynamicTarget() throws IOException, InterruptedException {
-    String rs = "replicaSet";
-    String c = "second-newest";
-    String rsn = String.format("nginx-%s-test", c);
-    String rdn = String.format("%s-v000", rsn);
-    List<Map<String, Object>> m =
+    // ------------------------- given --------------------------
+    String kind = "replicaSet";
+    String criteria = "second-newest";
+    String name = String.format("nginx-%s-test", criteria);
+    String nameToDelete = String.format("%s-v000", name);
+    List<Map<String, Object>> deployManifest =
         KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
-            .withValue("metadata.name", rsn)
+            .withValue("metadata.name", name)
             .asList();
-    List<Map<String, Object>> b =
+    List<Map<String, Object>> deployRequest =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
             .withValue("deployManifest.account", ACCOUNT1_NAME)
             .withValue("deployManifest.namespaceOverride", account1Ns)
             .withValue("deployManifest.moniker.app", APP1_NAME)
-            .withValue("deployManifest.manifests", m)
+            .withValue("deployManifest.manifests", deployManifest)
             .asList();
     for (byte i = 0; i < 2; i++) {
       KubeTestUtils.deployAndWaitStable(
-          baseUrl(), b, account1Ns, String.format("replicaSet %s-v%03d", rsn, i));
+          baseUrl(), deployRequest, account1Ns, String.format("replicaSet %s-v%03d", name, i));
     }
-    List<Map<String, Object>> rb =
+    // ------------------------- when ---------------------------
+    List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
-            String.format("%s %s", rs, rdn), true, String.format("%s %s", rs, rsn), c, rs);
-    List<String> on = KubeTestUtils.sendOperation(baseUrl(), rb, account1Ns);
-    String ss =
+            String.format("%s %s", kind, nameToDelete),
+            true,
+            String.format("%s %s", kind, name),
+            criteria,
+            kind);
+    List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), deleteRequest, account1Ns);
+    // ------------------------- then ---------------------------
+    String exists =
         kubeCluster.execKubectl(
-            String.format("-n %s get %s %s --ignore-not-found", account1Ns, rs, rdn));
-    assertTrue(ss.isBlank() && on.size() == 1 && on.get(0).equals(String.format("%s %s", rs, rdn)));
+            String.format("-n %s get %s %s --ignore-not-found", account1Ns, kind, nameToDelete));
+    assertTrue(
+        exists.isBlank()
+            && deletions.size() == 1
+            && deletions.get(0).equals(String.format("%s %s", kind, nameToDelete)));
   }
 
   @DisplayName(
@@ -144,33 +167,43 @@ public class DeleteManifestIT extends BaseTest {
           + "Then the oldest replicaset is deleted\n===")
   @Test
   public void shouldDeleteOldestByDynamicTarget() throws IOException, InterruptedException {
-    String rs = "replicaSet";
-    String c = "oldest";
-    String rsn = String.format("nginx-%s-test", c);
-    String rdn = String.format("%s-v000", rsn);
-    List<Map<String, Object>> m =
+    // ------------------------- given --------------------------
+    String kind = "replicaSet";
+    String criteria = "oldest";
+    String name = String.format("nginx-%s-test", criteria);
+    String nameToDelete = String.format("%s-v000", name);
+    List<Map<String, Object>> deployManifest =
         KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
-            .withValue("metadata.name", rsn)
+            .withValue("metadata.name", name)
             .asList();
-    List<Map<String, Object>> b =
+    List<Map<String, Object>> deployRequest =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
             .withValue("deployManifest.account", ACCOUNT1_NAME)
             .withValue("deployManifest.namespaceOverride", account1Ns)
             .withValue("deployManifest.moniker.app", APP1_NAME)
-            .withValue("deployManifest.manifests", m)
+            .withValue("deployManifest.manifests", deployManifest)
             .asList();
     for (byte i = 0; i < 2; i++) {
       KubeTestUtils.deployAndWaitStable(
-          baseUrl(), b, account1Ns, String.format("replicaSet %s-v%03d", rsn, i));
+          baseUrl(), deployRequest, account1Ns, String.format("replicaSet %s-v%03d", name, i));
     }
-    List<Map<String, Object>> rb =
+    // ------------------------- when ---------------------------
+    List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
-            String.format("%s %s", rs, rdn), true, String.format("%s %s", rs, rsn), c, rs);
-    List<String> on = KubeTestUtils.sendOperation(baseUrl(), rb, account1Ns);
-    String ss =
+            String.format("%s %s", kind, nameToDelete),
+            true,
+            String.format("%s %s", kind, name),
+            criteria,
+            kind);
+    List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), deleteRequest, account1Ns);
+    // ------------------------- then ---------------------------
+    String exists =
         kubeCluster.execKubectl(
-            String.format("-n %s get %s %s --ignore-not-found", account1Ns, rs, rdn));
-    assertTrue(ss.isBlank() && on.size() == 1 && on.get(0).equals(String.format("%s %s", rs, rdn)));
+            String.format("-n %s get %s %s --ignore-not-found", account1Ns, kind, nameToDelete));
+    assertTrue(
+        exists.isBlank()
+            && deletions.size() == 1
+            && deletions.get(0).equals(String.format("%s %s", kind, nameToDelete)));
   }
 
   @DisplayName(
@@ -180,34 +213,44 @@ public class DeleteManifestIT extends BaseTest {
           + "Then the replicaset that has the greater amount of replicas is deleted\n===")
   @Test
   public void shouldDeleteLargestByDynamicTarget() throws IOException, InterruptedException {
-    String rs = "replicaSet";
-    String c = "largest";
-    String rsn = String.format("nginx-%s-test", c);
-    String rdn = String.format("%s-v001", rsn);
+    // ------------------------- given --------------------------
+    String kind = "replicaSet";
+    String criteria = "largest";
+    String name = String.format("nginx-%s-test", criteria);
+    String nameToDelete = String.format("%s-v001", name);
     for (byte i = 0; i < 2; i++) {
-      List<Map<String, Object>> m =
+      List<Map<String, Object>> deployManifest =
           KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
-              .withValue("metadata.name", rsn)
+              .withValue("metadata.name", name)
               .withValue("spec.replicas", i)
               .asList();
-      List<Map<String, Object>> b =
+      List<Map<String, Object>> deployRequest =
           KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
               .withValue("deployManifest.account", ACCOUNT1_NAME)
               .withValue("deployManifest.namespaceOverride", account1Ns)
               .withValue("deployManifest.moniker.app", APP1_NAME)
-              .withValue("deployManifest.manifests", m)
+              .withValue("deployManifest.manifests", deployManifest)
               .asList();
       KubeTestUtils.deployAndWaitStable(
-          baseUrl(), b, account1Ns, String.format("replicaSet %s-v%03d", rsn, i));
+          baseUrl(), deployRequest, account1Ns, String.format("replicaSet %s-v%03d", name, i));
     }
-    List<Map<String, Object>> rb =
+    // ------------------------- when ---------------------------
+    List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
-            String.format("%s %s", rs, rdn), true, String.format("%s %s", rs, rsn), c, rs);
-    List<String> on = KubeTestUtils.sendOperation(baseUrl(), rb, account1Ns);
-    String ss =
+            String.format("%s %s", kind, nameToDelete),
+            true,
+            String.format("%s %s", kind, name),
+            criteria,
+            kind);
+    List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), deleteRequest, account1Ns);
+    // ------------------------- then ---------------------------
+    String exists =
         kubeCluster.execKubectl(
-            String.format("-n %s get %s %s --ignore-not-found", account1Ns, rs, rdn));
-    assertTrue(ss.isBlank() && on.size() == 1 && on.get(0).equals(String.format("%s %s", rs, rdn)));
+            String.format("-n %s get %s %s --ignore-not-found", account1Ns, kind, nameToDelete));
+    assertTrue(
+        exists.isBlank()
+            && deletions.size() == 1
+            && deletions.get(0).equals(String.format("%s %s", kind, nameToDelete)));
   }
 
   @DisplayName(
@@ -217,34 +260,44 @@ public class DeleteManifestIT extends BaseTest {
           + "Then the replicaset that has the lower amount of replicas is deleted\n===")
   @Test
   public void shouldDeleteSmallestByDynamicTarget() throws IOException, InterruptedException {
-    String rs = "replicaSet";
-    String c = "smallest";
-    String rsn = String.format("nginx-%s-test", c);
-    String rdn = String.format("%s-v000", rsn);
+    // ------------------------- given --------------------------
+    String kind = "replicaSet";
+    String criteria = "smallest";
+    String name = String.format("nginx-%s-test", criteria);
+    String nameToDelete = String.format("%s-v000", name);
     for (byte i = 0; i < 2; i++) {
-      List<Map<String, Object>> m =
+      List<Map<String, Object>> deployManifest =
           KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
-              .withValue("metadata.name", rsn)
+              .withValue("metadata.name", name)
               .withValue("spec.replicas", i)
               .asList();
-      List<Map<String, Object>> b =
+      List<Map<String, Object>> deployRequest =
           KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
               .withValue("deployManifest.account", ACCOUNT1_NAME)
               .withValue("deployManifest.namespaceOverride", account1Ns)
               .withValue("deployManifest.moniker.app", APP1_NAME)
-              .withValue("deployManifest.manifests", m)
+              .withValue("deployManifest.manifests", deployManifest)
               .asList();
       KubeTestUtils.deployAndWaitStable(
-          baseUrl(), b, account1Ns, String.format("replicaSet %s-v%03d", rsn, i));
+          baseUrl(), deployRequest, account1Ns, String.format("replicaSet %s-v%03d", name, i));
     }
-    List<Map<String, Object>> rb =
+    // ------------------------- when ---------------------------
+    List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
-            String.format("%s %s", rs, rdn), true, String.format("%s %s", rs, rsn), c, rs);
-    List<String> on = KubeTestUtils.sendOperation(baseUrl(), rb, account1Ns);
-    String ss =
+            String.format("%s %s", kind, nameToDelete),
+            true,
+            String.format("%s %s", kind, name),
+            criteria,
+            kind);
+    List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), deleteRequest, account1Ns);
+    // ------------------------- then ---------------------------
+    String exists =
         kubeCluster.execKubectl(
-            String.format("-n %s get %s %s --ignore-not-found", account1Ns, rs, rdn));
-    assertTrue(ss.isBlank() && on.size() == 1 && on.get(0).equals(String.format("%s %s", rs, rdn)));
+            String.format("-n %s get %s %s --ignore-not-found", account1Ns, kind, nameToDelete));
+    assertTrue(
+        exists.isBlank()
+            && deletions.size() == 1
+            && deletions.get(0).equals(String.format("%s %s", kind, nameToDelete)));
   }
 
   @DisplayName(
@@ -254,24 +307,30 @@ public class DeleteManifestIT extends BaseTest {
           + "Then just the deployment should be remove at once\n===")
   @Test
   public void shouldDeleteWithoutCascading() throws IOException, InterruptedException {
-    String d = "deployment";
-    String dn = "myapp";
-    Map<String, Object> dm =
+    // ------------------------- given --------------------------
+    String kind = "deployment";
+    String name = "myapp";
+    Map<String, Object> deployManifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
-            .withValue("metadata.name", dn)
+            .withValue("metadata.name", name)
             .withValue("spec.replicas", 3)
             .asMap();
-    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", dm);
+    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", deployManifest);
     kubeCluster.execKubectl(
         String.format(
-            "wait %s -n %s %s --for condition=Available=True --timeout=600s", d, account1Ns, dn));
-    List<Map<String, Object>> rb = buildStaticRequestBody(String.format("%s %s", d, dn), false);
-    List<String> on = KubeTestUtils.sendOperation(baseUrl(), rb, account1Ns);
-    String ps = kubeCluster.execKubectl(String.format("-n %s get pods -l=app=%s", account1Ns, dn));
+            "wait %s -n %s %s --for condition=Available=True --timeout=600s",
+            kind, account1Ns, name));
+    // ------------------------- when ---------------------------
+    List<Map<String, Object>> deleteRequest =
+        buildStaticRequestBody(String.format("%s %s", kind, name), false);
+    List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), deleteRequest, account1Ns);
+    // ------------------------- then ---------------------------
+    String exists =
+        kubeCluster.execKubectl(String.format("-n %s get pods -l=app=%s", account1Ns, name));
     assertTrue(
-        on.size() == 1
-            && on.get(0).equals(String.format("%s %s", d, dn))
-            && ps.contains("Running"));
+        deletions.size() == 1
+            && deletions.get(0).equals(String.format("%s %s", kind, name))
+            && exists.contains("Running"));
   }
 
   @DisplayName(
@@ -281,9 +340,12 @@ public class DeleteManifestIT extends BaseTest {
           + "Then it should return any deleted deployment\n===")
   @Test
   public void shouldNotDeleteStaticTarget() throws InterruptedException {
-    List<Map<String, Object>> rb = buildStaticRequestBody("deployment notExists", true);
-    List<String> on = KubeTestUtils.sendOperation(baseUrl(), rb, account1Ns);
-    assertEquals(0, on.size());
+    // ------------------------- given --------------------------
+    // ------------------------- when ---------------------------
+    List<Map<String, Object>> request = buildStaticRequestBody("deployment notExists", true);
+    // ------------------------- then ---------------------------
+    List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), request, account1Ns);
+    assertEquals(0, deletions.size());
   }
 
   @DisplayName(
@@ -293,30 +355,18 @@ public class DeleteManifestIT extends BaseTest {
           + "Then it gets a 404 while fetching the manifest\n===")
   @Test
   public void shouldNotFoundDynamicTarget() throws InterruptedException {
-    String rs = "replicaSet";
-    String c = "smallest";
-    String rsn = String.format("not-exists-%s-test", c);
-    String rdn = String.format("%s-v000", rsn);
-    assertThrows(
-        AssertionFailedError.class,
-        () -> {
-          KubeTestUtils.repeatUntilTrue(
-              () -> {
-                String url =
-                    String.format(
-                        "%s/manifests/%s/%s/%s %s", baseUrl(), ACCOUNT1_NAME, account1Ns, rs, rdn);
-                Response respWait = given().queryParam("includeEvents", false).get(url);
-                JsonPath jsonPath = respWait.jsonPath();
-                if (respWait.statusCode() == HttpStatus.NOT_FOUND.value()) {
-                  return false;
-                }
-                respWait.then().statusCode(200).body("status.failed.state", is(false));
-                return jsonPath.getBoolean("status.stable.state");
-              },
-              1,
-              TimeUnit.MINUTES,
-              "Waited 1 minutes on GET /manifest.. to return \"status.stable.state: true\"");
-        });
+    // ------------------------- given --------------------------
+    // ------------------------- when ---------------------------
+    String kind = "replicaSet";
+    String criteria = "smallest";
+    String name = String.format("not-exists-%s-test", criteria);
+    String nameToDelete = String.format("%s-v000", name);
+    String url =
+        String.format(
+            "%s/manifests/%s/%s/%s %s", baseUrl(), ACCOUNT1_NAME, account1Ns, kind, nameToDelete);
+    Response response = given().queryParam("includeEvents", false).get(url);
+    // ------------------------- then ---------------------------
+    assertEquals(HttpStatus.NOT_FOUND.value(), response.statusCode());
   }
 
   private List<Map<String, Object>> buildStaticRequestBody(String manifestName, Boolean cascading) {
