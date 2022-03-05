@@ -15,7 +15,8 @@ RUN apt-get update && apt-get install -y curl gnupg && \
   kubectl \
   python-pip \
   git \
-  openssh-client && \
+  openssh-client \
+  tzdata && \
   pip install awscli==1.18.152 --upgrade && \
   rm -rf ~/.config/gcloud
 
