@@ -19,19 +19,26 @@ package com.netflix.spinnaker.clouddriver.config;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.std.StringDeserializer;
 import com.netflix.spinnaker.clouddriver.jackson.AccountDefinitionModule;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountDefinitionMapper;
+import com.netflix.spinnaker.clouddriver.security.AccountDefinitionRepository;
+import com.netflix.spinnaker.clouddriver.security.AccountDefinitionService;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
+import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator;
 import com.netflix.spinnaker.kork.secrets.EncryptedSecret;
 import com.netflix.spinnaker.kork.secrets.SecretManager;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import lombok.Data;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -76,6 +83,16 @@ public class AccountDefinitionConfiguration {
   }
 
   @Bean
+  @ConditionalOnBean(AccountDefinitionRepository.class)
+  public AccountDefinitionService accountDefinitionService(
+      AccountDefinitionRepository repository,
+      AccountCredentialsProvider provider,
+      FiatPermissionEvaluator permissionEvaluator,
+      ObjectMapper objectMapper) {
+    return new AccountDefinitionService(repository, provider, permissionEvaluator, objectMapper);
+  }
+
+  @Bean
   public AccountDefinitionModule accountDefinitionModule(
       ResourceLoader loader, Properties properties) {
     return new AccountDefinitionModule(findAccountDefinitionTypes(loader, properties));
@@ -111,17 +128,28 @@ public class AccountDefinitionConfiguration {
         .map(BeanDefinition::getBeanClassName)
         .filter(Objects::nonNull)
         .map(AccountDefinitionConfiguration::loadCredentialsDefinitionType)
+        .filter(Objects::nonNull)
         .filter(type -> type.isAnnotationPresent(JsonTypeName.class))
+        .peek(
+            type ->
+                log.info(
+                    "Discovered CredentialsDefinition class '{}' with type discriminator '{}'.",
+                    type.getName(),
+                    type.getAnnotation(JsonTypeName.class).value()))
         .toArray(Class[]::new);
   }
 
+  @Nullable
   private static Class<? extends CredentialsDefinition> loadCredentialsDefinitionType(
       String className) {
     try {
       return ClassUtils.forName(className, null).asSubclass(CredentialsDefinition.class);
     } catch (ClassNotFoundException e) {
-      throw new IllegalStateException(
-          String.format("Unable to load CredentialsDefinition type `%s`", className), e);
+      log.warn(
+          "Unable to load CredentialsDefinition class '{}'. Credentials with this type will not be loaded.",
+          className,
+          e);
+      return null;
     }
   }
 
