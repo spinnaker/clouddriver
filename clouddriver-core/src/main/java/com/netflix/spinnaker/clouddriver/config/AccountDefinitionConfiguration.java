@@ -23,8 +23,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.std.StringDeserializer;
 import com.netflix.spinnaker.clouddriver.jackson.AccountDefinitionModule;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.clouddriver.security.AccountDefinitionAuthorizer;
 import com.netflix.spinnaker.clouddriver.security.AccountDefinitionMapper;
 import com.netflix.spinnaker.clouddriver.security.AccountDefinitionRepository;
+import com.netflix.spinnaker.clouddriver.security.AccountDefinitionSecretManager;
 import com.netflix.spinnaker.clouddriver.security.AccountDefinitionService;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator;
@@ -39,6 +41,7 @@ import lombok.Data;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -60,6 +63,19 @@ import org.springframework.util.ClassUtils;
 @Log4j2
 public class AccountDefinitionConfiguration {
 
+  @Bean
+  @ConditionalOnMissingBean
+  public AccountDefinitionAuthorizer accountDefinitionAuthorizer(
+      @Nullable FiatPermissionEvaluator permissionEvaluator) {
+    return new AccountDefinitionAuthorizer(permissionEvaluator);
+  }
+
+  @Bean
+  public AccountDefinitionSecretManager accountDefinitionSecretManager(
+      SecretManager secretManager, AccountDefinitionAuthorizer authorizer) {
+    return new AccountDefinitionSecretManager(secretManager, authorizer);
+  }
+
   /**
    * Creates a mapper that can convert between JSON and {@link CredentialsDefinition} classes that
    * are annotated with {@link JsonTypeName}. Account definition classes are scanned in {@code
@@ -74,22 +90,20 @@ public class AccountDefinitionConfiguration {
    */
   @Bean
   public AccountDefinitionMapper accountDefinitionMapper(
-      Jackson2ObjectMapperBuilder mapperBuilder,
-      SecretManager secretManager,
-      AccountDefinitionModule accountDefinitionModule) {
+      Jackson2ObjectMapperBuilder mapperBuilder, AccountDefinitionSecretManager secretManager) {
     mapperBuilder.deserializers(createSecretDecryptingDeserializer(secretManager));
     var mapper = mapperBuilder.build();
-    return new AccountDefinitionMapper(mapper, accountDefinitionModule.getTypeMap());
+    return new AccountDefinitionMapper(mapper);
   }
 
   @Bean
   @ConditionalOnBean(AccountDefinitionRepository.class)
   public AccountDefinitionService accountDefinitionService(
       AccountDefinitionRepository repository,
+      AccountDefinitionAuthorizer authorizer,
       AccountCredentialsProvider provider,
-      FiatPermissionEvaluator permissionEvaluator,
       ObjectMapper objectMapper) {
-    return new AccountDefinitionService(repository, provider, permissionEvaluator, objectMapper);
+    return new AccountDefinitionService(repository, authorizer, provider, objectMapper);
   }
 
   @Bean
@@ -99,15 +113,13 @@ public class AccountDefinitionConfiguration {
   }
 
   private static StringDeserializer createSecretDecryptingDeserializer(
-      SecretManager secretManager) {
+      AccountDefinitionSecretManager secretManager) {
     return new StringDeserializer() {
       @Override
       public String deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
         var string = super.deserialize(p, ctxt);
         if (EncryptedSecret.isEncryptedSecret(string)) {
-          return EncryptedSecret.isEncryptedFile(string)
-              ? secretManager.decryptAsFile(string).toString()
-              : secretManager.decrypt(string);
+          return secretManager.getEncryptedSecret(string);
         } else {
           return string;
         }

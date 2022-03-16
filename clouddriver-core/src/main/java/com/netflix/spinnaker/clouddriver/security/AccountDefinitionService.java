@@ -18,24 +18,21 @@ package com.netflix.spinnaker.clouddriver.security;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Sets;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import com.netflix.spinnaker.fiat.model.Authorization;
-import com.netflix.spinnaker.fiat.model.resources.Role;
-import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator;
 import com.netflix.spinnaker.kork.annotations.Alpha;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.web.exceptions.InvalidRequestException;
-import com.netflix.spinnaker.security.AuthenticatedRequest;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PostFilter;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
  * Service wrapper for an {@link AccountDefinitionRepository} which enforces permissions and other
@@ -46,8 +43,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RequiredArgsConstructor
 public class AccountDefinitionService {
   private final AccountDefinitionRepository repository;
+  private final AccountDefinitionAuthorizer authorizer;
   private final AccountCredentialsProvider accountCredentialsProvider;
-  private final FiatPermissionEvaluator permissionEvaluator;
   private final ObjectMapper objectMapper;
 
   /**
@@ -58,13 +55,14 @@ public class AccountDefinitionService {
    *
    * @see AccountDefinitionRepository#listByType(String, int, String)
    */
-  @PostFilter("hasPermission(filterObject.name, 'ACCOUNT', 'WRITE')")
+  @PreAuthorize("@accountDefinitionAuthorizer.isAccountManager(authentication.name)")
+  @PostFilter("@accountDefinitionSecretManager.canAccessAccountWithSecrets(filterObject.name)")
   public List<? extends CredentialsDefinition> listAccountDefinitionsByType(
       String accountType, int limit, @Nullable String startingAccountName) {
     return repository.listByType(accountType, limit, startingAccountName);
   }
 
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize("@accountDefinitionAuthorizer.isAccountManager(authentication.name)")
   public CredentialsDefinition createAccount(CredentialsDefinition definition) {
     String name = definition.getName();
     if (accountCredentialsProvider.getCredentials(name) != null) {
@@ -76,7 +74,8 @@ public class AccountDefinitionService {
     return definition;
   }
 
-  @PreAuthorize("hasPermission(#definition.name, 'ACCOUNT', 'WRITE')")
+  @PreAuthorize(
+      "@accountDefinitionAuthorizer.isAccountManager(authentication.name) and hasPermission(#definition.name, 'ACCOUNT', 'WRITE')")
   public CredentialsDefinition updateAccount(CredentialsDefinition definition) {
     if (accountCredentialsProvider.getCredentials(definition.getName()) == null) {
       throw new InvalidRequestException(
@@ -88,7 +87,8 @@ public class AccountDefinitionService {
     return definition;
   }
 
-  @PreAuthorize("hasPermission(#accountName, 'ACCOUNT', 'WRITE')")
+  @PreAuthorize(
+      "@accountDefinitionAuthorizer.isAccountManager(authentication.name) and hasPermission(#accountName, 'ACCOUNT', 'WRITE')")
   public void deleteAccount(String accountName) {
     if (accountCredentialsProvider.getCredentials(accountName) == null) {
       throw new InvalidRequestException(
@@ -101,7 +101,8 @@ public class AccountDefinitionService {
    * Deletes an account by name if the current user has {@link Authorization#WRITE} access to the
    * given account.
    */
-  @PreAuthorize("hasPermission(#accountName, 'ACCOUNT', 'WRITE')")
+  @PreAuthorize(
+      "@accountDefinitionAuthorizer.isAccountManager(authentication.name) and hasPermission(#accountName, 'ACCOUNT', 'WRITE')")
   public List<AccountDefinitionRepository.Revision> getAccountHistory(String accountName) {
     return repository.revisionHistory(accountName);
   }
@@ -109,23 +110,25 @@ public class AccountDefinitionService {
   @SuppressWarnings("unchecked")
   private void validateAccountWritePermissions(
       CredentialsDefinition definition, AccountAction action) {
+    var authentication = SecurityContextHolder.getContext().getAuthentication();
+    var username = authentication.getName();
+    if (authorizer.isAdmin(username)) {
+      return;
+    }
+    var accountName = definition.getName();
     var credentials =
         objectMapper.convertValue(definition, new TypeReference<Map<String, Object>>() {});
-    var userRoles =
-        AuthenticatedRequest.getSpinnakerUser()
-            .map(permissionEvaluator::getPermission)
-            .map(
-                view ->
-                    view.getRoles().stream().map(Role.View::getName).collect(Collectors.toSet()))
-            .orElseGet(Set::of);
+    var userRoles = authorizer.getRoles(username);
     var permissions = (Map<String, List<String>>) credentials.getOrDefault("permissions", Map.of());
     var writeRoles = Set.copyOf(permissions.getOrDefault("WRITE", List.of()));
-    if (Sets.intersection(userRoles, writeRoles).isEmpty()) {
+    if (Collections.disjoint(userRoles, writeRoles)) {
       throw new InvalidRequestException(
           String.format(
               "Cannot %s account without specifying WRITE permissions for current user (name: %s)",
-              action.name().toLowerCase(Locale.ROOT), definition.getName()));
+              action.name().toLowerCase(Locale.ROOT), accountName));
     }
+    // TODO(jvz): update with https://github.com/spinnaker/kork/pull/942
+    //  to add authorization checks for user secrets referenced in definition
   }
 
   private enum AccountAction {
