@@ -36,9 +36,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.Data;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -66,8 +68,10 @@ public class AccountDefinitionConfiguration {
   @Bean
   @ConditionalOnMissingBean
   public AccountDefinitionAuthorizer accountDefinitionAuthorizer(
-      @Nullable FiatPermissionEvaluator permissionEvaluator) {
-    return new AccountDefinitionAuthorizer(permissionEvaluator);
+      Optional<FiatPermissionEvaluator> maybePermissionEvaluator,
+      @Value("${services.fiat.enabled:false}") boolean isFiatEnabled) {
+    return new AccountDefinitionAuthorizer(
+        maybePermissionEvaluator.filter(ignored -> isFiatEnabled).orElse(null));
   }
 
   @Bean
