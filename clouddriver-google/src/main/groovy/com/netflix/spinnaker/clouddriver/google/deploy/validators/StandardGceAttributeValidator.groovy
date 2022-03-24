@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.google.security.GoogleCredentials
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
+import org.springframework.scheduling.support.CronSequenceGenerator
 
 /**
  * Common validation routines for standard description attributes.
@@ -455,26 +456,58 @@ class StandardGceAttributeValidator {
                                     "autoscalingPolicy.maxNumReplicas")
         }
 
+        if(cpuUtilization != null) {
+          cpuUtilization.with {
+            if (utilizationTarget != null) {
+              validateInRangeExclusive(utilizationTarget,
+                0, 1, "autoscalingPolicy.cpuUtilization.utilizationTarget")
+            }
+            if (predictiveMethod != null) {
+              validateNotEmpty(predictiveMethod, "autoscalingPolicy.cpuUtilization.predictiveMethod")
+            }
+          }
+        }
+
         customMetricUtilizations.eachWithIndex { utilization, index ->
           def path = "autoscalingPolicy.customMetricUtilizations[${index}]"
 
           utilization.with {
             validateNotEmpty(metric, "${path}.metric")
 
-            if (utilizationTarget <= 0) {
+            if (utilizationTarget < 0) {
               errors.rejectValue("${context}.${path}.utilizationTarget",
                                  "${context}.${path}.utilizationTarget must be greater than zero.")
             }
 
             validateNotEmpty(utilizationTargetType, "${path}.utilizationTargetType")
+
+            //TODO: validate filter
+
+            if (singleInstanceAssignment < 0) {
+              errors.rejectValue("${context}.${path}.singleInstanceAssignment",
+                "${context}.${path}.singleInstanceAssignment must be greater than zero.")
+            }
           }
         }
-      }
 
-      [ "cpuUtilization", "loadBalancingUtilization" ].each {
-        if (policy[it] != null && policy[it].utilizationTarget != null) {
-          validateInRangeExclusive(policy[it].utilizationTarget,
-                                   0, 1, "autoscalingPolicy.${it}.utilizationTarget")
+        scalingSchedules.each { k, scalingSchedule ->
+          if(scalingSchedule != null) {
+            if (scalingSchedule.durationSec != null) {
+              validateInRangeExclusive(scalingSchedule.durationSec,
+                300, Integer.MAX_VALUE, "autoscalingPolicy.scalingSchedule.durationSec")
+            }
+            if (scalingSchedule.schedule != null) {
+              validateCronExpression(scalingSchedule.schedule, "autoscalingPolicy.scalingSchedule.schedule")
+            }
+            if (scalingSchedule.timeZone != null) {
+              validateTimeZone(scalingSchedule.timeZone, "autoscalingPolicy.scalingSchedule.timeZone")
+            }
+          }
+        }
+
+        if (loadBalancingUtilization != null && loadBalancingUtilization.utilizationTarget) {
+          validateInRangeExclusive(loadBalancingUtilization.utilizationTarget,
+            0, 1, "autoscalingPolicy.loadBalancingUtilization.utilizationTarget")
         }
       }
     }
@@ -530,5 +563,24 @@ class StandardGceAttributeValidator {
 
   def validateAuthScopes(List<String> authScopes) {
     return validateOptionalNameList(authScopes, "authScope")
+  }
+
+  def validateCronExpression(String expression, String attribute) {
+    def result = CronSequenceGenerator.isValidExpression("* " + expression)
+    if(!result){
+      errors.rejectValue attribute, "${context}.${attribute} must be a valid CRON expression."
+    }
+    return result
+  }
+
+  def validateTimeZone(String timeZone, String attribute) {
+    def result = true
+    try {
+      result = Set.of(TimeZone.getAvailableIDs()).contains(timeZone)
+    }catch (Exception e){
+      errors.rejectValue attribute, "${context}.${attribute} must be a time zone name from the tz database."
+      result = false
+    }
+    return result
   }
 }

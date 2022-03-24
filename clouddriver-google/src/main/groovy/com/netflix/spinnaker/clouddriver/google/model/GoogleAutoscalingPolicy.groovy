@@ -35,6 +35,7 @@ class GoogleAutoscalingPolicy {
   List<CustomMetricUtilization> customMetricUtilizations
   ScaleInControl scaleInControl
   AutoscalingMode mode
+  Map<String, ScalingSchedule> scalingSchedules
 
   @ToString(includeNames = true)
   static class CpuUtilization {
@@ -43,7 +44,7 @@ class GoogleAutoscalingPolicy {
 
     enum PredictiveMethod {
       NONE,
-      STANDARD
+      OPTIMIZE_AVAILABILITY
     }
   }
 
@@ -63,6 +64,8 @@ class GoogleAutoscalingPolicy {
       DELTA_PER_SECOND,
       DELTA_PER_MINUTE
     }
+    String filter
+    Double singleInstanceAssignment
   }
 
   static class ScaleInControl {
@@ -79,5 +82,15 @@ class GoogleAutoscalingPolicy {
     ON,
     OFF,
     ONLY_SCALE_OUT
+  }
+
+  @ToString(includeNames = true)
+  static class ScalingSchedule {
+    String description
+    Boolean disabled = false
+    Integer durationSec
+    Integer minRequiredReplicas
+    String schedule
+    String timeZone
   }
 }

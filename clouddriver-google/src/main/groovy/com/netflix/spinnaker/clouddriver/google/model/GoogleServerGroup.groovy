@@ -78,6 +78,8 @@ class GoogleServerGroup implements GoogleLabeledResource {
 
   List<String> autoscalingMessages
 
+  //Map<String, String> scalingSchedulingMessages
+
   @JsonTypeInfo(use=JsonTypeInfo.Id.CLASS, include=JsonTypeInfo.As.PROPERTY, property="class")
   InstanceGroupManagerAutoHealingPolicy autoHealingPolicy
 

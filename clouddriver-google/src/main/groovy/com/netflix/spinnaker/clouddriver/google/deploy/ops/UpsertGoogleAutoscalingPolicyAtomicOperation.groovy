@@ -222,7 +222,8 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
     }
 
     // Deletes existing customMetricUtilizations if passed an empty array.
-    ["minNumReplicas", "maxNumReplicas", "coolDownPeriodSec", "customMetricUtilizations", "mode"].each {
+    ["minNumReplicas", "maxNumReplicas", "coolDownPeriodSec", "customMetricUtilizations", "mode",
+     "scalingSchedules"].each {
       if (update[it] != null) {
         newDescription[it] = update[it]
       }
