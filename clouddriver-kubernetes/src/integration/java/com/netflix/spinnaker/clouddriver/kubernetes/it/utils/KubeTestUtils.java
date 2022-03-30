@@ -245,7 +245,9 @@ public abstract class KubeTestUtils {
               respTask
                   .jsonPath()
                   .getList(
-                      "resultObjects.manifestNamesByNamespace." + targetNs + ".flatten()",
+                      "resultObjects.manifestNamesByNamespace."
+                          + (targetNs.isBlank() ? "''" : targetNs)
+                          + ".flatten()",
                       String.class));
           return respTask.jsonPath().getBoolean("status.completed");
         },

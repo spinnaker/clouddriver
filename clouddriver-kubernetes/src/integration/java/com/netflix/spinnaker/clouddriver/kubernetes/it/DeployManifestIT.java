@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.it;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.common.base.Splitter;
@@ -1245,5 +1246,200 @@ public class DeployManifestIT extends BaseTest {
         imageWithTag,
         imageDeployed,
         "Expected correct " + DEPLOYMENT_1_NAME + " image to be scheduled");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a v1beta1 CRD manifest\n"
+          + "When sending deploy manifest request\n"
+          + "Then a v1beta1 CRD is created\n===")
+  @Test
+  public void shouldDeployCrdV1beta1() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    final String crdName = "crontabs.stable.example.com";
+    final List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/crd_v1beta1.yml")
+            .withValue("metadata.name", crdName)
+            .asList();
+    // ------------------------- when --------------------------
+    final List<Map<String, Object>> request =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    final List<String> deployments = KubeTestUtils.sendOperation(baseUrl(), request, "");
+    // ------------------------- then --------------------------
+    String exits = kubeCluster.execKubectl(String.format("get crd %s", crdName));
+    assertTrue(
+        deployments.size() == 1
+            && deployments.get(0).equals(String.format("customResourceDefinition %s", crdName))
+            && exits.contains(crdName));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a v1 CRD manifest\n"
+          + "When sending deploy manifest request\n"
+          + "Then a v1 CRD is created\n===")
+  @Test
+  public void shouldDeployCrdV1() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    final String crdName = "crontabs.stable.example.com";
+    final List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/crd_v1.yml")
+            .withValue("metadata.name", crdName)
+            .asList();
+    // ------------------------- when --------------------------
+    final List<Map<String, Object>> request =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    final List<String> deployments = KubeTestUtils.sendOperation(baseUrl(), request, "");
+    // ------------------------- then --------------------------
+    String exits = kubeCluster.execKubectl(String.format("get crd %s", crdName));
+    assertTrue(
+        deployments.size() == 1
+            && deployments.get(0).equals(String.format("customResourceDefinition %s", crdName))
+            && exits.contains(crdName));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a CRD namespaced scope version v1\n"
+          + " And it's associated CR manifests"
+          + "When sending deploy manifests request\n"
+          + "Then a CRD and it's CR is created at namespaced level\n===")
+  @Test
+  public void shouldDeployCrCrdNamespacedV1() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    final String crdName = "crontabs.stable.example.com";
+    final String crName = "my-new-cron-object";
+    final List<Map<String, Object>> crdManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/crd_v1.yml")
+            .withValue("metadata.name", crdName)
+            .withValue("spec.scope", "Namespaced")
+            .asList();
+    final List<Map<String, Object>> crManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/cr_v1.yml")
+            .withValue("metadata.name", crName)
+            .asList();
+    // ------------------------- when --------------------------
+    final List<Map<String, Object>> crdRequest =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", crdManifest)
+            .asList();
+    final List<Map<String, Object>> crRequest =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", crManifest)
+            .asList();
+    final List<String> crdDeploymets = KubeTestUtils.sendOperation(baseUrl(), crdRequest, "");
+    final List<String> crDeploymets = KubeTestUtils.sendOperation(baseUrl(), crRequest, "default");
+    // ------------------------- then --------------------------
+    String crdExists = kubeCluster.execKubectl(String.format("get crd %s", crdName));
+    String crExists = kubeCluster.execKubectl(String.format("get %s %s", crdName, crName));
+    String crNotExists =
+        kubeCluster.execKubectl(
+            String.format("-n %s get %s %s  --ignore-not-found", account1Ns, crdName, crName));
+    assertTrue(
+        crdDeploymets.size() == 1
+            && crdDeploymets.get(0).equals(String.format("customResourceDefinition %s", crdName))
+            && crdExists.contains(crdName)
+            && crDeploymets.size() == 1
+            && crDeploymets.get(0).equals(String.format("CronTab.stable.example.com %s", crName))
+            && crExists.contains(crName)
+            && !crNotExists.contains(crdName));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a CRD cluster scope version v1\n"
+          + " And it's associated CR manifests"
+          + "When sending deploy manifests request\n"
+          + "Then a CRD and it's CR is created at cluster level\n===")
+  @Test
+  public void shouldDeployCrCrdClusterV1() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    final String crdGroup = "stable.cluster.com";
+    final String crdName = String.format("crontabs.%s", crdGroup);
+    final String crName = "my-new-cron-object";
+    kubeCluster.execKubectl(String.format("delete crd %s --ignore-not-found", crdName));
+    final List<Map<String, Object>> crdManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/crd_v1.yml")
+            .withValue("metadata.name", crdName)
+            .withValue("spec.scope", "Cluster")
+            .withValue("spec.group", crdGroup)
+            .asList();
+    final List<Map<String, Object>> crManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/cr_v1.yml")
+            .withValue("apiVersion", String.format("%s/v1", crdGroup))
+            .withValue("metadata.name", crName)
+            .asList();
+    // ------------------------- when --------------------------
+    final List<Map<String, Object>> crdRequest =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", crdManifest)
+            .asList();
+    final List<Map<String, Object>> crRequest =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", crManifest)
+            .asList();
+    final List<String> crdDeploymets = KubeTestUtils.sendOperation(baseUrl(), crdRequest, "");
+    final List<String> crDeploymets = KubeTestUtils.sendOperation(baseUrl(), crRequest, "");
+    // ------------------------- then --------------------------
+    String crdExists = kubeCluster.execKubectl(String.format("get crd %s", crdName));
+    String crExists = kubeCluster.execKubectl(String.format("get %s %s", crdName, crName));
+    String crExistsNamespaced =
+        kubeCluster.execKubectl(String.format("-n %s get %s %s", account1Ns, crdName, crName));
+    assertTrue(
+        crdDeploymets.size() == 1
+            && crdDeploymets.get(0).equals(String.format("customResourceDefinition %s", crdName))
+            && crdExists.contains(crdName)
+            && crDeploymets.size() == 1
+            && crDeploymets.get(0).equals(String.format("CronTab.%s %s", crdGroup, crName))
+            && crExists.contains(crName)
+            && crExistsNamespaced.contains(crName));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a deployed CRD manifest outside of spinnaker\n"
+          + "When sending credentials request\n"
+          + "Then the credentials response contains the deployed CRD\n===")
+  @Test
+  public void shouldGetDeployedCrdsCredentials() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    final String crdName = "crontabs.stable.example.com";
+    final Map<String, Object> crdManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/crd_v1.yml")
+            .withValue("metadata.name", crdName)
+            .withValue("spec.scope", "Namespaced")
+            .asMap();
+    kubeCluster.execKubectl(" apply -f -", crdManifest);
+    // ------------------------- when --------------------------
+    Response response =
+        given()
+            .log()
+            .body(false)
+            .queryParam("expand", true)
+            .get(String.format("%s/credentials", baseUrl()));
+    // ------------------------- then --------------------------
+    System.out.println(response.prettyPrint());
+    response
+        .then()
+        .statusCode(200)
+        .body(
+            "spinnakerKindMap.'crontab.stable.example.com'.findAll{ e -> e != null }",
+            hasSize(greaterThan(0)));
   }
 }
