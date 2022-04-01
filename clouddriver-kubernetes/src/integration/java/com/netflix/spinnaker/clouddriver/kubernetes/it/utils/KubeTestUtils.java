@@ -186,7 +186,13 @@ public abstract class KubeTestUtils {
       KubeTestUtils.repeatUntilTrue(
           () -> {
             String url =
-                baseUrl + "/manifests/" + ACCOUNT1_NAME + "/" + targetNs + "/" + objectName;
+                baseUrl
+                    + "/manifests/"
+                    + ACCOUNT1_NAME
+                    + "/"
+                    + (targetNs.isBlank() ? "default" : targetNs)
+                    + "/"
+                    + objectName;
             System.out.println("GET " + url);
             Response respWait = given().queryParam("includeEvents", false).get(url);
             JsonPath jsonPath = respWait.jsonPath();

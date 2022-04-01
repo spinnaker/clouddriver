@@ -423,8 +423,6 @@ public class DeleteManifestIT extends BaseTest {
     // ------------------------- when ---------------------------
     List<Map<String, Object>> request =
         buildStaticRequestBody(String.format("%s %s", kind, crName), true);
-    kubeCluster.execKubectl(
-        String.format("-n %s get %s %s --ignore-not-found", account1Ns, kind, crName));
     List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), request, account1Ns);
     // ------------------------- then ---------------------------
     String exists =

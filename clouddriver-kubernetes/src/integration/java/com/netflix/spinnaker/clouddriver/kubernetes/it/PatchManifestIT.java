@@ -208,15 +208,13 @@ public class PatchManifestIT extends BaseTest {
             .withValue("patchManifest.skipExpressionEvaluation", null)
             .withValue("patchManifest.requiredArtifacts", new Object[] {})
             .asList();
-    List<String> patches = KubeTestUtils.sendOperation(baseUrl(), request, account1Ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), request, account1Ns, String.format("%s %s", kind, crdName));
     // ------------------------- then ---------------------------
     String patched =
         kubeCluster.execKubectl(
             String.format("get %s %s -o jsonpath=\"{.spec.names.shortNames}\"", kind, crdName));
-    assertTrue(
-        patched.contains(shortName)
-            && patches.size() == 1
-            && patches.get(0).equals(String.format("%s %s", kind, crdName)));
+    assertTrue(patched.contains(shortName));
   }
 
   @DisplayName(
@@ -265,16 +263,14 @@ public class PatchManifestIT extends BaseTest {
             .withValue("patchManifest.skipExpressionEvaluation", null)
             .withValue("patchManifest.requiredArtifacts", new Object[] {})
             .asList();
-    List<String> patches = KubeTestUtils.sendOperation(baseUrl(), request, account1Ns);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), request, account1Ns, String.format("%s %s", kind, crName));
     // ------------------------- then ---------------------------
     String patched =
         kubeCluster.execKubectl(
             String.format(
                 "-n %s get %s %s -o jsonpath=\"{.spec.image}\"", account1Ns, kind, crName));
-    assertTrue(
-        patched.contains(crImage)
-            && patches.size() == 1
-            && patches.get(0).equals(String.format("%s %s", kind, crName)));
+    assertTrue(patched.contains(crImage));
   }
 
   private List<Map<String, Object>> createPatchBody(
