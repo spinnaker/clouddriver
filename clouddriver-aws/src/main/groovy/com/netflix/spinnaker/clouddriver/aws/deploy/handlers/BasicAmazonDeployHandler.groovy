@@ -23,6 +23,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AsgConfigHelper
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.LaunchTemplateRollOutConfig
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.aws.deploy.AmiIdResolver
@@ -46,7 +47,6 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployHandler
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.events.CreateServerGroupEvent
 import com.netflix.spinnaker.credentials.CredentialsRepository
-import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
 
@@ -67,7 +67,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
   private final AwsConfiguration.DeployDefaults deployDefaults
   private final ScalingPolicyCopier scalingPolicyCopier
   private final BlockDeviceConfig blockDeviceConfig
-  private final DynamicConfigService dynamicConfigService
+  private final LaunchTemplateRollOutConfig launchTemplateRollOutConfig
 
   private List<CreateServerGroupEvent> deployEvents = []
 
@@ -77,14 +77,14 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
                            AwsConfiguration.DeployDefaults deployDefaults,
                            ScalingPolicyCopier scalingPolicyCopier,
                            BlockDeviceConfig blockDeviceConfig,
-                           DynamicConfigService dynamicConfigService) {
+                           LaunchTemplateRollOutConfig launchTemplateRollOutConfig) {
     this.regionScopedProviderFactory = regionScopedProviderFactory
     this.accountCredentialsRepository = accountCredentialsRepository
     this.amazonServerGroupProvider = amazonServerGroupProvider
     this.deployDefaults = deployDefaults
     this.scalingPolicyCopier = scalingPolicyCopier
     this.blockDeviceConfig = blockDeviceConfig
-    this.dynamicConfigService = dynamicConfigService
+    this.launchTemplateRollOutConfig = launchTemplateRollOutConfig
   }
 
   @Override
@@ -228,7 +228,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
       if (!ami) {
         throw new IllegalArgumentException("unable to resolve AMI imageId from $description.amiName in $region")
       }
-      InstanceTypeUtils.validateCompatibility(ami.virtualizationType, description.getAllInstanceTypes())
+      InstanceTypeUtils.validateCompatibilityWithAmi(amazonEC2, ami, description.getAllInstanceTypes())
 
       def account = accountCredentialsRepository.getOne(description.credentials.name)
       if (account == null) {
@@ -253,69 +253,71 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
           desired: description.capacity.desired ?: 0
       )
 
-      def autoScalingWorker = new AutoScalingWorker(regionScopedProvider, dynamicConfigService)
+      def autoScalingWorker = new AutoScalingWorker(regionScopedProvider, launchTemplateRollOutConfig)
 
       // build AsgWorker configuration and then call deploy
-      def asgConfig = new AutoScalingWorker.AsgConfiguration(
-        application: description.application,
-        region: region,
-        credentials: description.credentials,
-        stack: description.stack,
-        freeFormDetails: description.freeFormDetails,
-        ami: ami.amiId,
-        classicLinkVpcId: classicLinkVpcId,
-        classicLinkVpcSecurityGroups: classicLinkVpcSecurityGroups,
-        minInstances: capacity.min,
-        maxInstances: capacity.max,
-        desiredInstances: capacity.desired,
-        securityGroups: description.securityGroups,
-        iamRole: iamRole(description, deployDefaults),
-        keyPair: description.keyPair ?: account?.defaultKeyPair,
-        sequence: description.sequence,
-        ignoreSequence: description.ignoreSequence,
-        startDisabled: description.startDisabled,
-        associatePublicIpAddress: description.associatePublicIpAddress,
-        blockDevices: description.blockDevices,
-        instanceType: description.instanceType,
-        availabilityZones: availabilityZones,
-        subnetType: subnetType,
-        subnetIds: description.subnetIds,
-        classicLoadBalancers: loadBalancers.classicLoadBalancers,
-        targetGroupArns: targetGroups.targetGroupARNs,
-        cooldown: description.cooldown,
-        enabledMetrics: description.enabledMetrics,
-        healthCheckGracePeriod: description.healthCheckGracePeriod,
-        healthCheckType: description.healthCheckType,
-        terminationPolicies: description.terminationPolicies,
-        spotMaxPrice: description.spotPrice,
-        suspendedProcesses: description.suspendedProcesses,
-        kernelId: description.kernelId,
-        ramdiskId: description.ramdiskId,
-        instanceMonitoring: description.instanceMonitoring,
-        ebsOptimized: description.ebsOptimized == null ? InstanceTypeUtils.getDefaultEbsOptimizedFlag(description.instanceType) : description.ebsOptimized,
-        base64UserData: description.base64UserData?.trim(),
-        legacyUdf: description.legacyUdf,
-        userDataOverride: description.userDataOverride,
-        tags: applyAppStackDetailTags(deployDefaults, description).tags,
-        blockDeviceTags: description.blockDeviceTags,
-        lifecycleHooks: getLifecycleHooks(account, description),
-        setLaunchTemplate: description.setLaunchTemplate,
-        requireIMDSv2: description.requireIMDSv2,
-        enableEnclave: description.enableEnclave,
-        associateIPv6Address: description.associateIPv6Address,
-        unlimitedCpuCredits: description.unlimitedCpuCredits != null
+      def asgConfig = AutoScalingWorker.AsgConfiguration.builder()
+        .application(description.application)
+        .region(region)
+        .credentials(description.credentials)
+        .stack(description.stack)
+        .freeFormDetails(description.freeFormDetails)
+        .ami(ami.amiId)
+        .classicLinkVpcId(classicLinkVpcId)
+        .classicLinkVpcSecurityGroups(classicLinkVpcSecurityGroups)
+        .minInstances(capacity.min)
+        .maxInstances(capacity.max)
+        .desiredInstances(capacity.desired)
+        .securityGroups(description.securityGroups)
+        .iamRole(iamRole(description, deployDefaults))
+        .keyPair(description.keyPair ?: account?.defaultKeyPair)
+        .sequence(description.sequence)
+        .ignoreSequence(description.ignoreSequence)
+        .startDisabled(description.startDisabled)
+        .associatePublicIpAddress(description.associatePublicIpAddress)
+        .blockDevices(description.blockDevices)
+        .instanceType(description.instanceType)
+        .availabilityZones(availabilityZones)
+        .subnetType(subnetType)
+        .subnetIds(description.subnetIds)
+        .classicLoadBalancers(loadBalancers.classicLoadBalancers)
+        .targetGroupArns(targetGroups.targetGroupARNs)
+        .cooldown(description.cooldown)
+        .enabledMetrics(description.enabledMetrics)
+        .healthCheckGracePeriod(description.healthCheckGracePeriod)
+        .healthCheckType(description.healthCheckType)
+        .terminationPolicies(description.terminationPolicies)
+        .spotMaxPrice(description.spotPrice)
+        .suspendedProcesses(description.suspendedProcesses)
+        .kernelId(description.kernelId)
+        .ramdiskId(description.ramdiskId)
+        .instanceMonitoring(description.instanceMonitoring)
+        .ebsOptimized(description.ebsOptimized == null
+          ? InstanceTypeUtils.getDefaultEbsOptimizedFlag(description.instanceType)
+          : description.ebsOptimized)
+        .base64UserData(description.base64UserData?.trim())
+        .legacyUdf(description.legacyUdf)
+        .userDataOverride(description.userDataOverride)
+        .tags(applyAppStackDetailTags(deployDefaults, description).tags)
+        .blockDeviceTags(description.blockDeviceTags)
+        .lifecycleHooks(getLifecycleHooks(account, description))
+        .setLaunchTemplate(description.setLaunchTemplate)
+        .requireIMDSv2(description.requireIMDSv2)
+        .enableEnclave(description.enableEnclave)
+        .associateIPv6Address(description.associateIPv6Address)
+        .unlimitedCpuCredits(description.unlimitedCpuCredits != null
           ? description.unlimitedCpuCredits
-          : getDefaultUnlimitedCpuCredits(description.getAllowedInstanceTypes()),
-        placement: description.placement,
-        licenseSpecifications: description.licenseSpecifications,
-        onDemandAllocationStrategy: description.onDemandAllocationStrategy,
-        onDemandBaseCapacity: description.onDemandBaseCapacity,
-        onDemandPercentageAboveBaseCapacity: description.onDemandPercentageAboveBaseCapacity,
-        spotAllocationStrategy: description.spotAllocationStrategy,
-        spotInstancePools: description.spotInstancePools,
-        launchTemplateOverridesForInstanceType: description.launchTemplateOverridesForInstanceType,
-        capacityRebalance: description.capacityRebalance
-      )
+          : getDefaultUnlimitedCpuCredits(description.getAllowedInstanceTypes()))
+        .placement(description.placement)
+        .licenseSpecifications(description.licenseSpecifications)
+        .onDemandAllocationStrategy(description.onDemandAllocationStrategy)
+        .onDemandBaseCapacity(description.onDemandBaseCapacity)
+        .onDemandPercentageAboveBaseCapacity(description.onDemandPercentageAboveBaseCapacity)
+        .spotAllocationStrategy(description.spotAllocationStrategy)
+        .spotInstancePools(description.spotInstancePools)
+        .launchTemplateOverridesForInstanceType(description.launchTemplateOverridesForInstanceType)
+        .capacityRebalance(description.capacityRebalance)
+        .build()
 
       def asgName = autoScalingWorker.deploy(asgConfig)
 
