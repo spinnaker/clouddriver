@@ -24,9 +24,12 @@ import io.restassured.response.Response;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpStatus;
 
 public class DeleteManifestIT extends BaseTest {
@@ -304,7 +307,7 @@ public class DeleteManifestIT extends BaseTest {
       ".\n===\n"
           + "Given a deployment manifest with 3 replicas outside of Spinnaker\n"
           + "When sending a delete manifest operation without cascading option enable\n"
-          + "Then just the deployment should be remove at once\n===")
+          + "Then just the deployment should be removed at once, but the replicaset/pods remain\n===")
   @Test
   public void shouldDeleteWithoutCascading() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
@@ -331,6 +334,45 @@ public class DeleteManifestIT extends BaseTest {
         deletions.size() == 1
             && deletions.get(0).equals(String.format("%s %s", kind, name))
             && exists.contains("Running"));
+  }
+
+  @ParameterizedTest(
+      name =
+          ".\n===\n"
+              + "Given a deployment\n"
+              + "When sending a delete manifest operation with cascading={0}\n"
+              + "Then the deployment is deleted\n===")
+  @ValueSource(strings = {"foreground", "background", "orphan"})
+  public void deleteWithValidCascadingValue(String cascadingValue)
+      throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String kind = "deployment";
+    String name = "myapp";
+    Map<String, Object> deployManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.name", name)
+            .asMap();
+    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", deployManifest);
+    kubeCluster.execKubectl(
+        String.format(
+            "wait %s -n %s %s --for condition=Available=True --timeout=600s",
+            kind, account1Ns, name));
+
+    // ------------------------- when ---------------------------
+    List<Map<String, Object>> deleteRequest =
+        buildStaticRequestBody(String.format("%s %s", kind, name), cascadingValue);
+
+    // 30 seconds isn't long enough for delete with --cascade=foreground, so
+    // allow longer.
+    List<String> deletions =
+        KubeTestUtils.sendOperation(baseUrl(), deleteRequest, account1Ns, 60, TimeUnit.SECONDS);
+    // ------------------------- then ---------------------------
+    String exists =
+        kubeCluster.execKubectl(
+            String.format("-n %s get deployment --ignore-not-found %s", account1Ns, name));
+    assertTrue(exists.isBlank());
+    assertEquals(1, deletions.size());
+    assertEquals(String.format("%s %s", kind, name), deletions.get(0));
   }
 
   @DisplayName(

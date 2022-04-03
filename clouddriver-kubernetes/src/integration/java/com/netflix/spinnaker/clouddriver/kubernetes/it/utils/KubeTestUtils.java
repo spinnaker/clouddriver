@@ -222,6 +222,16 @@ public abstract class KubeTestUtils {
   public static List<String> sendOperation(
       String baseUrl, List<Map<String, Object>> reqBody, String targetNs)
       throws InterruptedException {
+    return sendOperation(baseUrl, reqBody, targetNs, 30, TimeUnit.SECONDS);
+  }
+
+  public static List<String> sendOperation(
+      String baseUrl,
+      List<Map<String, Object>> reqBody,
+      String targetNs,
+      long duration,
+      TimeUnit unit)
+      throws InterruptedException {
 
     String url = baseUrl + "/kubernetes/ops";
     System.out.println("POST " + url);
@@ -257,9 +267,13 @@ public abstract class KubeTestUtils {
                       String.class));
           return respTask.jsonPath().getBoolean("status.completed");
         },
-        30,
-        TimeUnit.SECONDS,
-        "Waited 30 seconds on GET /task/{id} to return \"status.completed: true\"");
+        duration,
+        unit,
+        "Waited "
+            + duration
+            + " "
+            + unit
+            + " on GET /task/{id} to return \"status.completed: true\"");
     System.out.println(
         "< Task completed in " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
     return deployedObjectNames;
