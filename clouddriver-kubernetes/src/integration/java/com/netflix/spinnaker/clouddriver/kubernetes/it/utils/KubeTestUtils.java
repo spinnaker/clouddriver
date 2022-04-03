@@ -234,14 +234,7 @@ public abstract class KubeTestUtils {
       TimeUnit unit)
       throws InterruptedException {
 
-    String url = baseUrl + "/kubernetes/ops";
-    System.out.println("POST " + url);
-    Response resp =
-        given().log().body(false).contentType("application/json").body(reqBody).post(url);
-    System.out.println(resp.asString());
-    resp.then().statusCode(200);
-    System.out.println("< Completed in " + resp.getTimeIn(TimeUnit.SECONDS) + " seconds");
-    String taskId = resp.jsonPath().get("id");
+    String taskId = submitOperation(baseUrl, reqBody);
 
     System.out.println("> Waiting for task to complete");
     long start = System.currentTimeMillis();
@@ -288,14 +281,7 @@ public abstract class KubeTestUtils {
       TimeUnit unit)
       throws InterruptedException {
 
-    String url = baseUrl + "/kubernetes/ops";
-    System.out.println("POST " + url);
-    Response resp =
-        given().log().body(false).contentType("application/json").body(reqBody).post(url);
-    System.out.println(resp.asString());
-    resp.then().statusCode(200);
-    System.out.println("< Completed in " + resp.getTimeIn(TimeUnit.SECONDS) + " seconds");
-    String taskId = resp.jsonPath().get("id");
+    String taskId = submitOperation(baseUrl, reqBody);
 
     System.out.println("> Waiting for task to fail");
     long start = System.currentTimeMillis();
@@ -334,6 +320,22 @@ public abstract class KubeTestUtils {
 
     // Return the status to the caller so it's possible to assert on it.
     return Iterables.getOnlyElement(status);
+  }
+
+  /**
+   * Submit an operation to clouddriver
+   *
+   * @return the task id
+   */
+  private static String submitOperation(String baseUrl, List<Map<String, Object>> reqBody) {
+    String url = baseUrl + "/kubernetes/ops";
+    System.out.println("POST " + url);
+    Response resp =
+        given().log().body(false).contentType("application/json").body(reqBody).post(url);
+    System.out.println(resp.asString());
+    resp.then().statusCode(200);
+    System.out.println("< Completed in " + resp.getTimeIn(TimeUnit.SECONDS) + " seconds");
+    return resp.jsonPath().get("id");
   }
 
   @SuppressWarnings("unchecked")
