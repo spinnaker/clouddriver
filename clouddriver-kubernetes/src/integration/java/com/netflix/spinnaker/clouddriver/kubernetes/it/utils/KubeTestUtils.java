@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.netflix.spinnaker.clouddriver.kubernetes.it.containers.KubernetesCluster;
 import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
@@ -277,6 +278,62 @@ public abstract class KubeTestUtils {
     System.out.println(
         "< Task completed in " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
     return deployedObjectNames;
+  }
+
+  public static String sendOperationExpectFailure(
+      String baseUrl,
+      List<Map<String, Object>> reqBody,
+      String targetNs,
+      long duration,
+      TimeUnit unit)
+      throws InterruptedException {
+
+    String url = baseUrl + "/kubernetes/ops";
+    System.out.println("POST " + url);
+    Response resp =
+        given().log().body(false).contentType("application/json").body(reqBody).post(url);
+    System.out.println(resp.asString());
+    resp.then().statusCode(200);
+    System.out.println("< Completed in " + resp.getTimeIn(TimeUnit.SECONDS) + " seconds");
+    String taskId = resp.jsonPath().get("id");
+
+    System.out.println("> Waiting for task to fail");
+    long start = System.currentTimeMillis();
+
+    // The last status is most interesting, but a single String isn't
+    // effectively final and so can't be used in a lambda.  So, use a list.  Any
+    // kind of wrapper object would do.
+    List<String> status = new ArrayList<>();
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          String taskUrl = baseUrl + "/task/" + taskId;
+          System.out.println("GET " + taskUrl);
+          Response respTask = given().get(taskUrl);
+          if (respTask.statusCode() == 404) {
+            return false;
+          }
+          respTask.then().statusCode(200);
+          System.out.println(respTask.jsonPath().getObject("status", Map.class));
+          if (!respTask.jsonPath().getBoolean("status.completed")) {
+            return false;
+          }
+          respTask.then().body("status.failed", is(true));
+          status.clear();
+          status.add(respTask.jsonPath().getString("status.status"));
+          return true;
+        },
+        duration,
+        unit,
+        "Waited "
+            + duration
+            + " "
+            + unit
+            + " on GET /task/{id} to return \"status.completed: true\"");
+    System.out.println(
+        "< Task completed in " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
+
+    // Return the status to the caller so it's possible to assert on it.
+    return Iterables.getOnlyElement(status);
   }
 
   @SuppressWarnings("unchecked")

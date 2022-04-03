@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.it;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.KubeTestUtils;
@@ -373,6 +374,47 @@ public class DeleteManifestIT extends BaseTest {
     assertTrue(exists.isBlank());
     assertEquals(1, deletions.size());
     assertEquals(String.format("%s %s", kind, name), deletions.get(0));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a deployment\n"
+          + "When sending a delete manifest operation with invalid cascading value\n"
+          + "Then the delete manifest operation fails and the deployment remains\n===")
+  @Test
+  public void deleteWithInvalidCascadingValue() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String kind = "deployment";
+    String name = "myapp";
+    Map<String, Object> deployManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.name", name)
+            .asMap();
+    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", deployManifest);
+    kubeCluster.execKubectl(
+        String.format(
+            "wait %s -n %s %s --for condition=Available=True --timeout=600s",
+            kind, account1Ns, name));
+
+    // ------------------------- when ---------------------------
+    String invalidCascadingValue = "bogus";
+    List<Map<String, Object>> deleteRequest =
+        buildStaticRequestBody(String.format("%s %s", kind, name), invalidCascadingValue);
+
+    // KubeTestUtils.repeatUntilTrue waits in 5 second increments, and we need
+    // to wait at least 10 seconds to get it to try more than once.  Even if it
+    // the operation completes more quickly than that, it doesn't happen on the
+    // first attempt.
+    String status =
+        KubeTestUtils.sendOperationExpectFailure(
+            baseUrl(), deleteRequest, account1Ns, 10, TimeUnit.SECONDS);
+    // ------------------------- then ---------------------------
+    String exists =
+        kubeCluster.execKubectl(
+            String.format(
+                "-n %s get deployment %s -o jsonpath='{.metadata.name}'", account1Ns, name));
+    assertThat(status).contains("invalid cascade value (" + invalidCascadingValue + ")");
+    assertEquals(name, exists);
   }
 
   @DisplayName(
