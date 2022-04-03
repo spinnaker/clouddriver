@@ -241,14 +241,10 @@ public abstract class KubeTestUtils {
     List<String> deployedObjectNames = new ArrayList<>();
     KubeTestUtils.repeatUntilTrue(
         () -> {
-          String taskUrl = baseUrl + "/task/" + taskId;
-          System.out.println("GET " + taskUrl);
-          Response respTask = given().get(taskUrl);
-          if (respTask.statusCode() == 404) {
+          Response respTask = getTask(baseUrl, taskId);
+          if (respTask == null) {
             return false;
           }
-          respTask.then().statusCode(200);
-          System.out.println(respTask.jsonPath().getObject("status", Map.class));
           respTask.then().body("status.failed", is(false));
           deployedObjectNames.clear();
           deployedObjectNames.addAll(
@@ -292,14 +288,11 @@ public abstract class KubeTestUtils {
     List<String> status = new ArrayList<>();
     KubeTestUtils.repeatUntilTrue(
         () -> {
-          String taskUrl = baseUrl + "/task/" + taskId;
-          System.out.println("GET " + taskUrl);
-          Response respTask = given().get(taskUrl);
-          if (respTask.statusCode() == 404) {
+          Response respTask = getTask(baseUrl, taskId);
+          if (respTask == null) {
             return false;
           }
-          respTask.then().statusCode(200);
-          System.out.println(respTask.jsonPath().getObject("status", Map.class));
+
           if (!respTask.jsonPath().getBoolean("status.completed")) {
             return false;
           }
@@ -336,6 +329,23 @@ public abstract class KubeTestUtils {
     resp.then().statusCode(200);
     System.out.println("< Completed in " + resp.getTimeIn(TimeUnit.SECONDS) + " seconds");
     return resp.jsonPath().get("id");
+  }
+
+  /**
+   * Get a task from clouddriver
+   *
+   * @return the response from the get task method, or null if the task was not found
+   */
+  private static Response getTask(String baseUrl, String taskId) {
+    String taskUrl = baseUrl + "/task/" + taskId;
+    System.out.println("GET " + taskUrl);
+    Response respTask = given().get(taskUrl);
+    if (respTask.statusCode() == 404) {
+      return null;
+    }
+    respTask.then().statusCode(200);
+    System.out.println(respTask.jsonPath().getObject("status", Map.class));
+    return respTask;
   }
 
   @SuppressWarnings("unchecked")
