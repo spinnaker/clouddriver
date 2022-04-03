@@ -56,7 +56,7 @@ public class DeleteManifestIT extends BaseTest {
     kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", manifest);
     // ------------------------- when ---------------------------
     List<Map<String, Object>> request =
-        buildStaticRequestBody(String.format("%s %s", kind, name), true);
+        buildStaticRequestBody(String.format("%s %s", kind, name), "true");
     List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), request, account1Ns);
     // ------------------------- then ---------------------------
     String exist =
@@ -99,7 +99,7 @@ public class DeleteManifestIT extends BaseTest {
     List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
             String.format("%s %s", kind, nameToDelete),
-            true,
+            "true",
             String.format("%s %s", kind, name),
             criteria,
             kind);
@@ -145,7 +145,7 @@ public class DeleteManifestIT extends BaseTest {
     List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
             String.format("%s %s", kind, nameToDelete),
-            true,
+            "true",
             String.format("%s %s", kind, name),
             criteria,
             kind);
@@ -191,7 +191,7 @@ public class DeleteManifestIT extends BaseTest {
     List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
             String.format("%s %s", kind, nameToDelete),
-            true,
+            "true",
             String.format("%s %s", kind, name),
             criteria,
             kind);
@@ -238,7 +238,7 @@ public class DeleteManifestIT extends BaseTest {
     List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
             String.format("%s %s", kind, nameToDelete),
-            true,
+            "true",
             String.format("%s %s", kind, name),
             criteria,
             kind);
@@ -285,7 +285,7 @@ public class DeleteManifestIT extends BaseTest {
     List<Map<String, Object>> deleteRequest =
         buildDynamicRequestBody(
             String.format("%s %s", kind, nameToDelete),
-            true,
+            "true",
             String.format("%s %s", kind, name),
             criteria,
             kind);
@@ -322,7 +322,7 @@ public class DeleteManifestIT extends BaseTest {
             kind, account1Ns, name));
     // ------------------------- when ---------------------------
     List<Map<String, Object>> deleteRequest =
-        buildStaticRequestBody(String.format("%s %s", kind, name), false);
+        buildStaticRequestBody(String.format("%s %s", kind, name), "false");
     List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), deleteRequest, account1Ns);
     // ------------------------- then ---------------------------
     String exists =
@@ -342,7 +342,7 @@ public class DeleteManifestIT extends BaseTest {
   public void shouldNotDeleteStaticTarget() throws InterruptedException {
     // ------------------------- given --------------------------
     // ------------------------- when ---------------------------
-    List<Map<String, Object>> request = buildStaticRequestBody("deployment notExists", true);
+    List<Map<String, Object>> request = buildStaticRequestBody("deployment notExists", "true");
     // ------------------------- then ---------------------------
     List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), request, account1Ns);
     assertEquals(0, deletions.size());
@@ -387,7 +387,7 @@ public class DeleteManifestIT extends BaseTest {
     kubeCluster.execKubectl(" apply -f -", crdManifest);
     // ------------------------- when ---------------------------
     List<Map<String, Object>> request =
-        buildStaticRequestBody(String.format("%s %s", kind, crdName), true);
+        buildStaticRequestBody(String.format("%s %s", kind, crdName), "true");
     List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), request, account1Ns);
     // ------------------------- then ---------------------------
     String exists =
@@ -422,7 +422,7 @@ public class DeleteManifestIT extends BaseTest {
     kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", crManifest);
     // ------------------------- when ---------------------------
     List<Map<String, Object>> request =
-        buildStaticRequestBody(String.format("%s %s", kind, crName), true);
+        buildStaticRequestBody(String.format("%s %s", kind, crName), "true");
     List<String> deletions = KubeTestUtils.sendOperation(baseUrl(), request, account1Ns);
     // ------------------------- then ---------------------------
     String exists =
@@ -434,7 +434,7 @@ public class DeleteManifestIT extends BaseTest {
             && deletions.get(0).equals(String.format("%s %s", kind, crName)));
   }
 
-  private List<Map<String, Object>> buildStaticRequestBody(String manifestName, Boolean cascading) {
+  private List<Map<String, Object>> buildStaticRequestBody(String manifestName, String cascading) {
     return KubeTestUtils.loadJson("classpath:requests/delete_manifest.json")
         .withValue("deleteManifest.app", APP1_NAME)
         .withValue("deleteManifest.mode", "static")
@@ -446,7 +446,7 @@ public class DeleteManifestIT extends BaseTest {
   }
 
   private List<Map<String, Object>> buildDynamicRequestBody(
-      String manifestName, Boolean cascading, String cluster, String criteria, String kind) {
+      String manifestName, String cascading, String cluster, String criteria, String kind) {
     return KubeTestUtils.loadJson("classpath:requests/delete_manifest.json")
         .withValue("deleteManifest.app", APP1_NAME)
         .withValue("deleteManifest.mode", "dynamic")
