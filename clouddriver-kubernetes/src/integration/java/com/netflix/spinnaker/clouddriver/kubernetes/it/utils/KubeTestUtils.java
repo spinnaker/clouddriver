@@ -246,7 +246,6 @@ public abstract class KubeTestUtils {
             return false;
           }
           respTask.then().body("status.failed", is(false));
-          deployedObjectNames.clear();
           deployedObjectNames.addAll(
               respTask
                   .jsonPath()
@@ -255,7 +254,7 @@ public abstract class KubeTestUtils {
                           + (targetNs.isBlank() ? "''" : targetNs)
                           + ".flatten()",
                       String.class));
-          return respTask.jsonPath().getBoolean("status.completed");
+          return true;
         },
         duration,
         unit,
@@ -292,12 +291,7 @@ public abstract class KubeTestUtils {
           if (respTask == null) {
             return false;
           }
-
-          if (!respTask.jsonPath().getBoolean("status.completed")) {
-            return false;
-          }
           respTask.then().body("status.failed", is(true));
-          status.clear();
           status.add(respTask.jsonPath().getString("status.status"));
           return true;
         },
@@ -334,7 +328,8 @@ public abstract class KubeTestUtils {
   /**
    * Get a task from clouddriver
    *
-   * @return the response from the get task method, or null if the task was not found
+   * @return the response from the get task method, if the task has completed, or null if the task
+   *     was not found, or the task hasn't completed yet.
    */
   private static Response getTask(String baseUrl, String taskId) {
     String taskUrl = baseUrl + "/task/" + taskId;
@@ -345,6 +340,11 @@ public abstract class KubeTestUtils {
     }
     respTask.then().statusCode(200);
     System.out.println(respTask.jsonPath().getObject("status", Map.class));
+
+    if (!respTask.jsonPath().getBoolean("status.completed")) {
+      return null;
+    }
+
     return respTask;
   }
 
