@@ -38,6 +38,7 @@ import java.io.UncheckedIOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -236,15 +237,13 @@ public abstract class KubeTestUtils {
 
     String taskId = submitOperation(baseUrl, reqBody);
 
-    System.out.println("> Waiting for task to complete");
-    long start = System.currentTimeMillis();
     List<String> deployedObjectNames = new ArrayList<>();
-    KubeTestUtils.repeatUntilTrue(
-        () -> {
-          Response respTask = getTask(baseUrl, taskId);
-          if (respTask == null) {
-            return false;
-          }
+    processOperation(
+        baseUrl,
+        taskId,
+        duration,
+        unit,
+        (Response respTask) -> {
           respTask.then().body("status.failed", is(false));
           deployedObjectNames.addAll(
               respTask
@@ -254,17 +253,8 @@ public abstract class KubeTestUtils {
                           + (targetNs.isBlank() ? "''" : targetNs)
                           + ".flatten()",
                       String.class));
-          return true;
-        },
-        duration,
-        unit,
-        "Waited "
-            + duration
-            + " "
-            + unit
-            + " on GET /task/{id} to return \"status.completed: true\"");
-    System.out.println(
-        "< Task completed in " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
+        });
+
     return deployedObjectNames;
   }
 
@@ -275,24 +265,40 @@ public abstract class KubeTestUtils {
       long duration,
       TimeUnit unit)
       throws InterruptedException {
-
     String taskId = submitOperation(baseUrl, reqBody);
-
-    System.out.println("> Waiting for task to fail");
-    long start = System.currentTimeMillis();
 
     // The last status is most interesting, but a single String isn't
     // effectively final and so can't be used in a lambda.  So, use a list.  Any
     // kind of wrapper object would do.
     List<String> status = new ArrayList<>();
+    processOperation(
+        baseUrl,
+        taskId,
+        duration,
+        unit,
+        (Response respTask) -> {
+          respTask.then().body("status.failed", is(true));
+          status.add(respTask.jsonPath().getString("status.status"));
+        });
+
+    // Return the status to the caller so it's possible to assert on it.
+    return Iterables.getOnlyElement(status);
+  }
+
+  /** Wait until a task has completed, calling a consumer with the response once it has. */
+  private static void processOperation(
+      String baseUrl, String taskId, long duration, TimeUnit unit, Consumer<Response> consumer)
+      throws InterruptedException {
+    System.out.println("> Waiting for task to complete");
+    long start = System.currentTimeMillis();
+
     KubeTestUtils.repeatUntilTrue(
         () -> {
           Response respTask = getTask(baseUrl, taskId);
           if (respTask == null) {
             return false;
           }
-          respTask.then().body("status.failed", is(true));
-          status.add(respTask.jsonPath().getString("status.status"));
+          consumer.accept(respTask);
           return true;
         },
         duration,
@@ -304,9 +310,6 @@ public abstract class KubeTestUtils {
             + " on GET /task/{id} to return \"status.completed: true\"");
     System.out.println(
         "< Task completed in " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
-
-    // Return the status to the caller so it's possible to assert on it.
-    return Iterables.getOnlyElement(status);
   }
 
   /**
