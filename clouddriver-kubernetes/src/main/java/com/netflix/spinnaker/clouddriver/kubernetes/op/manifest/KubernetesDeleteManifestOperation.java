@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesDeleteManifestDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
@@ -86,7 +87,15 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Operat
               .updateStatus(OP_NAME, "Looking up resource properties for " + c.getKind() + "...");
           KubernetesHandler deployer =
               credentials.getResourcePropertyRegistry().get(c.getKind()).getHandler();
-          getTask().updateStatus(OP_NAME, "Calling delete operation...");
+          if (deployer.kind().equals(KubernetesKind.NONE)) {
+            // No point in invoking kubectl with a resource type of none, as it fails with
+            //
+            // error: the server doesn't have a resource type "none"
+            //
+            // Throw an exception to fail the stage, similar to what happens when kubectl fails.
+            throw new IllegalStateException("Unable to delete unknown kind '" + c.getKind() + "'");
+          }
+          getTask().updateStatus(OP_NAME, "Calling delete operation for resource" + c + "...");
           result.merge(
               deployer.delete(
                   credentials,
@@ -94,10 +103,12 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Operat
                   c.getName(),
                   description.getLabelSelectors(),
                   deleteOptions));
-          getTask()
-              .updateStatus(OP_NAME, " delete operation completed successfully for " + c.getName());
+          getTask().updateStatus(OP_NAME, "Delete operation completed successfully for " + c);
         });
 
+    getTask()
+        .updateStatus(
+            OP_NAME, "Delete operation completed successfully for all applicable resources");
     return result;
   }
 }
