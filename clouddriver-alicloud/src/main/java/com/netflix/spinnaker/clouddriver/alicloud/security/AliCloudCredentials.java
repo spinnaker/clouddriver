@@ -16,6 +16,7 @@
 package com.netflix.spinnaker.clouddriver.alicloud.security;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import java.util.List;
 

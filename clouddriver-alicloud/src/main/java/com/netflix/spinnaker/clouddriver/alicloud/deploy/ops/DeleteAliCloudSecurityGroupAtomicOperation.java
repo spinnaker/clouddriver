@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,16 +27,13 @@ import com.netflix.spinnaker.clouddriver.alicloud.common.ClientFactory;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.description.DeleteAliCloudSecurityGroupDescription;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import groovy.util.logging.Slf4j;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Slf4j
 public class DeleteAliCloudSecurityGroupAtomicOperation implements AtomicOperation<Void> {
 
-  private final Logger log =
-      LoggerFactory.getLogger(DeleteAliCloudSecurityGroupAtomicOperation.class);
 
   private final DeleteAliCloudSecurityGroupDescription description;
 
@@ -72,10 +69,10 @@ public class DeleteAliCloudSecurityGroupAtomicOperation implements AtomicOperati
 
       } catch (ServerException e) {
         log.info(e.getMessage());
-        throw new AliCloudException(e);
+        throw new AliCloudException(e.getMessage());
       } catch (ClientException e) {
         log.info(e.getMessage());
-        throw new AliCloudException(e);
+        throw new AliCloudException(e.getMessage());
       }
     }
     return null;

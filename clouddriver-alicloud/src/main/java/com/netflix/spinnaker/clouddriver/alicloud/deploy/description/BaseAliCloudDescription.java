@@ -18,10 +18,11 @@ package com.netflix.spinnaker.clouddriver.alicloud.deploy.description;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
+import com.netflix.spinnaker.clouddriver.orchestration.OperationDescription;
 import lombok.Data;
 
 @Data
-public class BaseAliCloudDescription {
+public class BaseAliCloudDescription implements OperationDescription {
 
   @JsonIgnore private AliCloudCredentials credentials;
 

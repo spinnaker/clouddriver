@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,9 +30,17 @@ import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -53,7 +61,7 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
     this.provider = provider;
   }
 
-  private static final String SURVIVE_STATUS = "Active";
+  private static final String SCALEGROUP_STATUS_ACTIVE = "Active";
 
   @Override
   public Set<AliCloudLoadBalancer> getApplicationLoadBalancers(String applicationName) {
@@ -178,12 +186,9 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
     loadBalancerServerGroup.setRegion(String.valueOf(attributes.get("region")));
     loadBalancerServerGroup.setAccount(String.valueOf(attributes.get("account")));
     Map<String, Object> scalingGroup = (Map) attributes.get("scalingGroup");
-    String lifecycleState = (String) scalingGroup.get("lifecycleState");
-    if (SURVIVE_STATUS.equals(lifecycleState)) {
-      loadBalancerServerGroup.setIsDisabled(false);
-    } else {
-      loadBalancerServerGroup.setIsDisabled(true);
-    }
+    String scalingGroupLifecycleState = (String) scalingGroup.get("lifecycleState");
+    loadBalancerServerGroup.setIsDisabled(!SCALEGROUP_STATUS_ACTIVE.equals(scalingGroupLifecycleState));
+
     Set<String> detachedInstances = new HashSet<>();
     Set<LoadBalancerInstance> loadBalancerInstances = new HashSet<>();
     List<Map> instances = (List<Map>) attributes.get("instances");
@@ -191,8 +196,6 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
       Object id = instance.get("instanceId");
       if (id != null) {
         String instanceId = String.valueOf(id);
-        String healthStatus = (String) instance.get("healthStatus");
-        boolean flag = "Healthy".equals(healthStatus);
         Map<String, Object> health = new HashMap<>();
         health.put("type", provider.getDisplayName());
         health.put("healthClass", "platform");
@@ -202,18 +205,8 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
                 add(loadBalancerId);
               }
             };
-        HealthState healthState =
-            HealthHelper.judgeInstanceHealthyState(
-                allHealthyKeys, loadBalancerIds, instanceId, cacheView);
-        health.put(
-            "state",
-            !"Active".equals(lifecycleState)
-                ? "unhealthy"
-                : !flag
-                    ? "unhealthy"
-                    : healthState.equals(HealthState.Up)
-                        ? "healthy"
-                        : healthState.equals(HealthState.Unknown) ? "unknown" : "unhealthy");
+        HealthState healthState = HealthHelper.judgeInstanceHealthyState(allHealthyKeys, loadBalancerIds, instanceId, cacheView);
+        health.put("state", genHealthState(scalingGroupLifecycleState, (String) instance.get("healthStatus"), healthState));
         String zone = (String) instance.get("creationType");
         LoadBalancerInstance loadBalancerInstance = new LoadBalancerInstance();
         loadBalancerInstance.setId(instanceId);
@@ -227,6 +220,23 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
     // loadBalancerServerGroup.setDetachedInstances(detachedInstances);
     loadBalancerServerGroup.setInstances(loadBalancerInstances);
     return loadBalancerServerGroup;
+  }
+
+  @NotNull
+  private String genHealthState(String scalingGroupLifecycleState, String instanceHealthStatus, HealthState healthState) {
+    if(!"Active".equals(scalingGroupLifecycleState)){
+      return "unhealthy";
+    }
+
+    if(!"Healthy".equals(instanceHealthStatus)){
+      return "unhealthy";
+    }
+
+    if(healthState.equals(HealthState.Up)){
+      return "healthy";
+    }
+
+    return healthState.equals(HealthState.Unknown) ? "unknown" : "unhealthy";
   }
 
   private void addServerGroupToLoadBalancer(

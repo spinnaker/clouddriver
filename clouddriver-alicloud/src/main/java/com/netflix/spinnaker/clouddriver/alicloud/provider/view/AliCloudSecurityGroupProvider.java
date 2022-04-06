@@ -1,11 +1,11 @@
 /*
- * Copyright 2020 Netflix, Inc.
+ * Copyright 2019 Alibaba Group.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,7 +27,15 @@ import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudSecurityGroupRul
 import com.netflix.spinnaker.clouddriver.model.SecurityGroupProvider;
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule;
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule.PortRange;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -52,21 +60,22 @@ public class AliCloudSecurityGroupProvider implements SecurityGroupProvider<AliC
   @Override
   public AliCloudSecurityGroup get(String account, String region, String name, String vpcId) {
     String key = Keys.getSecurityGroupKey(name, "*", region, account, vpcId);
-    return getByKey(key);
+    return filterByKey(key);
   }
 
   @Override
   public AliCloudSecurityGroup getById(String account, String region, String id, String vpcId) {
     String key = Keys.getSecurityGroupKey("*", id, region, account, vpcId);
-    return getByKey(key);
+
+    return filterByKey(key);
   }
 
-  private AliCloudSecurityGroup getByKey(String key) {
+  @Nullable
+  private AliCloudSecurityGroup filterByKey(String key) {
     Collection<String> allSecurityGroupKeys =
         cacheView.filterIdentifiers(Namespace.SECURITY_GROUPS.ns, key);
     Collection<CacheData> allData =
-        cacheView.getAll(
-            Namespace.SECURITY_GROUPS.ns, allSecurityGroupKeys, RelationshipCacheFilter.none());
+        cacheView.getAll(Namespace.SECURITY_GROUPS.ns, allSecurityGroupKeys, RelationshipCacheFilter.none());
     if (allData.size() == 0) {
       return null;
     }

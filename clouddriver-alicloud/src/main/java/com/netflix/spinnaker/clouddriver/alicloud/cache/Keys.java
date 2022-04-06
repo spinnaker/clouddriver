@@ -24,6 +24,8 @@ import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudServerGroup;
 import com.netflix.spinnaker.clouddriver.cache.KeyParser;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
@@ -292,15 +294,20 @@ public class Keys implements KeyParser {
           result.put("region", parts[3]);
           result.put("account", parts[2]);
           result.put("vpcId", parts[6]);
+          return result;
         } else {
           return null;
         }
-        break;
+      case "clusters":
+        if(parts.length >= 5){
+          result.put("application", parts[2]);
+          result.put("account", parts[3]);
+          result.put("clusterName", parts[4]);
+        }
+        return result;
       default:
         return null;
     }
-
-    return result;
   }
 
   @Override

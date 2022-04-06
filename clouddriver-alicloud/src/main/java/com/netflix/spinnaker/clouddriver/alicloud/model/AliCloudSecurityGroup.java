@@ -67,6 +67,30 @@ public class AliCloudSecurityGroup implements SecurityGroup {
     return id;
   }
 
+  public String getVpcId() {
+    return vpcId;
+  }
+
+  public String getAccount() {
+    return accountName;
+  }
+
+  public String getDescription() {
+    return application;
+  }
+
+  public String getDetail() {
+    return getMoniker().getDetail();
+  }
+
+  public String getStack() {
+    return getMoniker().getApp();
+  }
+
+  public String getCredentials() {
+    return accountName;
+  }
+
   @Override
   public String getName() {
     return name;

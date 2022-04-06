@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,7 +26,11 @@ import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupsResponse.SecurityG
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.exceptions.ServerException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netflix.spinnaker.cats.agent.*;
+import com.netflix.spinnaker.cats.agent.AccountAware;
+import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.cats.agent.CachingAgent;
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
@@ -36,7 +40,14 @@ import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
-import java.util.*;
+import com.netflix.spinnaker.clouddriver.cache.OnDemandType;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class AliCloudSecurityGroupCachingAgent
     implements CachingAgent, OnDemandAgent, AccountAware {
@@ -115,7 +126,7 @@ public class AliCloudSecurityGroupCachingAgent
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return OnDemandAgent.OnDemandType.SecurityGroup.equals(type)
+    return OnDemandType.SecurityGroup.equals(type)
         && AliCloudProvider.ID.equals(cloudProvider);
   }
 
@@ -171,8 +182,8 @@ public class AliCloudSecurityGroupCachingAgent
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
-    List<Map> resultList = new ArrayList<>();
+  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
+    List<Map<String, Object>> resultList = new ArrayList<>();
     Map<String, Object> map = new HashMap<>();
     resultList.add(map);
     return resultList;

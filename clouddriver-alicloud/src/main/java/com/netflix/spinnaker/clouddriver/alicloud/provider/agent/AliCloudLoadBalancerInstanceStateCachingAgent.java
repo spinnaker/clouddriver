@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,14 +16,14 @@
 package com.netflix.spinnaker.clouddriver.alicloud.provider.agent;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH;
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.LOAD_BALANCERS;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.*;
 
 import com.aliyuncs.IAcsClient;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.exceptions.ServerException;
 import com.aliyuncs.slb.model.v20140515.DescribeHealthStatusRequest;
 import com.aliyuncs.slb.model.v20140515.DescribeHealthStatusResponse;
+import com.aliyuncs.slb.model.v20140515.DescribeHealthStatusResponse.BackendServer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -73,50 +73,55 @@ public class AliCloudLoadBalancerInstanceStateCachingAgent
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    Map<String, Collection<CacheData>> resultMap = new HashMap<>(16);
-    List<CacheData> instanceDatas = new ArrayList<>();
 
     Collection<String> allLoadBalancerKeys = getCacheView().getIdentifiers(LOAD_BALANCERS.ns);
     Collection<CacheData> loadBalancerData =
         getCacheView().getAll(LOAD_BALANCERS.ns, allLoadBalancerKeys, null);
-    DescribeHealthStatusRequest describeHealthStatusRequest = new DescribeHealthStatusRequest();
-    DescribeHealthStatusResponse describeHealthStatusResponse;
-    for (CacheData cacheData : loadBalancerData) {
-      Map<String, Object> loadBalancerAttributes =
-          objectMapper.convertValue(cacheData.getAttributes(), Map.class);
-      String loadBalancerId = String.valueOf(loadBalancerAttributes.get("loadBalancerId"));
-      describeHealthStatusRequest.setLoadBalancerId(loadBalancerId);
-      String regionId = String.valueOf(loadBalancerAttributes.get("regionId"));
-      describeHealthStatusRequest.setSysRegionId(regionId);
-      try {
-        describeHealthStatusResponse = client.getAcsResponse(describeHealthStatusRequest);
-        for (DescribeHealthStatusResponse.BackendServer backendServer :
-            describeHealthStatusResponse.getBackendServers()) {
-          Map<String, Object> attributes = objectMapper.convertValue(backendServer, Map.class);
-          attributes.put("loadBalancerId", loadBalancerId);
-          CacheData data =
-              new DefaultCacheData(
-                  Keys.getInstanceHealthKey(
-                      loadBalancerId,
-                      backendServer.getServerId(),
-                      backendServer.getListenerPort().toString(),
-                      account.getName(),
-                      regionId,
-                      healthId),
-                  attributes,
-                  new HashMap<>(16));
-          instanceDatas.add(data);
-        }
 
-      } catch (ServerException e) {
-        e.printStackTrace();
-      } catch (ClientException e) {
-        e.printStackTrace();
+    List<CacheData> instanceDatas = new ArrayList<>();
+
+    for (CacheData cacheData : loadBalancerData) {
+      Map<String, Object> loadBalancerAttributes = cacheData.getAttributes();
+      String loadBalancerId = String.valueOf(loadBalancerAttributes.get("loadBalancerId"));
+      String regionId = String.valueOf(loadBalancerAttributes.get("regionId"));
+
+      List<BackendServer>  backendServers = this.findBackendServer(loadBalancerId, regionId);
+      for (DescribeHealthStatusResponse.BackendServer backendServer : backendServers) {
+        Map<String, Object> attributes = objectMapper.convertValue(backendServer, Map.class);
+        attributes.put("loadBalancerId", loadBalancerId);
+        CacheData data =
+            new DefaultCacheData(
+                Keys.getInstanceHealthKey(
+                    loadBalancerId,
+                    backendServer.getServerId(),
+                    backendServer.getListenerPort().toString(),
+                    account.getName(),
+                    regionId,
+                    healthId),
+                attributes,
+                new HashMap<>(16));
+        instanceDatas.add(data);
       }
     }
+
+    Map<String, Collection<CacheData>> resultMap = new HashMap<>(16);
     resultMap.put(HEALTH.ns, instanceDatas);
 
     return new DefaultCacheResult(resultMap);
+  }
+
+  private List<BackendServer> findBackendServer(String loadBalancerId, String regionId){
+    DescribeHealthStatusRequest describeHealthStatusRequest = new DescribeHealthStatusRequest();
+    DescribeHealthStatusResponse describeHealthStatusResponse;
+    try {
+      describeHealthStatusRequest.setLoadBalancerId(loadBalancerId);
+      describeHealthStatusRequest.setSysRegionId(regionId);
+      describeHealthStatusResponse = client.getAcsResponse(describeHealthStatusRequest);
+      return describeHealthStatusResponse.getBackendServers();
+    } catch (ClientException e) {
+      e.printStackTrace();
+    }
+    return Collections.emptyList();
   }
 
   @Override
