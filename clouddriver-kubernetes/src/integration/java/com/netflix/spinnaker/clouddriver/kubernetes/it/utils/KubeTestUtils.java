@@ -292,13 +292,17 @@ public abstract class KubeTestUtils {
     System.out.println("> Waiting for task to complete");
     long start = System.currentTimeMillis();
 
+    // So it's possible to capture the Response from the lambda passed to
+    // repeatUntilTrue, uese a wrapper.  List is an arbitrary choice.
+    List<Response> respList = new ArrayList();
+
     KubeTestUtils.repeatUntilTrue(
         () -> {
           Response respTask = getTask(baseUrl, taskId);
           if (respTask == null) {
             return false;
           }
-          consumer.accept(respTask);
+          respList.add(respTask);
           return true;
         },
         duration,
@@ -310,6 +314,8 @@ public abstract class KubeTestUtils {
             + " on GET /task/{id} to return \"status.completed: true\"");
     System.out.println(
         "< Task completed in " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
+
+    consumer.accept(Iterables.getOnlyElement(respList));
   }
 
   /**
