@@ -286,7 +286,7 @@ public abstract class KubeTestUtils {
   }
 
   /** Wait until a task has completed, calling a consumer with the response once it has. */
-  private static void processOperation(
+  public static void processOperation(
       String baseUrl, String taskId, long duration, TimeUnit unit, Consumer<Response> consumer)
       throws InterruptedException {
     System.out.println("> Waiting for task to complete");
@@ -317,7 +317,7 @@ public abstract class KubeTestUtils {
    *
    * @return the task id
    */
-  private static String submitOperation(String baseUrl, List<Map<String, Object>> reqBody) {
+  public static String submitOperation(String baseUrl, List<Map<String, Object>> reqBody) {
     String url = baseUrl + "/kubernetes/ops";
     System.out.println("POST " + url);
     Response resp =
@@ -334,7 +334,7 @@ public abstract class KubeTestUtils {
    * @return the response from the get task method, if the task has completed, or null if the task
    *     was not found, or the task hasn't completed yet.
    */
-  private static Response getTask(String baseUrl, String taskId) {
+  public static Response getTask(String baseUrl, String taskId) {
     String taskUrl = baseUrl + "/task/" + taskId;
     System.out.println("GET " + taskUrl);
     Response respTask = given().get(taskUrl);
