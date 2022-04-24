@@ -16,9 +16,22 @@
 
 package com.netflix.spinnaker.clouddriver.alicloud.model.alienum;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+
 public enum ListenerType {
   HTTP,
   HTTPS,
   TCP,
-  UDP
+  UDP;
+
+  @JsonCreator
+  public static ListenerType forName(String name) {
+    for (ListenerType l : values()) {
+      if (l.name().equals(name)) {
+        return l;
+      }
+    }
+
+    return null;
+  }
 }

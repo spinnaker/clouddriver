@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.alicloud.model;
 
+import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.model.Cluster;
 import java.io.Serializable;
 import java.util.Set;
@@ -23,19 +24,16 @@ import java.util.Set;
 public class AliCloudCluster implements Cluster, Serializable {
 
   private String name;
-  private String type;
   private String accountName;
   private Set<AliCloudServerGroup> serverGroups;
   private Set<AliCloudLoadBalancer> loadBalancers;
 
   public AliCloudCluster(
       String name,
-      String type,
       String accountName,
       Set<AliCloudServerGroup> serverGroups,
       Set<AliCloudLoadBalancer> loadBalancers) {
     this.name = name;
-    this.type = type;
     this.accountName = accountName;
     this.serverGroups = serverGroups;
     this.loadBalancers = loadBalancers;
@@ -48,7 +46,7 @@ public class AliCloudCluster implements Cluster, Serializable {
 
   @Override
   public String getType() {
-    return type;
+    return AliCloudProvider.ID;
   }
 
   @Override

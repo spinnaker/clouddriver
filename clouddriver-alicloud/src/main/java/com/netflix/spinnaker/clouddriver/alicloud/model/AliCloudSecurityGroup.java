@@ -21,10 +21,11 @@ import com.netflix.spinnaker.clouddriver.model.SecurityGroup;
 import com.netflix.spinnaker.clouddriver.model.SecurityGroupSummary;
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule;
 import java.util.Set;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode
 public class AliCloudSecurityGroup implements SecurityGroup {
 
-  String type = AliCloudProvider.ID;
   String cloudProvider = AliCloudProvider.ID;
   String id;
   String name;
@@ -53,11 +54,6 @@ public class AliCloudSecurityGroup implements SecurityGroup {
   }
 
   @Override
-  public String getType() {
-    return type;
-  }
-
-  @Override
   public String getCloudProvider() {
     return cloudProvider;
   }
@@ -67,14 +63,33 @@ public class AliCloudSecurityGroup implements SecurityGroup {
     return id;
   }
 
-  @Override
-  public String getName() {
-    return name;
+  public String getVpcId() {
+    return vpcId;
+  }
+
+  public String getAccount() {
+    return accountName;
+  }
+
+  public String getDescription() {
+    return application;
+  }
+
+  public String getDetail() {
+    return getMoniker().getDetail();
+  }
+
+  public String getStack() {
+    return getMoniker().getApp();
+  }
+
+  public String getCredentials() {
+    return accountName;
   }
 
   @Override
-  public String getApplication() {
-    return application;
+  public String getName() {
+    return name;
   }
 
   @Override

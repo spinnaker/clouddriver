@@ -15,22 +15,30 @@
  */
 package com.netflix.spinnaker.clouddriver.alicloud.provider.view;
 
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.*;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.APPLICATIONS;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.LOAD_BALANCERS;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.SERVER_GROUPS;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.CacheFilter;
-import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.alicloud.common.HealthHelper;
+import com.netflix.spinnaker.clouddriver.alicloud.common.Sets;
 import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudLoadBalancer;
-import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,24 +61,20 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
     this.provider = provider;
   }
 
-  private static final String SURVIVE_STATUS = "Active";
-
   @Override
   public Set<AliCloudLoadBalancer> getApplicationLoadBalancers(String applicationName) {
-    Set<String> loadBalancerKeys = new HashSet<>();
-    Set<AliCloudLoadBalancer> loadBalances = new HashSet<>();
 
     Collection<CacheData> applicationServerGroups =
         getServerGroupCacheDataByApplication(applicationName);
-    Collection<String> allHealthyKeys = cacheView.getIdentifiers(HEALTH.ns);
     Collection<String> allLoadBalancerKeys = cacheView.getIdentifiers(LOAD_BALANCERS.ns);
     Collection<String> loadBalancerKeyMatches =
         allLoadBalancerKeys.stream()
             .filter(tab -> applicationMatcher(tab, applicationName))
             .collect(Collectors.toList());
-    loadBalancerKeys.addAll(loadBalancerKeyMatches);
     Collection<CacheData> loadBalancerData =
-        cacheView.getAll(LOAD_BALANCERS.ns, loadBalancerKeys, null);
+        cacheView.getAll(LOAD_BALANCERS.ns, loadBalancerKeyMatches);
+
+    Set<AliCloudLoadBalancer> loadBalances = new HashSet<>();
     for (CacheData cacheData : loadBalancerData) {
       Map<String, Object> attributes =
           objectMapper.convertValue(cacheData.getAttributes(), Map.class);
@@ -87,7 +91,17 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
             applicationServerGroup.getRelationships().get("loadBalancers");
         for (String balancer : loadBalancers) {
           if (id.startsWith(balancer)) {
-            addServerGroupToLoadBalancer(allHealthyKeys, loadBalancer, applicationServerGroup);
+            addServerGroupToLoadBalancer(loadBalancer, applicationServerGroup);
+
+            Map<String, Object> map =
+                (Map<String, Object>)
+                    applicationServerGroup.getAttributes().get("scalingConfiguration");
+            if (map.containsKey("securityGroupIds")) {
+              Set<String> securityGroups = new HashSet<>();
+              securityGroups.addAll((Collection<String>) map.get("securityGroupIds"));
+              loadBalancer.setSecurityGroups(securityGroups);
+            }
+
             break;
           }
         }
@@ -103,9 +117,7 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
     String searchKey = Keys.getLoadBalancerKey(name, account, region, null) + "*";
     Collection<String> allLoadBalancerKeys =
         cacheView.filterIdentifiers(LOAD_BALANCERS.ns, searchKey);
-    Collection<CacheData> loadBalancers =
-        cacheView.getAll(LOAD_BALANCERS.ns, allLoadBalancerKeys, null);
-    Collection<String> allHealthyKeys = cacheView.getIdentifiers(HEALTH.ns);
+    Collection<CacheData> loadBalancers = cacheView.getAll(LOAD_BALANCERS.ns, allLoadBalancerKeys);
     for (CacheData loadBalancer : loadBalancers) {
       ResultDetails resultDetails = new ResultDetails();
       Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
@@ -115,12 +127,11 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
           getServerGroupCacheDataByApplication(applicationName);
       for (CacheData applicationServerGroup : applicationServerGroups) {
         Collection<String> relationships =
-            applicationServerGroup.getRelationships().get("loadBalancers");
+            applicationServerGroup.getRelationships().get(LOAD_BALANCERS.ns);
         for (String loadBalancerId : relationships) {
           if (id.startsWith(loadBalancerId)) {
             LoadBalancerServerGroup loadBalancerServerGroup =
-                createLoadBalancerServerGroup(
-                    allHealthyKeys, loadBalancerId, applicationServerGroup);
+                createLoadBalancerServerGroup(loadBalancerId, applicationServerGroup);
             serverGroups.add(loadBalancerServerGroup);
             break;
           }
@@ -158,19 +169,8 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
         || Pattern.matches(regex3, key);
   }
 
-  Collection<CacheData> resolveRelationshipData(
-      CacheData source, String relationship, CacheFilter cacheFilter) {
-    Map<String, Collection<String>> relationships = source.getRelationships();
-    Collection<String> keys = relationships.get(relationship);
-    if (!keys.isEmpty()) {
-      return cacheView.getAll(relationship, keys, null);
-    } else {
-      return new ArrayList<CacheData>();
-    }
-  }
-
   private LoadBalancerServerGroup createLoadBalancerServerGroup(
-      Collection<String> allHealthyKeys, String loadBalancerId, CacheData applicationServerGroup) {
+      String loadBalancerId, CacheData applicationServerGroup) {
     LoadBalancerServerGroup loadBalancerServerGroup = new LoadBalancerServerGroup();
     Map<String, Object> attributes = applicationServerGroup.getAttributes();
     loadBalancerServerGroup.setName(String.valueOf(attributes.get("name")));
@@ -178,68 +178,79 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
     loadBalancerServerGroup.setRegion(String.valueOf(attributes.get("region")));
     loadBalancerServerGroup.setAccount(String.valueOf(attributes.get("account")));
     Map<String, Object> scalingGroup = (Map) attributes.get("scalingGroup");
-    String lifecycleState = (String) scalingGroup.get("lifecycleState");
-    if (SURVIVE_STATUS.equals(lifecycleState)) {
-      loadBalancerServerGroup.setIsDisabled(false);
-    } else {
-      loadBalancerServerGroup.setIsDisabled(true);
-    }
-    Set<String> detachedInstances = new HashSet<>();
-    Set<LoadBalancerInstance> loadBalancerInstances = new HashSet<>();
+    String scalingGroupLifecycleState = (String) scalingGroup.get("lifecycleState");
+    loadBalancerServerGroup.setIsDisabled(!"Active".equals(scalingGroupLifecycleState));
+
     List<Map> instances = (List<Map>) attributes.get("instances");
-    for (Map instance : instances) {
-      Object id = instance.get("instanceId");
-      if (id != null) {
-        String instanceId = String.valueOf(id);
-        String healthStatus = (String) instance.get("healthStatus");
-        boolean flag = "Healthy".equals(healthStatus);
-        Map<String, Object> health = new HashMap<>();
-        health.put("type", provider.getDisplayName());
-        health.put("healthClass", "platform");
-        List<String> loadBalancerIds =
-            new ArrayList<String>() {
-              {
-                add(loadBalancerId);
-              }
-            };
-        HealthState healthState =
-            HealthHelper.judgeInstanceHealthyState(
-                allHealthyKeys, loadBalancerIds, instanceId, cacheView);
-        health.put(
-            "state",
-            !"Active".equals(lifecycleState)
-                ? "unhealthy"
-                : !flag
-                    ? "unhealthy"
-                    : healthState.equals(HealthState.Up)
-                        ? "healthy"
-                        : healthState.equals(HealthState.Unknown) ? "unknown" : "unhealthy");
-        String zone = (String) instance.get("creationType");
-        LoadBalancerInstance loadBalancerInstance = new LoadBalancerInstance();
-        loadBalancerInstance.setId(instanceId);
-        loadBalancerInstance.setName(instanceId);
-        loadBalancerInstance.setZone(zone);
-        loadBalancerInstance.setHealth(health);
-        loadBalancerInstances.add(loadBalancerInstance);
-        detachedInstances.add(instanceId);
-      }
+    if (instances != null) {
+      Collection<String> allHealthyKeys = cacheView.getIdentifiers(HEALTH.ns);
+
+      loadBalancerServerGroup.setInstances(
+          instances.stream()
+              .filter(instance -> instance.get("instanceId") != null)
+              .map(
+                  instance -> {
+                    LoadBalancerInstance loadBalancerInstance = new LoadBalancerInstance();
+                    String instanceId = String.valueOf(instance.get("instanceId"));
+                    loadBalancerInstance.setId(instanceId);
+                    loadBalancerInstance.setName(instanceId);
+                    loadBalancerInstance.setZone(String.valueOf(instance.get("creationType")));
+
+                    List<String> healthKeys =
+                        allHealthyKeys.stream()
+                            .filter(
+                                k ->
+                                    HealthHelper.healthyStateMatcher(
+                                        k, Sets.ofModifiable(loadBalancerId), instanceId))
+                            .collect(Collectors.toList());
+                    Collection<CacheData> healthDatas =
+                        cacheView.getAll(HEALTH.ns, healthKeys.toArray(new String[] {}));
+
+                    Map<String, Object> health = new HashMap<>();
+                    health.put("type", provider.getDisplayName());
+                    health.put("healthClass", "platform");
+                    health.put(
+                        "state",
+                        HealthHelper.loadBalancerInstanceHealthState(
+                            scalingGroupLifecycleState,
+                            String.valueOf(instance.get("healthStatus")),
+                            healthDatas));
+                    loadBalancerInstance.setHealth(health);
+                    return loadBalancerInstance;
+                  })
+              .collect(Collectors.toSet()));
     }
-    // loadBalancerServerGroup.setDetachedInstances(detachedInstances);
-    loadBalancerServerGroup.setInstances(loadBalancerInstances);
+
     return loadBalancerServerGroup;
   }
 
-  private void addServerGroupToLoadBalancer(
-      Collection<String> allHealthyKeys,
-      AliCloudLoadBalancer loadBalancer,
-      CacheData applicationServerGroup) {
-    Set<LoadBalancerServerGroup> serverGroups =
-        loadBalancer.getServerGroups() != null ? loadBalancer.getServerGroups() : new HashSet<>();
+  public void addServerGroupToLoadBalancer(
+      AliCloudLoadBalancer loadBalancer, CacheData applicationServerGroup) {
+    if (!isContainsLoadBalancer(loadBalancer, applicationServerGroup)) {
+      return;
+    }
+    Set<LoadBalancerServerGroup> serverGroups = loadBalancer.getServerGroups();
+    if (serverGroups == null) {
+      serverGroups = new HashSet<>();
+    }
     LoadBalancerServerGroup serverGroup =
-        createLoadBalancerServerGroup(
-            allHealthyKeys, loadBalancer.getLoadBalancerId(), applicationServerGroup);
+        createLoadBalancerServerGroup(loadBalancer.getLoadBalancerId(), applicationServerGroup);
     serverGroups.add(serverGroup);
     loadBalancer.setServerGroups(serverGroups);
+  }
+
+  private boolean isContainsLoadBalancer(
+      AliCloudLoadBalancer loadBalancer, CacheData applicationServerGroup) {
+    String loadBalancerKey =
+        Keys.getLoadBalancerKey(
+            loadBalancer.getName(),
+            loadBalancer.getAccount(),
+            loadBalancer.getRegion(),
+            loadBalancer.getVpcId());
+    return applicationServerGroup
+        .getRelationships()
+        .get(LOAD_BALANCERS.ns)
+        .contains(loadBalancerKey);
   }
 
   class ResultDetails implements Details {
@@ -261,14 +272,12 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
 
   private Collection<CacheData> getServerGroupCacheDataByApplication(String applicationName) {
     CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName));
-    Collection<CacheData> applicationServerGroups = new ArrayList<>();
-    if (application != null) {
-      applicationServerGroups =
-          resolveRelationshipData(
-              application,
-              SERVER_GROUPS.ns,
-              RelationshipCacheFilter.include(INSTANCES.ns, LOAD_BALANCERS.ns));
+    if (application == null) {
+      return Collections.emptyList();
     }
-    return applicationServerGroups;
+    Map<String, Collection<String>> relationships = application.getRelationships();
+    Collection<String> keys = relationships.get(SERVER_GROUPS.ns);
+
+    return cacheView.getAll(SERVER_GROUPS.ns, keys);
   }
 }

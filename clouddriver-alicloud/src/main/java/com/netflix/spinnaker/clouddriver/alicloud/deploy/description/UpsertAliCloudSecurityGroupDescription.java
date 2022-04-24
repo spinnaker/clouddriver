@@ -20,7 +20,9 @@ import com.aliyuncs.ecs.model.v20140526.AuthorizeSecurityGroupEgressRequest;
 import com.aliyuncs.ecs.model.v20140526.AuthorizeSecurityGroupRequest;
 import java.util.List;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class UpsertAliCloudSecurityGroupDescription extends BaseAliCloudDescription {
 

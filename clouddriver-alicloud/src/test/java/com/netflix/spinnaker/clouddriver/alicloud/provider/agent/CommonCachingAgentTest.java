@@ -21,13 +21,11 @@ import static org.mockito.Mockito.when;
 import com.aliyuncs.IAcsClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
+import com.netflix.spinnaker.clouddriver.alicloud.BaseTest;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import spock.lang.Subject;
 
-public class CommonCachingAgentTest {
-
-  static final String ACCOUNT = "test-account";
-  static final String REGION = "cn-test";
+public class CommonCachingAgentTest extends BaseTest {
 
   @Subject ObjectMapper objectMapper = new ObjectMapper();
 

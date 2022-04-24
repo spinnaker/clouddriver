@@ -23,7 +23,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@Data
+@EqualsAndHashCode
 public class AliCloudLoadBalancer implements LoadBalancer {
 
   String account;
@@ -44,6 +48,8 @@ public class AliCloudLoadBalancer implements LoadBalancer {
 
   Map<String, String> labels = new HashMap<>();
 
+  Set<String> securityGroups;
+
   public AliCloudLoadBalancer(
       String account, String region, String name, String vpcId, String loadBalancerId) {
     this.account = account;
@@ -51,51 +57,5 @@ public class AliCloudLoadBalancer implements LoadBalancer {
     this.name = name;
     this.vpcId = vpcId;
     this.loadBalancerId = loadBalancerId;
-  }
-
-  @Override
-  public String getName() {
-    return name;
-  }
-
-  @Override
-  public String getType() {
-    return type;
-  }
-
-  @Override
-  public String getCloudProvider() {
-    return cloudProvider;
-  }
-
-  @Override
-  public String getAccount() {
-    return account;
-  }
-
-  @Override
-  public Set<LoadBalancerServerGroup> getServerGroups() {
-    return serverGroups;
-  }
-
-  @Override
-  public Map<String, String> getLabels() {
-    return labels;
-  }
-
-  public String getRegion() {
-    return region;
-  }
-
-  public String getVpcId() {
-    return vpcId;
-  }
-
-  public String getLoadBalancerId() {
-    return loadBalancerId;
-  }
-
-  public void setServerGroups(Set<LoadBalancerServerGroup> serverGroups) {
-    this.serverGroups = serverGroups;
   }
 }

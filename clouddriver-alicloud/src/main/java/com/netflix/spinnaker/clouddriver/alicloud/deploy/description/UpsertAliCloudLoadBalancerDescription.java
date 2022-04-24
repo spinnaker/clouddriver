@@ -16,19 +16,15 @@
 
 package com.netflix.spinnaker.clouddriver.alicloud.deploy.description;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.netflix.spinnaker.clouddriver.alicloud.model.Listener;
-import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import java.util.List;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
-public class UpsertAliCloudLoadBalancerDescription {
-
-  @JsonIgnore private AliCloudCredentials credentials;
-
-  private String region;
+public class UpsertAliCloudLoadBalancerDescription extends BaseAliCloudDescription {
 
   private List<Listener> listeners;
 

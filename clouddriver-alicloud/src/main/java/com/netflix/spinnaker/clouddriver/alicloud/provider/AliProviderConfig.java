@@ -54,8 +54,7 @@ public class AliProviderConfig {
       ClientFactory clientFactory) {
     AliProvider provider =
         new AliProvider(
-            accountCredentialsRepository,
-            Collections.newSetFromMap(new ConcurrentHashMap<Agent, Boolean>()));
+            accountCredentialsRepository, Collections.newSetFromMap(new ConcurrentHashMap<>()));
     synchronizeAliProvider(
         provider,
         accountCredentialsRepository,
@@ -106,8 +105,21 @@ public class AliProviderConfig {
                     clientFactory.createClient(
                         region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
             newAgents.add(
-                new AliCloudLoadBalancerInstanceStateCachingAgent(
-                    ctx,
+                new AliCloudSubnetCachingAgent(
+                    credentials,
+                    region,
+                    objectMapper,
+                    clientFactory.createClient(
+                        region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
+            newAgents.add(
+                new AliCloudImageCachingAgent(
+                    credentials,
+                    region,
+                    objectMapper,
+                    clientFactory.createClient(
+                        region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
+            newAgents.add(
+                new AliCloudInstanceTypeCachingAgent(
                     credentials,
                     region,
                     objectMapper,
@@ -115,6 +127,35 @@ public class AliProviderConfig {
                         region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
             newAgents.add(
                 new AliCloudSecurityGroupCachingAgent(
+                    credentials,
+                    region,
+                    objectMapper,
+                    clientFactory.createClient(
+                        region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
+            newAgents.add(
+                new AliCloudKeyPairCachingAgent(
+                    credentials,
+                    region,
+                    objectMapper,
+                    clientFactory.createClient(
+                        region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
+            newAgents.add(
+                new AliCloudClusterCachingAgent(
+                    credentials,
+                    region,
+                    objectMapper,
+                    clientFactory.createClient(
+                        region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
+            newAgents.add(
+                new AliCloudInstanceCachingAgent(
+                    credentials,
+                    region,
+                    objectMapper,
+                    clientFactory.createClient(
+                        region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
+            newAgents.add(
+                new AliCloudLoadBalancerInstanceStateCachingAgent(
+                    ctx,
                     credentials,
                     region,
                     objectMapper,

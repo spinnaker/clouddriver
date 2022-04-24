@@ -1,0 +1,56 @@
+{
+  "requestId": "D961E7D1-E1C2-5B8A-813C-996CCA04BCAC",
+  "loadBalancerId": "lb-bp14zp0z9a14keun50qed",
+  "resourceGroupId": "rg-acfmwvvtg5owavy",
+  "loadBalancerName": "ManagedK8SSlbIntranet-ca6a8ff0dd3c4471fb22b0b308afdbae7",
+  "loadBalancerStatus": "active",
+  "regionId": "cn-hangzhou",
+  "regionIdAlias": "cn-hangzhou",
+  "address": "172.16.6.153",
+  "addressType": "intranet",
+  "vpcId": "vpc-bp1v8dqu75hsxns2vh4l0",
+  "vSwitchId": "vsw-bp1ov7as4qoh1b7qrhgpq",
+  "networkType": "vpc",
+  "internetChargeType": "paybytraffic",
+  "bandwidth": 5120,
+  "loadBalancerSpec": "slb.s2.small",
+  "createTime": "2022-04-07T09:39:56Z",
+  "createTimeStamp": 1649324396000,
+  "endTime": "2999-09-08T16:00:00Z",
+  "endTimeStamp": 32493801600000,
+  "payType": "PayOnDemand",
+  "masterZoneId": "cn-hangzhou-g",
+  "slaveZoneId": "cn-hangzhou-b",
+  "addressIPVersion": "ipv4",
+  "hasReservedInfo": "false",
+  "deleteProtection": "on",
+  "listenerPortsAndProtocal": [
+    {
+      "listenerPort": 6443,
+      "listenerProtocal": "tcp"
+    }
+  ],
+  "listenerPortsAndProtocol": [
+    {
+      "listenerPort": 6443,
+      "listenerProtocol": "tcp"
+    }
+  ],
+  "backendServers": [
+    {
+      "serverId": "eni-bp1gagggeuuk902bmzjq",
+      "weight": 100,
+      "type": "eni",
+      "serverIp": "172.16.6.155"
+    },
+    {
+      "serverId": "eni-bp177qrxy534lgvcgq2r",
+      "weight": 100,
+      "type": "eni",
+      "serverIp": "172.16.6.154"
+    }
+  ],
+  "listenerPorts": [
+    "6443"
+  ]
+}

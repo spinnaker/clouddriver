@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.alicloud.controllers;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -26,7 +26,12 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.alicloud.controllers.AliCloudImageController.Image;
 import com.netflix.spinnaker.clouddriver.alicloud.controllers.AliCloudImageController.LookupOptions;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,7 +59,7 @@ public class AliCloudImageControllerTest {
   public void testList() {
     AliCloudImageController controller = new AliCloudImageController(cacheView);
     List<Image> list = controller.list(lookupOptions, request);
-    assertTrue(list.size() == 2);
+    assertEquals(2, list.size());
   }
 
   private class FilterAnswer implements Answer<List<String>> {
