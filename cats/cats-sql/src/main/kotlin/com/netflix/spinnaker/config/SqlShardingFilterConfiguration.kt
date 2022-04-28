@@ -50,6 +50,4 @@ class SqlShardingFilterConfiguration {
       dynamicConfigService = dynamicConfigService
     )
   }
-
-
 }

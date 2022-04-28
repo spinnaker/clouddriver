@@ -40,28 +40,31 @@ import kotlin.math.abs
 class SqlCachingPodsObserver (
   private val jooq: DSLContext,
   private val nodeIdentity: NodeIdentity,
-  private val tableNamespace: String? = null,
-  private val dynamicConfigService : DynamicConfigService,
-  private val liveReplicasScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+  tableNamespace: String? = null,
+  dynamicConfigService: DynamicConfigService,
+  liveReplicasScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
     ThreadFactoryBuilder().setNameFormat(SqlCachingPodsObserver::class.java.simpleName + "-%d").build()
   )
-) : ShardingFilter, Runnable{
+) : ShardingFilter, Runnable {
   private val log = LoggerFactory.getLogger(javaClass)
   private var podCount: Int = 0
   private var podIndex: Int = -1
-  private var ttlSeconds = dynamicConfigService.getConfig(Long::class.java, "cache-sharding.replica-ttl-seconds", 60)
+  private val ttlSeconds = dynamicConfigService.getConfig(Long::class.java, "cache-sharding.replica-ttl-seconds", DEFAULT_REPLICA_TTL_SECONDS)
+  private val recheckInterval = dynamicConfigService.getConfig(Long::class.java, "cache-sharding.heartbeat-interval-seconds", DEFAULT_HEARTBEAT_INTERVAL_SECONDS)
+  private val accountNameRegex = dynamicConfigService.getConfig(Regex::class.java, "cache-sharding.account-name-regex", DEFAULT_ACCOUNT_REGEX)
 
   companion object {
     private val POOL_NAME = ConnectionPools.CACHE_WRITER.value
     const val LAST_HEARTBEAT_TIME = "last_heartbeat_time"
     const val POD_ID = "pod_id"
+
+    const val DEFAULT_REPLICA_TTL_SECONDS = 60L
+    const val DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 30L
+    val DEFAULT_ACCOUNT_REGEX = Regex(".*")
   }
+
   private val replicasReferenceTable = "caching_replicas"
-  private val replicasTable = if (tableNamespace.isNullOrBlank()) {
-    replicasReferenceTable
-  } else {
-    "${replicasReferenceTable}_$tableNamespace"
-  }
+  private val replicasTable = if (tableNamespace.isNullOrBlank()) replicasReferenceTable else "${replicasReferenceTable}_$tableNamespace"
 
   init {
     if (!tableNamespace.isNullOrBlank()) {
@@ -70,8 +73,6 @@ class SqlCachingPodsObserver (
       }
     }
     refreshHeartbeat(TimeUnit.SECONDS.toMillis(ttlSeconds))
-    val recheckInterval =
-      dynamicConfigService.getConfig(Long::class.java, "cache-sharding.heartbeat-interval-seconds", 30)
     liveReplicasScheduler.scheduleAtFixedRate(this, 0, recheckInterval, TimeUnit.SECONDS)
     log.info("Account based sharding across caching pods is enabled.")
   }
@@ -85,7 +86,7 @@ class SqlCachingPodsObserver (
 
   }
 
-  private fun refreshHeartbeat(newTtl: Long){
+  private fun refreshHeartbeat(newTtl: Long) {
     recordHeartbeat(newTtl)
     deleteExpiredReplicas()
     preFilter()
@@ -113,7 +114,7 @@ class SqlCachingPodsObserver (
             )
             .execute()
         } else {
-          //update heartbeat
+          // update heartbeat
           jooq.update(table(replicasTable))
             .set(DSL.field(LAST_HEARTBEAT_TIME), System.currentTimeMillis() + newTtl)
             .where(DSL.field(POD_ID).eq(nodeIdentity.nodeIdentity))
@@ -128,7 +129,7 @@ class SqlCachingPodsObserver (
     }
   }
 
-  private fun deleteExpiredReplicas(){
+  private fun deleteExpiredReplicas() {
     try {
       withPool(POOL_NAME) {
         val existingReplicas = jooq.select()
@@ -162,11 +163,11 @@ class SqlCachingPodsObserver (
     }
   }
 
-  private fun getAccountName(agentType: String): String{
-    return if(agentType.contains("/")) agentType.substring(0,agentType.indexOf('/')) else agentType
+  private fun getAccountName(agentType: String): String {
+    return if (agentType.contains("/")) agentType.substring(0, agentType.indexOf('/')) else agentType
   }
 
-  private fun preFilter(){
+  private fun preFilter() {
     var counter = 0
     var index = -1
     try {
@@ -179,31 +180,33 @@ class SqlCachingPodsObserver (
 
         while (cachingPods.next()) {
           if (cachingPods.getString(POD_ID).equals(nodeIdentity.nodeIdentity)) {
-            index = counter;
+            index = counter
           }
           counter++
         }
       }
-    }catch (e: SQLException){
-      log.error( "Failed to fetch live pods count ${e.message}")
+    } catch (e: SQLException) {
+      log.error("Failed to fetch live pods count ${e.message}")
     }
-    if(counter == 0 || index == -1){
-      throw RuntimeException("No caching pod heartbeat records detected. Sharding logic can't be applied!!!!")
+
+    if (counter == 0 || index == -1) {
+      throw RuntimeException("No caching pod heartbeat records detected. Sharding logic can't be applied!")
     }
     podCount = counter
     podIndex = index
-    log.debug("Pod count : {} and current pod's index : {}", podCount, podIndex)
+    log.debug("Pod count: {} and current pod index: {}", podCount, podIndex)
   }
 
-  override fun filter(agent: Agent) : Boolean{
-    if(agent.providerName.equals(CoreProvider.PROVIDER_NAME)){
+  override fun filter(agent: Agent): Boolean {
+    if (agent.providerName.equals(CoreProvider.PROVIDER_NAME)) {
       return true
     }
-    if (podCount == 1 || abs(getAccountName(agent.agentType).hashCode() % podCount) == podIndex) {
+
+    val accountName = getAccountName(agent.agentType)
+    if ((podCount == 1 || abs(accountName.hashCode() % podCount) == podIndex) && accountName.matches(accountNameRegex)) {
       return true
     }
+
     return false
   }
-
-
 }
