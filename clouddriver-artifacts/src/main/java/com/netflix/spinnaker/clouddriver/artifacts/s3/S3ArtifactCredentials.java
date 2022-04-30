@@ -16,60 +16,95 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.s3;
 
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.PredefinedClientConfigurations;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.S3Object;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import groovy.util.logging.Slf4j;
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import java.io.InputStream;
-import java.util.Collections;
-import java.util.List;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.Getter;
-import org.apache.commons.lang3.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@NonnullByDefault
 public class S3ArtifactCredentials implements ArtifactCredentials {
+  public static final String CREDENTIALS_TYPE = "artifacts-s3";
   @Getter private final String name;
-  @Getter private final List<String> types = Collections.singletonList("s3/object");
+  @Getter private final ImmutableList<String> types = ImmutableList.of("s3/object");
 
   private final String apiEndpoint;
   private final String apiRegion;
   private final String region;
   private final String awsAccessKeyId;
   private final String awsSecretAccessKey;
+  private final String signerOverride;
+  private final Optional<S3ArtifactValidator> s3ArtifactValidator;
 
-  S3ArtifactCredentials(S3ArtifactAccount account) throws IllegalArgumentException {
+  private AmazonS3 amazonS3;
+
+  S3ArtifactCredentials(
+      S3ArtifactAccount account, Optional<S3ArtifactValidator> s3ArtifactValidator) {
+    this(account, s3ArtifactValidator, null);
+  }
+
+  S3ArtifactCredentials(S3ArtifactAccount account, @Nullable AmazonS3 amazonS3) {
+    this(account, Optional.empty(), amazonS3);
+  }
+
+  S3ArtifactCredentials(
+      S3ArtifactAccount account,
+      Optional<S3ArtifactValidator> s3ArtifactValidator,
+      @Nullable AmazonS3 amazonS3) {
     name = account.getName();
     apiEndpoint = account.getApiEndpoint();
     apiRegion = account.getApiRegion();
     region = account.getRegion();
     awsAccessKeyId = account.getAwsAccessKeyId();
     awsSecretAccessKey = account.getAwsSecretAccessKey();
+    signerOverride = account.getSignerOverride();
+    this.s3ArtifactValidator = s3ArtifactValidator;
+    this.amazonS3 = amazonS3;
   }
 
   private AmazonS3 getS3Client() {
-    AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
+    if (amazonS3 != null) {
+      return amazonS3;
+    }
 
-    if (!StringUtils.isEmpty(apiEndpoint)) {
+    AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
+    if (!signerOverride.isEmpty()) {
+      ClientConfiguration configuration = PredefinedClientConfigurations.defaultConfig();
+      configuration.setSignerOverride(signerOverride);
+      builder.setClientConfiguration(configuration);
+    }
+    if (!apiEndpoint.isEmpty()) {
       AwsClientBuilder.EndpointConfiguration endpoint =
           new AwsClientBuilder.EndpointConfiguration(apiEndpoint, apiRegion);
       builder.setEndpointConfiguration(endpoint);
       builder.setPathStyleAccessEnabled(true);
-    } else if (!StringUtils.isEmpty(region)) {
+    } else if (!region.isEmpty()) {
       builder.setRegion(region);
     }
 
-    if (!StringUtils.isEmpty(awsAccessKeyId) && !StringUtils.isEmpty(awsSecretAccessKey)) {
+    if (!awsAccessKeyId.isEmpty() && !awsSecretAccessKey.isEmpty()) {
       BasicAWSCredentials awsStaticCreds =
           new BasicAWSCredentials(awsAccessKeyId, awsSecretAccessKey);
       builder.withCredentials(new AWSStaticCredentialsProvider(awsStaticCreds));
     }
 
-    return builder.build();
+    amazonS3 = builder.build();
+    return amazonS3;
   }
 
   @Override
@@ -86,7 +121,35 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
     }
     String bucketName = reference.substring(0, slash);
     String path = reference.substring(slash + 1);
-    S3Object s3obj = getS3Client().getObject(bucketName, path);
-    return s3obj.getObjectContent();
+    S3Object s3obj;
+    try {
+      s3obj = getS3Client().getObject(bucketName, path);
+    } catch (AmazonS3Exception e) {
+      // An out-of-the-box AmazonS3Exception doesn't include the bucket/key
+      // name so it's hard to know what's actually failing.
+      log.error("exception getting object: s3://{}/{}: '{}'", bucketName, path, e.getMessage());
+
+      // In case this is a "file not found" error, throw a more specific
+      // exception, to get more info to the caller, and such that the resulting
+      // http response code isn't 500 since that this isn't a server error, nor
+      // is retryable.
+      //
+      // See
+      // https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#ErrorCodeList
+      // for the list of error codes.
+      if ("NoSuchKey".equals(e.getErrorCode())) {
+        throw new NotFoundException("s3://" + bucketName + "/" + path + " not found", e);
+      }
+      throw e;
+    }
+    if (s3ArtifactValidator.isEmpty()) {
+      return s3obj.getObjectContent();
+    }
+    return s3ArtifactValidator.get().validate(getS3Client(), s3obj);
+  }
+
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
   }
 }

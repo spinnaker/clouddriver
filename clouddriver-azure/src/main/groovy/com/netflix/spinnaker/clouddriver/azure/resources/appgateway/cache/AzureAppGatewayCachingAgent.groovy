@@ -17,12 +17,9 @@
 package com.netflix.spinnaker.clouddriver.azure.resources.appgateway.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.cats.agent.AccountAware
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
-import com.netflix.spinnaker.cats.agent.CachingAgent
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
@@ -33,10 +30,10 @@ import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.common.cache.AzureCachingAgent
 import com.netflix.spinnaker.clouddriver.azure.resources.appgateway.model.AzureAppGatewayDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys
-import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.provider.AzureInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
+import com.netflix.spinnaker.clouddriver.cache.OnDemandType
 import groovy.transform.WithWriteLock
 import groovy.util.logging.Slf4j
 
@@ -59,7 +56,7 @@ class AzureAppGatewayCachingAgent extends AzureCachingAgent {
                               Registry registry) {
     super(azureCloudProvider, accountName, creds, region, objectMapper)
     this.registry = registry
-    this.metricsSupport = new OnDemandMetricsSupport(registry, this, "${azureCloudProvider.id}:${OnDemandAgent.OnDemandType.LoadBalancer}")
+    this.metricsSupport = new OnDemandMetricsSupport(registry, this, "${azureCloudProvider.id}:${OnDemandType.LoadBalancer}")
   }
 
   @Override
@@ -79,13 +76,13 @@ class AzureAppGatewayCachingAgent extends AzureCachingAgent {
   }
 
   @Override
-  OnDemandAgent.OnDemandType getOnDemandType() {
-    OnDemandAgent.OnDemandType.LoadBalancer
+  OnDemandType getOnDemandType() {
+    OnDemandType.LoadBalancer
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
-    type == OnDemandAgent.OnDemandType.LoadBalancer && cloudProvider == azureCloudProvider.id
+  boolean handles(OnDemandType type, String cloudProvider) {
+    type == OnDemandType.LoadBalancer && cloudProvider == azureCloudProvider.id
   }
 
   @Override

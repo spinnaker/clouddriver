@@ -16,16 +16,20 @@
 
 package com.netflix.spinnaker.clouddriver.eureka.deploy.ops
 
+import com.netflix.spinnaker.clouddriver.data.task.DefaultTask
+import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.eureka.api.Eureka
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.Instance
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import retrofit.client.Response
 import spock.lang.Specification
 import spock.lang.Subject
 import spock.lang.Unroll
 
 class AbstractEurekaSupportSpec extends Specification {
   def clusterProvider = Mock(ClusterProvider)
+  def eureka = Mock(Eureka)
 
   @Subject
   def eurekaSupport = new MyEurekaSupport(clusterProviders: [clusterProvider])
@@ -75,12 +79,12 @@ class AbstractEurekaSupportSpec extends Specification {
   class MyEurekaSupport extends AbstractEurekaSupport {
     @Override
     Eureka getEureka(Object credentials, String region) {
-      throw new UnsupportedOperationException()
+      return eureka
     }
 
     @Override
     boolean verifyInstanceAndAsgExist(Object credentials, String region, String instanceId, String asgName) {
-      throw new UnsupportedOperationException()
+      return true
     }
   }
 }

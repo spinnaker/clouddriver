@@ -19,27 +19,28 @@ package com.netflix.spinnaker.clouddriver.appengine.deploy.validators
 import com.netflix.spinnaker.clouddriver.appengine.AppengineOperation
 import com.netflix.spinnaker.clouddriver.appengine.deploy.description.TerminateAppengineInstancesDescription
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineInstanceProvider
+import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
+import com.netflix.spinnaker.credentials.CredentialsRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import org.springframework.validation.Errors
 
 @AppengineOperation(AtomicOperations.TERMINATE_INSTANCES)
 @Component("terminateAppengineInstancesDescriptionValidator")
 class TerminateAppengineInstancesDescriptionValidator extends DescriptionValidator<TerminateAppengineInstancesDescription> {
   @Autowired
-  AccountCredentialsProvider accountCredentialsProvider
+  CredentialsRepository<AppengineNamedAccountCredentials> credentialsRepository
 
   @Autowired
   AppengineInstanceProvider appengineInstanceProvider
 
   @Override
-  void validate(List priorDescriptions, TerminateAppengineInstancesDescription description, Errors errors) {
+  void validate(List priorDescriptions, TerminateAppengineInstancesDescription description, ValidationErrors errors) {
     def helper = new StandardAppengineAttributeValidator("terminateAppengineInstancesAtomicOperationDescription", errors)
 
-    helper.validateCredentials(description.accountName, accountCredentialsProvider)
+    helper.validateCredentials(description.accountName, credentialsRepository)
     helper.validateNotEmpty(description.instanceIds, "instanceIds")
     helper.validateInstances(description.instanceIds, description.credentials, appengineInstanceProvider, "instanceIds")
   }

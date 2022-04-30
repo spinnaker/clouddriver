@@ -16,14 +16,16 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.validators
 
+import com.amazonaws.services.ecs.model.CapacityProviderStrategyItem
 import com.amazonaws.services.ecs.model.PlacementStrategy
 import com.amazonaws.services.ecs.model.PlacementStrategyType
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
-import org.springframework.validation.Errors
+import com.netflix.spinnaker.moniker.Moniker
 
 class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec {
 
@@ -31,7 +33,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     given:
     def description = (CreateServerGroupDescription) getDescription()
     description.capacity = null
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -44,7 +46,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     given:
     def description = (CreateServerGroupDescription) getDescription()
     description.capacity.setDesired(9001)
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -57,7 +59,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     given:
     def description = (CreateServerGroupDescription) getDescription()
     description.capacity.setDesired(0)
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -66,11 +68,11 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     1 * errors.rejectValue('capacity.desired', "${getDescriptionName()}.capacity.desired.less.than.min")
   }
 
-  void 'should fail when more than one availability zones is present'() {
+  void 'should fail when more than one region is present'() {
     given:
     def description = (CreateServerGroupDescription) getDescription()
     description.availabilityZones = ['us-west-1': ['us-west-1a'], 'us-west-2': ['us-west-2a']]
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -79,11 +81,24 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     1 * errors.rejectValue('availabilityZones', "${getDescriptionName()}.availabilityZones.must.have.only.one")
   }
 
+  void 'should fail when no availability zones are present'() {
+    given:
+    def description = (CreateServerGroupDescription) getDescription()
+    description.availabilityZones = ['us-west-1': []]
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('availabilityZones.zones', "${getDescriptionName()}.availabilityZones.zones.not.nullable")
+  }
+
   void 'should fail when environment variables contain reserved key'() {
     given:
     def description = (CreateServerGroupDescription) getDescription()
     description.environmentVariables = ['SERVER_GROUP':'invalid', 'tag_1':'valid_tag']
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -96,7 +111,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     given:
     def description = getDescription()
     description.environmentVariables = ['TAG_1':'valid_tag_1', 'TAG_2':'valid_tag_2']
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -110,7 +125,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     def description = getDescription()
     description.containerPort = null
     description.targetGroup = null
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -123,7 +138,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     given:
     def description = getDescription()
     description.useTaskDefinitionArtifact = true
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -138,7 +153,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.targetGroup = null
     description.loadBalancedContainer = 'load-balanced-container'
     description.useTaskDefinitionArtifact = true
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -160,13 +175,59 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.dockerImageAddress = null
     description.useTaskDefinitionArtifact = true
     description.targetGroupMappings = [targetGroupMappings]
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
 
     then:
     1 * errors.rejectValue('targetGroupMappings.containerName', "${getDescriptionName()}.targetGroupMappings.containerName.not.nullable")
+  }
+
+  void 'should fail when launch type and capacity provider strategy are both defined'() {
+    given:
+    def capacityProviderStrategy = new CapacityProviderStrategyItem(
+      capacityProvider: 'FARGATE',
+      weight: 1
+    )
+    def description = getDescription()
+    description.capacityProviderStrategy = [capacityProviderStrategy]
+    description.launchType = 'FARGATE'
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('launchType', 'createServerGroupDescription.launchType.invalid', 'LaunchType cannot be specified when CapacityProviderStrategy are specified.')
+  }
+
+  void 'should fail when subnet type and subnet types are both defined'() {
+    given:
+    def description = getDescription()
+    description.subnetType = 'public'
+    description.subnetTypes = ['public', 'private']
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('subnetTypes', 'createServerGroupDescription.subnetTypes.invalid', 'SubnetType (string) cannot be specified when SubnetTypes (list) is specified. Please use SubnetTypes (list)')
+  }
+
+  void 'should fail when neither launch type or capacity provider strategy are defined'() {
+    given:
+    def description = getDescription()
+    description.capacityProviderStrategy = null
+    description.launchType = null
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('launchType', 'createServerGroupDescription.launchType.invalid', 'LaunchType or CapacityProviderStrategy must be specified.')
   }
 
   void 'target group mappings should fail when container name is specified but load balancer is missing'() {
@@ -182,7 +243,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.dockerImageAddress = null
     description.useTaskDefinitionArtifact = true
     description.targetGroupMappings = [targetGroupMappings]
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -202,7 +263,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.targetGroup = null
     description.containerPort = null
     description.targetGroupMappings = [targetGroupMappings]
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -222,7 +283,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.targetGroup = null
     description.containerPort = null
     description.targetGroupMappings = [targetGroupMappings]
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -242,7 +303,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.targetGroup = null
     description.containerPort = null
     description.targetGroupMappings = [targetGroupMappings]
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -251,12 +312,87 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     0 * errors.rejectValue(_, _)
   }
 
+  void 'application must be set if moniker is null'() {
+    given:
+    def description = getDescription()
+    description.application = null
+    description.moniker = null
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('application', "${getDescriptionName()}.application.not.nullable")
+  }
+
+  void 'moniker application cannot be null'() {
+    given:
+    def description = getDescription()
+    description.application = "foo"
+    description.moniker.app = null
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('moniker.app', "${getDescriptionName()}.moniker.app.not.nullable")
+  }
+
+  void 'application can be null if moniker is set'() {
+    given:
+    def description = getDescription()
+    description.application = null
+    description.moniker.app = "foo"
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    0 * errors.rejectValue(_, _)
+  }
+
+  void 'moniker can be null if application is set'() {
+    given:
+    def description = getDescription()
+    description.application = "foo"
+    description.moniker = null
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    0 * errors.rejectValue(_, _)
+  }
+
+  void 'both app and moniker should match if both are set'() {
+    given:
+    def description = getDescription()
+    description.application = "foo"
+    description.freeFormDetails = "detail"
+    description.stack = "stack"
+    description.moniker.app = "bar"
+    description.moniker.detail = "wrongdetail"
+    description.moniker.stack = "wrongstack"
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('moniker.app', "${getDescriptionName()}.moniker.app.invalid")
+    1 * errors.rejectValue('moniker.detail', "${getDescriptionName()}.moniker.detail.invalid")
+    1 * errors.rejectValue('moniker.stack', "${getDescriptionName()}.moniker.stack.invalid")
+  }
+
   @Override
   AbstractECSDescription getNulledDescription() {
     def description = (CreateServerGroupDescription) getDescription()
     description.placementStrategySequence = null
     description.availabilityZones = null
-    description.application = null
     description.ecsClusterName = null
     description.dockerImageAddress = null
     description.credentials = null
@@ -266,12 +402,13 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.capacity.setDesired(null)
     description.capacity.setMin(null)
     description.capacity.setMax(null)
+    description.moniker.app = null;
     return description
   }
 
   @Override
   Set<String> notNullableProperties() {
-    ['placementStrategySequence', 'availabilityZones', 'application',
+    ['placementStrategySequence', 'availabilityZones', 'moniker.app',
      'ecsClusterName', 'dockerImageAddress', 'credentials', 'containerPort', 'computeUnits',
      'reservedMemory', 'capacity.desired', 'capacity.min', 'capacity.max']
   }
@@ -316,7 +453,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.credentials = TestCredential.named('test')
     description.region = 'us-west-1'
 
-    description.application = 'my-app'
+    description.moniker = Moniker.builder().app('my-app').build();
     description.ecsClusterName = 'mycluster'
     description.iamRole = 'iam-role-arn'
     description.containerPort = 1337

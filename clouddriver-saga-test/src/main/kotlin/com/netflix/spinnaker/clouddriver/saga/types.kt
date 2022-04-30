@@ -17,10 +17,10 @@ package com.netflix.spinnaker.clouddriver.saga
 
 import com.fasterxml.jackson.annotation.JsonTypeName
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaAction
+import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import org.springframework.core.Ordered.HIGHEST_PRECEDENCE
 import org.springframework.core.annotation.Order
-import java.util.function.Predicate
 
 @JsonTypeName("shouldBranch")
 class ShouldBranch : AbstractSagaEvent()
@@ -64,7 +64,9 @@ class Action3 : SagaAction<DoAction3> {
 }
 
 @Order(HIGHEST_PRECEDENCE)
-class ShouldBranchPredicate : Predicate<Saga> {
+class ShouldBranchPredicate : SagaFlow.ConditionPredicate {
   override fun test(t: Saga): Boolean =
     t.getEvents().filterIsInstance<ShouldBranch>().isNotEmpty()
+
+  override val name: String = "shouldBranch"
 }

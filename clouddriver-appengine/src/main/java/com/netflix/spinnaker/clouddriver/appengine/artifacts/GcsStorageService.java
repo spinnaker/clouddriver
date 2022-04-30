@@ -28,7 +28,6 @@ import com.google.api.services.storage.model.StorageObject;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.netflix.spinnaker.clouddriver.artifacts.ArtifactUtils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -47,7 +46,7 @@ public class GcsStorageService {
 
   public static interface VisitorOperation {
     void visit(StorageObject storageObj) throws IOException;
-  };
+  }
 
   public static class Factory {
     private String applicationName_;
@@ -93,7 +92,7 @@ public class GcsStorageService {
       }
       return credentials;
     }
-  };
+  }
 
   private Storage storage_;
 
@@ -156,7 +155,6 @@ public class GcsStorageService {
 
   public void downloadStorageObjectRelative(
       StorageObject obj, String ignorePrefix, String baseDirectory) throws IOException {
-    InputStream stream = openObjectStream(obj.getBucket(), obj.getName(), obj.getGeneration());
     String objPath = obj.getName();
     if (!ignorePrefix.isEmpty()) {
       ignorePrefix += File.separator;
@@ -166,10 +164,16 @@ public class GcsStorageService {
       objPath = objPath.substring(ignorePrefix.length());
     }
 
+    // Ignore folder placeholder objects created by Google Console UI
+    if (objPath.endsWith("/")) {
+      return;
+    }
     File target = new File(baseDirectory, objPath);
-    ArtifactUtils.writeStreamToFile(stream, target);
+    try (InputStream stream =
+        openObjectStream(obj.getBucket(), obj.getName(), obj.getGeneration())) {
+      ArtifactUtils.writeStreamToFile(stream, target);
+    }
     target.setLastModified(obj.getUpdated().getValue());
-    stream.close();
   }
 
   public void downloadStorageObject(StorageObject obj, String baseDirectory) throws IOException {

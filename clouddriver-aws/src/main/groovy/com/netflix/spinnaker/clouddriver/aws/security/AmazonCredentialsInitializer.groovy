@@ -17,34 +17,53 @@
 package com.netflix.spinnaker.clouddriver.aws.security
 
 import com.amazonaws.auth.AWSCredentialsProvider
-import com.netflix.spinnaker.cats.module.CatsModule
+import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
+import com.netflix.spinnaker.clouddriver.aws.security.config.AccountsConfiguration
+import com.netflix.spinnaker.clouddriver.aws.security.config.AccountsConfiguration.Account
+import com.netflix.spinnaker.clouddriver.aws.security.config.AmazonCredentialsParser
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig
-import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsLoader
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
-import com.netflix.spinnaker.clouddriver.security.ProviderUtils
+import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
+import com.netflix.spinnaker.credentials.CredentialsLifecycleHandler
+import com.netflix.spinnaker.credentials.CredentialsRepository
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository
+import com.netflix.spinnaker.credentials.definition.AbstractCredentialsLoader
+import com.netflix.spinnaker.credentials.definition.CredentialsDefinitionSource
+import com.netflix.spinnaker.credentials.definition.CredentialsParser
+import com.netflix.spinnaker.credentials.poller.Poller
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Lazy
+import org.springframework.context.annotation.Primary
 
-import static com.amazonaws.regions.Regions.EU_WEST_1
-import static com.amazonaws.regions.Regions.US_EAST_1
-import static com.amazonaws.regions.Regions.US_WEST_1
-import static com.amazonaws.regions.Regions.US_WEST_2
+import javax.annotation.Nullable
 
 @Configuration
 @EnableConfigurationProperties(DefaultAccountConfigurationProperties)
 class AmazonCredentialsInitializer {
 
   @Bean
+  @ConditionalOnMissingBean(CredentialsConfig.class)
   @ConfigurationProperties('aws')
   CredentialsConfig credentialsConfig() {
     new CredentialsConfig()
   }
 
   @Bean
-  Class<? extends NetflixAmazonCredentials> credentialsType(CredentialsConfig credentialsConfig) {
-    if (!credentialsConfig.accounts && !credentialsConfig.defaultAssumeRole) {
+  @ConditionalOnMissingBean(AccountsConfiguration.class)
+  @ConfigurationProperties('aws')
+  AccountsConfiguration accountsConfiguration() {
+    new AccountsConfiguration()
+  }
+
+  @Bean
+  Class<? extends NetflixAmazonCredentials> credentialsType(
+    CredentialsConfig credentialsConfig,
+    AccountsConfiguration accountsConfig
+  ) {
+    if (!accountsConfig.accounts && !credentialsConfig.defaultAssumeRole) {
       NetflixAmazonCredentials
     } else {
       NetflixAssumeRoleAmazonCredentials
@@ -52,52 +71,73 @@ class AmazonCredentialsInitializer {
   }
 
   @Bean
-  CredentialsLoader<? extends NetflixAmazonCredentials> credentialsLoader(AWSCredentialsProvider awsCredentialsProvider,
-                                                                          AmazonClientProvider amazonClientProvider,
-                                                                          Class<? extends NetflixAmazonCredentials> credentialsType) {
-    new CredentialsLoader<? extends NetflixAmazonCredentials>(awsCredentialsProvider, amazonClientProvider, credentialsType)
+  @ConditionalOnMissingBean(
+    name = "amazonCredentialsParser"
+  )
+  CredentialsParser<Account, NetflixAmazonCredentials> amazonCredentialsParser(
+    AWSCredentialsProvider awsCredentialsProvider,
+    AmazonClientProvider amazonClientProvider,
+    Class<? extends NetflixAmazonCredentials> credentialsType,
+    CredentialsConfig credentialsConfig,
+    AccountsConfiguration accountsConfig
+  ) {
+    new AmazonCredentialsParser<>(
+      awsCredentialsProvider,
+      amazonClientProvider,
+      credentialsType,
+      credentialsConfig,
+      accountsConfig)
   }
 
   @Bean
-  List<? extends NetflixAmazonCredentials> netflixAmazonCredentials(
-    CredentialsLoader<? extends NetflixAmazonCredentials> credentialsLoader,
-    CredentialsConfig credentialsConfig,
-    AccountCredentialsRepository accountCredentialsRepository,
-    DefaultAccountConfigurationProperties defaultAccountConfigurationProperties) {
-
-    synchronizeAmazonAccounts(credentialsLoader, credentialsConfig, accountCredentialsRepository, defaultAccountConfigurationProperties, null)
+  @Primary
+  @ConditionalOnMissingBean(
+    name = "amazonCredentialsRepository"
+  )
+  CredentialsRepository<NetflixAmazonCredentials> amazonCredentialsRepository(
+    @Lazy CredentialsLifecycleHandler<NetflixAmazonCredentials> eventHandler
+  ) {
+    return new MapBackedCredentialsRepository<NetflixAmazonCredentials>(AmazonCloudProvider.ID, eventHandler)
   }
 
-  private List<? extends NetflixAmazonCredentials> synchronizeAmazonAccounts(
-    CredentialsLoader<? extends NetflixAmazonCredentials> credentialsLoader,
+  @Bean
+  @ConditionalOnMissingBean(
+    name = "amazonCredentialsLoader"
+  )
+  AbstractCredentialsLoader<? extends NetflixAmazonCredentials> amazonCredentialsLoader(
+    CredentialsParser<Account, NetflixAmazonCredentials>  amazonCredentialsParser,
+    @Nullable CredentialsDefinitionSource<Account> amazonCredentialsSource,
     CredentialsConfig credentialsConfig,
-    AccountCredentialsRepository accountCredentialsRepository,
-    DefaultAccountConfigurationProperties defaultAccountConfigurationProperties,
-    CatsModule catsModule) {
-    if (!credentialsConfig.accounts && !credentialsConfig.defaultAssumeRole) {
-      def defaultEnvironment = defaultAccountConfigurationProperties.environment ?: defaultAccountConfigurationProperties.env
-      def defaultAccountType = defaultAccountConfigurationProperties.accountType ?: defaultAccountConfigurationProperties.env
-      credentialsConfig.accounts = [new CredentialsConfig.Account(name: defaultAccountConfigurationProperties.env, environment: defaultEnvironment, accountType: defaultAccountType)]
-      if (!credentialsConfig.defaultRegions) {
-        credentialsConfig.defaultRegions = [US_EAST_1, US_WEST_1, US_WEST_2, EU_WEST_1].collect {
-          new CredentialsConfig.Region(name: it.name)
-        }
+    AccountsConfiguration accountsConfig,
+    CredentialsRepository<NetflixAmazonCredentials> repository,
+    DefaultAccountConfigurationProperties defaultAccountConfigurationProperties
+  ) {
+    if (amazonCredentialsSource == null) {
+      amazonCredentialsSource = { -> accountsConfig.getAccounts() } as CredentialsDefinitionSource
+    }
+    return new AmazonBasicCredentialsLoader<Account, NetflixAmazonCredentials>(
+      amazonCredentialsSource,
+      amazonCredentialsParser,
+      repository,
+      credentialsConfig,
+      accountsConfig,
+      defaultAccountConfigurationProperties
+    )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(
+    name = "amazonCredentialsInitializerSynchronizable"
+  )
+  CredentialsInitializerSynchronizable amazonCredentialsInitializerSynchronizable(
+    AbstractCredentialsLoader<? extends NetflixAmazonCredentials> amazonCredentialsLoader
+  ) {
+    final Poller<? extends NetflixAmazonCredentials> poller = new Poller<>(amazonCredentialsLoader);
+    return new CredentialsInitializerSynchronizable() {
+      @Override
+      void synchronize() {
+        poller.run()
       }
     }
-
-    List<? extends NetflixAmazonCredentials> accounts = credentialsLoader.load(credentialsConfig)
-
-    def (ArrayList<NetflixAmazonCredentials> accountsToAdd, List<String> namesOfDeletedAccounts) =
-    ProviderUtils.calculateAccountDeltas(accountCredentialsRepository, NetflixAmazonCredentials, accounts)
-
-    accountsToAdd.each { NetflixAmazonCredentials account ->
-      accountCredentialsRepository.save(account.name, account)
-    }
-
-    ProviderUtils.unscheduleAndDeregisterAgents(namesOfDeletedAccounts, catsModule)
-
-    accountCredentialsRepository.all.findAll {
-      it instanceof NetflixAmazonCredentials
-    } as List<NetflixAmazonCredentials>
   }
 }

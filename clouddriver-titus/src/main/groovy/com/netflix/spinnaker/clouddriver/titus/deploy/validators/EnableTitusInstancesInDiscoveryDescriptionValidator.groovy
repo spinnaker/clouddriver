@@ -16,24 +16,24 @@
 
 package com.netflix.spinnaker.clouddriver.titus.deploy.validators
 
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusOperation
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.EnableDisableInstanceDiscoveryDescription
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import org.springframework.validation.Errors
 
 @Component
 @TitusOperation(AtomicOperations.ENABLE_INSTANCES_IN_DISCOVERY)
 class EnableTitusInstancesInDiscoveryDescriptionValidator extends AbstractTitusDescriptionValidatorSupport<EnableDisableInstanceDiscoveryDescription> {
 
   @Autowired
-  EnableTitusInstancesInDiscoveryDescriptionValidator(AccountCredentialsProvider accountCredentialsProvider) {
-    super(accountCredentialsProvider, "enableInstacesInDiscoveryDescription")
+  EnableTitusInstancesInDiscoveryDescriptionValidator() {
+    super("enableInstacesInDiscoveryDescription")
   }
 
-  void validate(List priorDescriptions, EnableDisableInstanceDiscoveryDescription description, Errors errors) {
+  void validate(List priorDescriptions, EnableDisableInstanceDiscoveryDescription description, ValidationErrors errors) {
     def key = description.class.simpleName
     validateAsgNameAndRegionAndInstanceIds(description, errors)
 

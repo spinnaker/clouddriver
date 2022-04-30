@@ -16,14 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.config;
 
-import java.util.ArrayList;
-import java.util.List;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
+import com.netflix.spinnaker.fiat.model.resources.Permissions;
+import java.util.*;
+import lombok.*;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -43,6 +42,12 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
 
   private List<ManagedAccount> accounts = new ArrayList<>();
 
+  private int apiRequestParallelism = 100;
+
+  @NestedConfigurationProperty private ClientConfig client = new ClientConfig();
+
+  @NestedConfigurationProperty private LocalCacheConfig localCacheConfig = new LocalCacheConfig();
+
   @Override
   public void destroy() {
     this.accounts = new ArrayList<>();
@@ -51,7 +56,8 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
   @Getter
   @Setter
   @ToString(exclude = "password")
-  public static class ManagedAccount {
+  @EqualsAndHashCode
+  public static class ManagedAccount implements CredentialsDefinition {
     private String name;
     private String api;
     private String appsManagerUri;
@@ -60,5 +66,30 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
     private String password;
     private String environment;
     private boolean skipSslValidation;
+    private boolean onlySpinnakerManaged;
+    private Integer resultsPerPage;
+
+    @Deprecated
+    private Integer
+        maxCapiConnectionsForCache; // Deprecated in favor of cloudfoundry.apiRequestParallelism
+
+    private Permissions.Builder permissions = new Permissions.Builder();
+    private Map<String, Set<String>> spaceFilter = Collections.emptyMap();
+  }
+
+  @Data
+  public static class ClientConfig {
+    private int connectionTimeout = 10000;
+    private int writeTimeout = 10000;
+    private int readTimeout = 10000;
+    private int maxRetries = 3;
+  }
+
+  @Data
+  public static class LocalCacheConfig {
+    private long applicationsAccessExpirySeconds = -1;
+    private long applicationsWriteExpirySeconds = 600;
+    private long routesAccessExpirySeconds = -1;
+    private long routesWriteExpirySeconds = 180;
   }
 }

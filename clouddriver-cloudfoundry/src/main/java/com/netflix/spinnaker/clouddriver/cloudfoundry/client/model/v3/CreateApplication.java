@@ -17,11 +17,8 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -32,27 +29,16 @@ public class CreateApplication {
 
   @Nullable private final Map<String, String> environmentVariables;
 
-  @Nullable private final BuildpackLifecycle lifecycle;
+  @Nullable private final Lifecycle lifecycle;
 
   public CreateApplication(
       String name,
       Map<String, ToOneRelationship> relationships,
       @Nullable Map<String, String> environmentVariables,
-      @Nullable List<String> buildpacks) {
+      Lifecycle lifecycle) {
     this.name = name;
     this.relationships = relationships;
     this.environmentVariables = environmentVariables;
-    this.lifecycle = buildpacks != null ? new BuildpackLifecycle(buildpacks) : null;
-  }
-
-  @AllArgsConstructor
-  @Getter
-  public static class BuildpackLifecycle {
-    private String type = "buildpack";
-    private Map<String, List<String>> data;
-
-    BuildpackLifecycle(List<String> buildpacks) {
-      this.data = Collections.singletonMap("buildpacks", buildpacks);
-    }
+    this.lifecycle = lifecycle;
   }
 }

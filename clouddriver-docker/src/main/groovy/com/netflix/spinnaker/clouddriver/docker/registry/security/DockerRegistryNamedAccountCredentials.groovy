@@ -20,7 +20,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerOkClientProvider
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryClient
 import com.netflix.spinnaker.clouddriver.docker.registry.exception.DockerRegistryConfigException
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials
+
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import retrofit.RetrofitError
@@ -29,7 +30,7 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 @Slf4j
-class DockerRegistryNamedAccountCredentials implements AccountCredentials<DockerRegistryCredentials> {
+class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<DockerRegistryCredentials> {
   static class Builder {
     String accountName
     String environment
@@ -46,11 +47,13 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     long clientTimeoutMillis
     int paginateSize
     boolean trackDigests
+    boolean inspectDigests
     boolean sortTagsByDate
     boolean insecureRegistry
     List<String> repositories
     List<String> skip
     String catalogFile
+    String repositoriesRegex
     DockerOkClientProvider dockerOkClientProvider
 
     Builder() {}
@@ -140,6 +143,11 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
       return this
     }
 
+    Builder inspectDigests(boolean inspectDigests) {
+      this.inspectDigests = inspectDigests
+      return this
+    }
+
     Builder sortTagsByDate(boolean sortTagsByDate) {
       this.sortTagsByDate = sortTagsByDate
       return this
@@ -162,6 +170,11 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
 
     Builder catalogFile(String catalogFile) {
       this.catalogFile = catalogFile
+      return this
+    }
+
+    Builder repositoriesRegex(String repositoriesRegex) {
+      this.repositoriesRegex = repositoriesRegex
       return this
     }
 
@@ -188,8 +201,10 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                                        clientTimeoutMillis,
                                                        paginateSize,
                                                        trackDigests,
+                                                       inspectDigests,
                                                        sortTagsByDate,
                                                        catalogFile,
+                                                       repositoriesRegex,
                                                        insecureRegistry,
                                                        dockerOkClientProvider)
     }
@@ -212,8 +227,10 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                         long clientTimeoutMillis,
                                         int paginateSize,
                                         boolean trackDigests,
+                                        boolean inspectDigests,
                                         boolean sortTagsByDate,
                                         String catalogFile,
+                                        String repositoriesRegex,
                                         boolean insecureRegistry,
                                         DockerOkClientProvider dockerOkClientProvider) {
     this(accountName,
@@ -233,8 +250,10 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
          clientTimeoutMillis,
          paginateSize,
          trackDigests,
+         inspectDigests,
          sortTagsByDate,
          catalogFile,
+         repositoriesRegex,
          insecureRegistry,
          null,
          dockerOkClientProvider)
@@ -257,8 +276,10 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                         long clientTimeoutMillis,
                                         int paginateSize,
                                         boolean trackDigests,
+                                        boolean inspectDigests,
                                         boolean sortTagsByDate,
                                         String catalogFile,
+                                        String repositoriesRegex,
                                         boolean insecureRegistry,
                                         List<String> requiredGroupMembership,
                                         DockerOkClientProvider dockerOkClientProvider) {
@@ -268,6 +289,10 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
 
     if (repositories && catalogFile) {
       throw new IllegalArgumentException("repositories and catalogFile may not be specified together.")
+    }
+
+    if(repositoriesRegex && (repositories || catalogFile)){
+      throw new IllegalArgumentException("repositoriesRegex may not be specified at the same time than repositories or catalogFile.")
     }
 
     this.accountName = accountName
@@ -306,7 +331,9 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     this.username = username
     this.password = password
     this.email = email
+    this.repositoriesRegex = repositoriesRegex
     this.trackDigests = trackDigests
+    this.inspectDigests = inspectDigests
     this.sortTagsByDate = sortTagsByDate
     this.insecureRegistry = insecureRegistry;
     this.skip = skip ?: []
@@ -322,6 +349,10 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
   @Override
   String getName() {
     return accountName
+  }
+
+  String getRegistry() {
+    return registry
   }
 
   @JsonIgnore
@@ -353,6 +384,26 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     return "$address/v2"
   }
 
+  boolean getTrackDigests(){
+    return trackDigests
+  }
+
+  boolean getInspectDigests(){
+    return inspectDigests
+  }
+
+  int getCacheThreads() {
+    return cacheThreads
+  }
+
+  long getCacheIntervalSeconds() {
+    return cacheIntervalSeconds
+  }
+
+  DockerRegistryCredentials getCredentials() {
+    return credentials
+  }
+
   @Override
   String getCloudProvider() {
     return CLOUD_PROVIDER
@@ -370,11 +421,12 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
         .clientTimeoutMillis(clientTimeoutMillis)
         .paginateSize(paginateSize)
         .catalogFile(catalogFile)
+        .repositoriesRegex(repositoriesRegex)
         .insecureRegistry(insecureRegistry)
         .okClientProvider(dockerOkClientProvider)
         .build()
 
-      return new DockerRegistryCredentials(client, repositories, trackDigests, skip, sortTagsByDate)
+      return new DockerRegistryCredentials(client, repositories, trackDigests,  inspectDigests, skip, sortTagsByDate)
     } catch (RetrofitError e) {
       if (e.response?.status == 404) {
         throw new DockerRegistryConfigException("No repositories specified for ${name}, and the provided endpoint ${address} does not support /_catalog.")
@@ -385,7 +437,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
   }
 
   private static final String CLOUD_PROVIDER = "dockerRegistry"
-  final String accountName
+  private final String accountName
   final String environment
   final String accountType
   final String address
@@ -398,6 +450,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
   final File passwordFile
   final String email
   final boolean trackDigests
+  final boolean inspectDigests
   final boolean sortTagsByDate
   final int cacheThreads
   final long cacheIntervalSeconds
@@ -409,5 +462,6 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
   final List<String> requiredGroupMembership
   final List<String> skip
   final String catalogFile
+  final String repositoriesRegex
   final DockerOkClientProvider dockerOkClientProvider
 }

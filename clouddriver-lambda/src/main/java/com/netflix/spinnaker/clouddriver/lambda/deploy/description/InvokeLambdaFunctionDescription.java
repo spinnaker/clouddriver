@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.lambda.deploy.description;
 
+import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -26,4 +27,5 @@ public class InvokeLambdaFunctionDescription extends AbstractLambdaFunctionDescr
   String qualifier;
 
   String payload;
+  Artifact payloadArtifact;
 }

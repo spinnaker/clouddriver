@@ -17,11 +17,15 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.ops
 
 import com.amazonaws.AmazonClientException
+import com.amazonaws.services.autoscaling.AmazonAutoScaling
 import com.amazonaws.services.autoscaling.model.AmazonAutoScalingException
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.DeleteAutoScalingGroupRequest
 import com.amazonaws.services.autoscaling.model.DeleteLaunchConfigurationRequest
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
+import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.ec2.model.AmazonEC2Exception
+import com.amazonaws.services.ec2.model.DeleteLaunchTemplateRequest
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.DestroyAsgDescription
@@ -31,7 +35,10 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.events.DeleteServerGroupEvent
 import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEvent
+import com.netflix.spinnaker.kork.core.RetrySupport
 import org.springframework.beans.factory.annotation.Autowired
+
+import java.time.Duration
 
 class DestroyAsgAtomicOperation implements AtomicOperation<Void> {
   protected static final MAX_SIMULTANEOUS_TERMINATIONS = 100
@@ -46,6 +53,7 @@ class DestroyAsgAtomicOperation implements AtomicOperation<Void> {
 
   private final DestroyAsgDescription description
   private final Collection<DeleteServerGroupEvent> events = []
+  private final RetrySupport retrySupport = new RetrySupport()
 
   DestroyAsgAtomicOperation(DestroyAsgDescription description) {
     this.description = description
@@ -92,20 +100,8 @@ class DestroyAsgAtomicOperation implements AtomicOperation<Void> {
     autoScaling.deleteAutoScalingGroup(new DeleteAutoScalingGroupRequest(
         autoScalingGroupName: asgName, forceDelete: true))
 
-    if (autoScalingGroup.launchConfigurationName) {
-      task.updateStatus BASE_PHASE, "Deleting launch config ${autoScalingGroup.launchConfigurationName} in $region."
-      try {
-        autoScaling.deleteLaunchConfiguration(
-          new DeleteLaunchConfigurationRequest(launchConfigurationName: autoScalingGroup.launchConfigurationName)
-        )
-      } catch (AmazonAutoScalingException e) {
-        // Ignore not found exception
-        if (!e.message.toLowerCase().contains("launch configuration name not found")) {
-          throw e
-        }
-      }
-    }
     def ec2 = amazonClientProvider.getAmazonEC2(credentials, region, true)
+    deleteLaunchSetting(autoScalingGroup, autoScaling, ec2, region)
 
     for (int i = 0; i < instanceIds.size(); i += MAX_SIMULTANEOUS_TERMINATIONS) {
       int end = Math.min(instanceIds.size(), i + MAX_SIMULTANEOUS_TERMINATIONS)
@@ -118,4 +114,37 @@ class DestroyAsgAtomicOperation implements AtomicOperation<Void> {
     }
   }
 
+  private void deleteLaunchSetting(
+    AutoScalingGroup autoScalingGroup, AmazonAutoScaling autoScaling, AmazonEC2 amazonEC2, String region) {
+    retrySupport.retry({
+      if (autoScalingGroup.launchConfigurationName) {
+        String lcName = autoScalingGroup.launchConfigurationName
+
+        getTask().updateStatus BASE_PHASE, "Deleting launch config $lcName in $region."
+        try {
+          autoScaling.deleteLaunchConfiguration(
+            new DeleteLaunchConfigurationRequest(launchConfigurationName: lcName))
+        } catch (AmazonAutoScalingException e) {
+          if (!e.message.toLowerCase().contains("launch configuration name not found")) {
+            throw e
+          }
+        }
+      } else if (autoScalingGroup.launchTemplate || autoScalingGroup.mixedInstancesPolicy) {
+        String launchTemplateId = autoScalingGroup.launchTemplate
+          ? autoScalingGroup.launchTemplate.launchTemplateId
+          : autoScalingGroup.mixedInstancesPolicy?.launchTemplate?.launchTemplateSpecification.launchTemplateId
+
+        getTask().updateStatus BASE_PHASE, "Deleting launch template $launchTemplateId in $region."
+        try {
+          amazonEC2.deleteLaunchTemplate(
+            new DeleteLaunchTemplateRequest(launchTemplateId: launchTemplateId))
+        } catch (AmazonEC2Exception e) {
+          // Ignore not found exception
+          if (!e.message.toLowerCase().contains("does not exist")) {
+            throw e
+          }
+        }
+      }
+    }, 5, Duration.ofSeconds(1), true)
+  }
 }

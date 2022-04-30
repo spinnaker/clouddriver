@@ -20,18 +20,19 @@ import com.netflix.spinnaker.clouddriver.appengine.AppengineOperation
 import com.netflix.spinnaker.clouddriver.appengine.deploy.description.EnableDisableAppengineDescription
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineClusterProvider
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineLoadBalancerProvider
+import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
+import com.netflix.spinnaker.credentials.CredentialsRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import org.springframework.validation.Errors
 
 @AppengineOperation(AtomicOperations.DISABLE_SERVER_GROUP)
 @Component("disableAppengineDescriptionValidator")
 class DisableAppengineDescriptionValidator extends DescriptionValidator<EnableDisableAppengineDescription> {
   @Autowired
-  AccountCredentialsProvider accountCredentialsProvider
+  CredentialsRepository<AppengineNamedAccountCredentials> credentialsRepository
 
   @Autowired
   AppengineLoadBalancerProvider appengineLoadBalancerProvider
@@ -40,10 +41,10 @@ class DisableAppengineDescriptionValidator extends DescriptionValidator<EnableDi
   AppengineClusterProvider appengineClusterProvider
 
   @Override
-  void validate(List priorDescriptions, EnableDisableAppengineDescription description, Errors errors) {
+  void validate(List priorDescriptions, EnableDisableAppengineDescription description, ValidationErrors errors) {
     def helper = new StandardAppengineAttributeValidator("disableAppengineAtomicOperationDescription", errors)
 
-    helper.validateCredentials(description.accountName, accountCredentialsProvider)
+    helper.validateCredentials(description.accountName, credentialsRepository)
     helper.validateNotEmpty(description.serverGroupName, "serverGroupName")
     helper.validateServerGroupCanBeDisabled(description.serverGroupName,
                                             description.credentials,

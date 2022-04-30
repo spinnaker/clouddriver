@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DefaultDeployHandlerRegistry
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandlerRegistry
+import com.netflix.spinnaker.clouddriver.deploy.DefaultDescriptionAuthorizer
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionAuthorizer
 import com.netflix.spinnaker.clouddriver.deploy.NullOpDeployHandler
 import com.netflix.spinnaker.clouddriver.orchestration.AnnotationsBasedAtomicOperationsRegistry
@@ -36,6 +37,9 @@ import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEventHand
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.AllowedAccountsValidator
+import com.netflix.spinnaker.kork.web.context.RequestContextProvider
+import com.netflix.spinnaker.kork.web.exceptions.ExceptionMessageDecorator
+import com.netflix.spinnaker.kork.web.exceptions.ExceptionSummaryService
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
@@ -53,8 +57,8 @@ class DeployConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(DeployHandlerRegistry)
-  DeployHandlerRegistry deployHandlerRegistry() {
-    new DefaultDeployHandlerRegistry()
+  DeployHandlerRegistry deployHandlerRegistry(List<DeployHandler> deployHandlers) {
+    new DefaultDeployHandlerRegistry(deployHandlers)
   }
 
   @Bean
@@ -65,7 +69,9 @@ class DeployConfiguration {
     Registry registry,
     Optional<Collection<OperationEventHandler>> operationEventHandlers,
     ObjectMapper objectMapper,
-    ExceptionClassifier exceptionClassifier
+    ExceptionClassifier exceptionClassifier,
+    RequestContextProvider contextProvider,
+    ExceptionSummaryService exceptionSummaryService
   ) {
     new DefaultOrchestrationProcessor(
       taskRepository,
@@ -73,7 +79,9 @@ class DeployConfiguration {
       registry,
       operationEventHandlers,
       objectMapper,
-      exceptionClassifier
+      exceptionClassifier,
+      contextProvider,
+      exceptionSummaryService
     )
   }
 
@@ -91,23 +99,25 @@ class DeployConfiguration {
   @Bean
   OperationsService operationsService(
     AtomicOperationsRegistry atomicOperationsRegistry,
-    DescriptionAuthorizer descriptionAuthorizer,
+    List<DescriptionAuthorizer> descriptionAuthorizers,
     Optional<Collection<AllowedAccountsValidator>> allowedAccountsValidators,
     Optional<List<AtomicOperationDescriptionPreProcessor>> atomicOperationDescriptionPreProcessors,
     AccountCredentialsRepository accountCredentialsRepository,
     Optional<SagaRepository> sagaRepository,
     Registry registry,
-    ObjectMapper objectMapper
+    ObjectMapper objectMapper,
+    ExceptionMessageDecorator exceptionMessageDecorator
   ) {
     return new OperationsService(
       atomicOperationsRegistry,
-      descriptionAuthorizer,
+      descriptionAuthorizers,
       allowedAccountsValidators,
       atomicOperationDescriptionPreProcessors,
       accountCredentialsRepository,
       sagaRepository,
       registry,
-      objectMapper
+      objectMapper,
+      exceptionMessageDecorator
     )
   }
 }

@@ -59,15 +59,16 @@ public class UpdateLambdaConfigurationAtomicOperation
             .withFunctionName(cache.getFunctionArn())
             .withDescription(description.getDescription())
             .withHandler(description.getHandler())
-            .withMemorySize(description.getMemory())
+            .withMemorySize(description.getMemorySize())
             .withRole(description.getRole())
             .withTimeout(description.getTimeout())
             .withDeadLetterConfig(description.getDeadLetterConfig())
+            .withLayers(description.getLayers())
             .withVpcConfig(
                 new VpcConfig()
                     .withSecurityGroupIds(description.getSecurityGroupIds())
                     .withSubnetIds(description.getSubnetIds()))
-            .withKMSKeyArn(description.getEncryptionKMSKeyArn())
+            .withKMSKeyArn(description.getKmskeyArn())
             .withTracingConfig(description.getTracingConfig())
             .withRuntime(description.getRuntime());
 
@@ -104,7 +105,7 @@ public class UpdateLambdaConfigurationAtomicOperation
     }
     updateTaskStatus("Finished Updating of AWS Lambda Function Configuration Operation...");
     if (StringUtils.isEmpty(description.getTargetGroups())) {
-      if (!cache.getTargetGroups().isEmpty()) {
+      if (cache.getTargetGroups() != null && !cache.getTargetGroups().isEmpty()) {
         AmazonElasticLoadBalancing loadBalancingV2 = getAmazonElasticLoadBalancingClient();
         for (String groupName : cache.getTargetGroups()) {
           deregisterTarget(

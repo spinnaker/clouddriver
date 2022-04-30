@@ -18,9 +18,11 @@
 package com.netflix.spinnaker.clouddriver.artifacts.embedded;
 
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
-import lombok.Data;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import lombok.Value;
 
-@Data
-public class EmbeddedArtifactAccount implements ArtifactAccount {
-  private String name = "embedded-artifact";
+@NonnullByDefault
+@Value
+final class EmbeddedArtifactAccount implements ArtifactAccount {
+  private final String name = "embedded-artifact";
 }

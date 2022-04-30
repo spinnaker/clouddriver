@@ -19,6 +19,7 @@ import com.netflix.spinnaker.cats.agent.AgentScheduler
 import com.netflix.spinnaker.cats.cluster.AgentIntervalProvider
 import com.netflix.spinnaker.cats.cluster.DefaultNodeIdentity
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider
+import com.netflix.spinnaker.cats.cluster.ShardingFilter
 import com.netflix.spinnaker.cats.sql.cluster.SqlClusteredAgentScheduler
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import org.jooq.DSLContext
@@ -32,17 +33,20 @@ import org.springframework.context.annotation.Configuration
 class SqlAgentSchedulerConfiguration {
 
   @Bean
-  @ConditionalOnProperty(value = [
-    "sql.enabled",
-    "sql.scheduler.enabled"
-  ])
+  @ConditionalOnProperty(
+    value = [
+      "sql.enabled",
+      "sql.scheduler.enabled"
+    ]
+  )
   fun sqlAgentScheduler(
     jooq: DSLContext,
     agentIntervalProvider: AgentIntervalProvider,
     nodeStatusProvider: NodeStatusProvider,
     dynamicConfigService: DynamicConfigService,
     @Value("\${sql.table-namespace:#{null}}") tableNamespace: String?,
-    sqlAgentProperties: SqlAgentProperties
+    sqlAgentProperties: SqlAgentProperties,
+    shardingFilter: ShardingFilter
   ): AgentScheduler<*> {
     return SqlClusteredAgentScheduler(
       jooq = jooq,
@@ -53,7 +57,8 @@ class SqlAgentSchedulerConfiguration {
       enabledAgentPattern = sqlAgentProperties.enabledPattern,
       disabledAgentsConfig = sqlAgentProperties.disabledAgents,
       tableNamespace = tableNamespace,
-      agentLockAcquisitionIntervalSeconds = sqlAgentProperties.agentLockAcquisitionIntervalSeconds
+      agentLockAcquisitionIntervalSeconds = sqlAgentProperties.agentLockAcquisitionIntervalSeconds,
+      shardingFilter = shardingFilter
     )
   }
 }

@@ -29,6 +29,8 @@ public class Task {
   String group;
   String lastStatus;
   String desiredStatus;
+  String healthStatus;
+  String availabilityZone;
   long startedAt;
   List<Container> containers;
 }

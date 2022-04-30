@@ -18,21 +18,23 @@
 package com.netflix.spinnaker.clouddriver.artifacts.embedded;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.Base64;
-import java.util.Collections;
-import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
 
+@NonnullByDefault
 @Slf4j
-public class EmbeddedArtifactCredentials implements ArtifactCredentials {
+final class EmbeddedArtifactCredentials implements ArtifactCredentials {
+  public static final String CREDENTIALS_TYPE = "artifacts-embedded";
   @Getter private final String name;
-  @Getter private final List<String> types = Collections.singletonList("embedded/base64");
+  @Getter private final ImmutableList<String> types = ImmutableList.of("embedded/base64");
 
   @JsonIgnore private final Base64.Decoder base64Decoder;
 
@@ -58,5 +60,10 @@ public class EmbeddedArtifactCredentials implements ArtifactCredentials {
   @Override
   public boolean handlesType(String type) {
     return type.startsWith("embedded/");
+  }
+
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
   }
 }

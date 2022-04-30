@@ -10,27 +10,29 @@
 package com.netflix.spinnaker.clouddriver.artifacts.oracle;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.sun.jersey.api.client.UniformInterfaceException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.util.Collections;
-import java.util.List;
 import javax.ws.rs.core.UriBuilder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+@NonnullByDefault
 @Slf4j
 public class OracleArtifactCredentials implements ArtifactCredentials {
+  public static final String CREDENTIALS_TYPE = "artifacts-oracle";
   private static final String ARTIFACT_REFERENCE_PREFIX = "oci://";
-
+  private static final String ARTIFACT_VERSION_QUERY_PARAM = "versionId";
   private static final String ARTIFACT_URI =
       "https://objectstorage.{arg0}.oraclecloud.com/n/{arg1}/b/{arg2}/o/{arg3}";
 
   @Getter private final String name;
-  @Getter private final List<String> types = Collections.singletonList("oracle/object");
+  @Getter private final ImmutableList<String> types = ImmutableList.of("oracle/object");
 
   private final String namespace;
   private final String region;
@@ -70,9 +72,17 @@ public class OracleArtifactCredentials implements ArtifactCredentials {
     }
 
     String bucketName = reference.substring(0, slash);
-    String path = reference.substring(slash + 1);
+    String fullPath = reference.substring(slash + 1);
+    String path = fullPath;
+    UriBuilder uriBuilder = UriBuilder.fromPath(ARTIFACT_URI);
+    int versionIndex = fullPath.indexOf("#");
+    if (versionIndex > 0) {
+      path = fullPath.substring(0, versionIndex);
+      uriBuilder =
+          uriBuilder.queryParam(ARTIFACT_VERSION_QUERY_PARAM, fullPath.substring(versionIndex + 1));
+    }
 
-    URI uri = UriBuilder.fromPath(ARTIFACT_URI).build(region, namespace, bucketName, path);
+    URI uri = uriBuilder.build(region, namespace, bucketName, path);
 
     try {
       return client.readObject(uri);
@@ -82,5 +92,10 @@ public class OracleArtifactCredentials implements ArtifactCredentials {
       }
       throw e;
     }
+  }
+
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
   }
 }

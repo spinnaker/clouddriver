@@ -16,8 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.cache;
 
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository.Detail.FULL;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository.Detail.NAMES_ONLY;
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository.Detail.*;
 import static java.util.Collections.*;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,10 +34,14 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Applications;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Routes;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.agent.CloudFoundryServerGroupCachingAgent;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -75,34 +78,89 @@ class CacheRepositoryTest {
                     .build())
             .build();
 
+    CloudFoundryServerGroup serverGroupWithoutInstances =
+        CloudFoundryServerGroup.builder()
+            .name("demo-staging-v001")
+            .account("devaccount")
+            .createdTime(1L)
+            .space(CloudFoundrySpace.fromRegion("myorg > staging"))
+            .droplet(
+                CloudFoundryDroplet.builder()
+                    .id("dropletid")
+                    .name("dropletname")
+                    .buildpacks(
+                        singletonList(
+                            CloudFoundryBuildpack.builder().buildpackName("java").build()))
+                    .sourcePackage(CloudFoundryPackage.builder().checksum("check").build())
+                    .build())
+            .build();
+
     CloudFoundryCluster cluster =
         CloudFoundryCluster.builder()
             .accountName("devaccount")
             .name("demo-dev")
             .serverGroups(singleton(serverGroup))
             .build();
+
+    CloudFoundryCluster clusterWithoutInstances =
+        CloudFoundryCluster.builder()
+            .accountName("devaccount")
+            .name("demo-staging")
+            .serverGroups(singleton(serverGroupWithoutInstances))
+            .build();
+
     CloudFoundryApplication app =
         CloudFoundryApplication.builder().name("demo").clusters(singleton(cluster)).build();
+
+    CloudFoundryApplication appWithoutInstances =
+        CloudFoundryApplication.builder()
+            .name("demo-without-instances")
+            .clusters(singleton(clusterWithoutInstances))
+            .build();
 
     CloudFoundryClient client = mock(CloudFoundryClient.class);
     Applications apps = mock(Applications.class);
     Routes routes = mock(Routes.class);
     ProviderCache providerCache = mock(ProviderCache.class);
+    CloudFoundryCredentials credentials = mock(CloudFoundryCredentials.class);
 
     when(client.getApplications()).thenReturn(apps);
     when(client.getRoutes()).thenReturn(routes);
-    when(apps.all()).thenReturn(singletonList(app));
-    when(routes.all()).thenReturn(emptyList());
+    when(apps.all(emptyList())).thenReturn(List.of(app, appWithoutInstances));
+    when(routes.all(emptyList())).thenReturn(emptyList());
     when(providerCache.filterIdentifiers(any(), any())).thenReturn(emptyList());
     when(providerCache.getAll(any(), anyCollectionOf(String.class))).thenReturn(emptyList());
+    when(credentials.getName()).thenReturn("devaccount");
+    when(credentials.getClient()).thenReturn(client);
 
     CloudFoundryServerGroupCachingAgent agent =
-        new CloudFoundryServerGroupCachingAgent("devaccount", client, mock(Registry.class));
+        new CloudFoundryServerGroupCachingAgent(credentials, mock(Registry.class));
 
     CacheResult result = agent.loadData(providerCache);
     List<String> authoritativeTypes =
         agent.getProvidedDataTypes().stream().map(AgentDataType::getTypeName).collect(toList());
     cache.putCacheResult(agent.getAgentType(), authoritativeTypes, result);
+  }
+
+  private CloudFoundryCredentials createCredentials(String name) {
+    return new CloudFoundryCredentials(
+        name,
+        null,
+        null,
+        "api." + name,
+        "user-" + name,
+        "pwd-" + name,
+        null,
+        false,
+        false,
+        null,
+        repo,
+        null,
+        ForkJoinPool.commonPool(),
+        emptyMap(),
+        new OkHttpClient(),
+        new CloudFoundryConfigurationProperties.ClientConfig(),
+        new CloudFoundryConfigurationProperties.LocalCacheConfig());
   }
 
   @Test
@@ -145,6 +203,9 @@ class CacheRepositoryTest {
                           assertThat(serverGroup.getLoadBalancers()).isEmpty();
                           assertThat(serverGroup.getInstances()).isNotEmpty();
                         }));
+
+    assertThat(repo.findClusterByKey(clusterKey, NONE))
+        .hasValueSatisfying(cluster -> assertThat(cluster.getServerGroups()).isEmpty());
   }
 
   @Test
@@ -162,6 +223,19 @@ class CacheRepositoryTest {
                         assertThat(inst.getZone()).isEqualTo("us-east-1");
                         assertThat(inst.getLaunchTime()).isEqualTo(1L);
                       });
+            });
+  }
+
+  @Test
+  void findServerGroupWithoutInstances() {
+    assertThat(
+            repo.findServerGroupByKey(
+                Keys.getServerGroupKey("devaccount", "demo-staging-v001", "myorg > staging"), FULL))
+        .hasValueSatisfying(
+            serverGroup -> {
+              assertThat(serverGroup.getName()).isEqualTo("demo-staging-v001");
+              assertThat(serverGroup.getInstances()).isNotNull();
+              assertThat(serverGroup.getInstances()).isEmpty();
             });
   }
 }

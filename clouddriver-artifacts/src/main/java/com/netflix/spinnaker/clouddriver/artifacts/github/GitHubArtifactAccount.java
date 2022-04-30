@@ -17,12 +17,20 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.github;
 
+import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import com.netflix.spinnaker.clouddriver.artifacts.config.BasicAuth;
 import com.netflix.spinnaker.clouddriver.artifacts.config.TokenAuth;
-import lombok.Data;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import java.util.Optional;
+import javax.annotation.ParametersAreNullableByDefault;
+import lombok.Builder;
+import lombok.Value;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.boot.context.properties.ConstructorBinding;
 
-@Data
+@NonnullByDefault
+@Value
 public class GitHubArtifactAccount implements ArtifactAccount, BasicAuth, TokenAuth {
   private String name;
   /*
@@ -32,9 +40,33 @@ public class GitHubArtifactAccount implements ArtifactAccount, BasicAuth, TokenA
     - token
     - tokenFile : path to file containing token
   */
-  private String username;
-  private String password;
-  private String usernamePasswordFile;
-  private String token;
-  private String tokenFile;
+  private final Optional<String> username;
+  private final Optional<String> password;
+  private final Optional<String> usernamePasswordFile;
+  private final Optional<String> token;
+  private final Optional<String> tokenFile;
+  private final String githubAPIVersion;
+  private final boolean useContentAPI;
+
+  @Builder
+  @ConstructorBinding
+  @ParametersAreNullableByDefault
+  GitHubArtifactAccount(
+      String name,
+      String username,
+      String password,
+      String usernamePasswordFile,
+      String token,
+      String tokenFile,
+      String githubAPIVersion,
+      boolean useContentAPI) {
+    this.name = Strings.nullToEmpty(name);
+    this.username = Optional.ofNullable(Strings.emptyToNull(username));
+    this.password = Optional.ofNullable(Strings.emptyToNull(password));
+    this.usernamePasswordFile = Optional.ofNullable(Strings.emptyToNull(usernamePasswordFile));
+    this.token = Optional.ofNullable(Strings.emptyToNull(token));
+    this.tokenFile = Optional.ofNullable(Strings.emptyToNull(tokenFile));
+    this.githubAPIVersion = StringUtils.defaultString(githubAPIVersion, "v3");
+    this.useContentAPI = useContentAPI;
+  }
 }

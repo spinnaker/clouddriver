@@ -1,10 +1,11 @@
 package com.netflix.spinnaker.cats.sql.controllers
 
+import com.netflix.spinnaker.cats.sql.SqlUtil
 import com.netflix.spinnaker.cats.sql.cache.SqlSchemaVersion
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import com.netflix.spinnaker.kork.sql.config.SqlProperties
 import com.netflix.spinnaker.security.AuthenticatedRequest
-import org.jooq.SQLDialect
+import java.sql.DriverManager
 import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -15,7 +16,6 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.sql.DriverManager
 
 // TODO: Replace validatePermissions() with a to-be-implemented fiat isAdmin() decorator
 
@@ -48,11 +48,10 @@ class CatsSqlAdminController(
     )
 
     val tablesTruncated = mutableListOf<String>()
-    val sql = "show tables like 'cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_%'"
 
     conn.use { c ->
-      val jooq = DSL.using(c, SQLDialect.MYSQL)
-      val rs = jooq.fetch(sql).intoResultSet()
+      val jooq = DSL.using(c, properties.getDefaultConnectionPoolProperties().dialect)
+      val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_")
 
       while (rs.next()) {
         val table = rs.getString(1)
@@ -83,11 +82,10 @@ class CatsSqlAdminController(
     )
 
     val tablesDropped = mutableListOf<String>()
-    val sql = "show tables like 'cats_v${SqlSchemaVersion.current()}_${dropNamespace}_%'"
 
     conn.use { c ->
-      val jooq = DSL.using(c, SQLDialect.MYSQL)
-      val rs = jooq.fetch(sql).intoResultSet()
+      val jooq = DSL.using(c, properties.getDefaultConnectionPoolProperties().dialect)
+      val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${dropNamespace}_")
 
       while (rs.next()) {
         val table = rs.getString(1)

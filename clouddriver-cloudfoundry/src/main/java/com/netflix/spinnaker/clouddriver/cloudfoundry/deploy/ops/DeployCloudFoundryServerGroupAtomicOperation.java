@@ -17,8 +17,8 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops;
 
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops.CloudFoundryOperationUtils.describeProcessState;
-import static com.netflix.spinnaker.clouddriver.deploy.DeploymentResult.*;
-import static com.netflix.spinnaker.clouddriver.deploy.DeploymentResult.Deployment.*;
+import static com.netflix.spinnaker.clouddriver.deploy.DeploymentResult.Deployment;
+import static com.netflix.spinnaker.clouddriver.deploy.DeploymentResult.Deployment.Capacity;
 import static java.util.stream.Collectors.toList;
 
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
@@ -27,6 +27,11 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryCloudProvider;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.CloudFoundryArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.CreateServiceBinding;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.CreatePackage;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Lifecycle;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessRequest;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.CloudFoundryServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
@@ -41,12 +46,14 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.*;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 
 @RequiredArgsConstructor
 public class DeployCloudFoundryServerGroupAtomicOperation
@@ -65,7 +72,6 @@ public class DeployCloudFoundryServerGroupAtomicOperation
   @Override
   public DeploymentResult operate(List priorOutputs) {
     getTask().updateStatus(PHASE, "Deploying '" + description.getApplication() + "'");
-
     CloudFoundryClient client = description.getClient();
 
     CloudFoundryServerGroupNameResolver serverGroupNameResolver =
@@ -78,13 +84,12 @@ public class DeployCloudFoundryServerGroupAtomicOperation
             description.getFreeFormDetails(),
             false));
 
-    CloudFoundryServerGroup serverGroup;
+    CloudFoundryServerGroup serverGroup = createApplication(description);
     String packageId;
-    // we download the package artifact first, because if this fails, we don't want to create an
-    // empty CF app
-    File packageArtifact = downloadPackageArtifact(description);
+
+    File packageArtifact =
+        description.getDocker() == null ? downloadPackageArtifact(description) : null;
     try {
-      serverGroup = createApplication(description);
       packageId = buildPackage(serverGroup.getId(), description, packageArtifact);
     } finally {
       if (packageArtifact != null) {
@@ -92,16 +97,13 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       }
     }
 
-    buildDroplet(packageId, serverGroup.getId(), description);
-    scaleApplication(serverGroup.getId(), description);
-    if (description.getApplicationAttributes().getHealthCheckType() != null) {
-      updateProcess(serverGroup.getId(), description);
-    }
+    createServiceBindings(serverGroup, description);
 
-    client
-        .getServiceInstances()
-        .createServiceBindingsByName(
-            serverGroup, description.getApplicationAttributes().getServices());
+    buildDroplet(packageId, serverGroup.getId(), description);
+
+    // update process before scaling process
+    updateProcess(serverGroup.getId(), description);
+    scaleApplication(serverGroup.getId(), description);
 
     if (!mapRoutes(
         description,
@@ -116,7 +118,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       client.getApplications().startApplication(serverGroup.getId());
       ProcessStats.State state =
           operationPoller.waitForOperation(
-              () -> client.getApplications().getProcessState(serverGroup.getId()),
+              () -> client.getApplications().getAppState(serverGroup.getId()),
               inProgressState ->
                   inProgressState == ProcessStats.State.RUNNING
                       || inProgressState == ProcessStats.State.CRASHED,
@@ -140,6 +142,67 @@ public class DeployCloudFoundryServerGroupAtomicOperation
     getTask().updateStatus(PHASE, "Deployed '" + description.getApplication() + "'");
 
     return deploymentResult();
+  }
+
+  private void createServiceBindings(
+      CloudFoundryServerGroup serverGroup, DeployCloudFoundryServerGroupDescription description) {
+
+    List<String> serviceNames = description.getApplicationAttributes().getServices();
+    if (serviceNames == null || serviceNames.isEmpty()) return;
+
+    getTask()
+        .updateStatus(
+            PHASE,
+            "Creating Cloud Foundry service bindings between application '"
+                + description.getServerGroupName()
+                + "' and services: "
+                + description.getApplicationAttributes().getServices());
+
+    Map<String, String> serviceInstanceGuids = new HashMap<>();
+
+    // find guids for services
+    description
+        .getClient()
+        .getServiceInstances()
+        .findAllServicesBySpaceAndNames(serverGroup.getSpace(), serviceNames)
+        .forEach(s -> serviceInstanceGuids.put(s.getEntity().getName(), s.getMetadata().getGuid()));
+
+    // try and create service binding request for each service
+    List<CreateServiceBinding> bindings =
+        serviceNames.stream()
+            .map(
+                name -> {
+                  String serviceGuid = serviceInstanceGuids.get(name);
+                  if (serviceGuid == null || serviceGuid.isEmpty()) {
+                    getTask()
+                        .updateStatus(
+                            PHASE,
+                            "Failed to create Cloud Foundry service bindings between application '"
+                                + description.getServerGroupName()
+                                + "' and services: "
+                                + serviceNames);
+
+                    throw new CloudFoundryApiException(
+                        "Unable to find service with the name: '"
+                            + name
+                            + "' in "
+                            + serverGroup.getSpace());
+                  }
+
+                  return new CreateServiceBinding(
+                      serviceGuid, serverGroup.getId(), name, Collections.emptyMap());
+                })
+            .collect(Collectors.toList());
+
+    bindings.forEach(b -> description.getClient().getServiceInstances().createServiceBinding(b));
+
+    getTask()
+        .updateStatus(
+            PHASE,
+            "Created Cloud Foundry service bindings between application '"
+                + description.getServerGroupName()
+                + "' and services: "
+                + description.getApplicationAttributes().getServices());
   }
 
   private DeploymentResult deploymentResult() {
@@ -184,14 +247,19 @@ public class DeployCloudFoundryServerGroupAtomicOperation
         .updateStatus(
             PHASE, "Creating Cloud Foundry application '" + description.getServerGroupName() + "'");
 
+    Lifecycle lifecycle =
+        description.getDocker() == null
+            ? new Lifecycle(Lifecycle.Type.BUILDPACK, description.getApplicationAttributes())
+            : new Lifecycle(Lifecycle.Type.DOCKER, description.getApplicationAttributes());
+
     CloudFoundryServerGroup serverGroup =
         client
             .getApplications()
             .createApplication(
                 description.getServerGroupName(),
                 description.getSpace(),
-                description.getApplicationAttributes().getBuildpacks(),
-                getEnvironmentVars(description));
+                getEnvironmentVars(description),
+                lifecycle);
     getTask()
         .updateStatus(
             PHASE, "Created Cloud Foundry application '" + description.getServerGroupName() + "'");
@@ -287,10 +355,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation
     Map<String, Object> buildInfo = null;
     final Artifact applicationArtifact = description.getApplicationArtifact();
     if (applicationArtifact != null) {
-      final Map<String, Object> metadata = applicationArtifact.getMetadata();
-      if (metadata != null) {
-        buildInfo = (Map<String, Object>) applicationArtifact.getMetadata().get("build");
-      }
+      buildInfo = (Map<String, Object>) applicationArtifact.getMetadata("build");
     }
     if (buildInfo == null) {
       final Map<String, Object> trigger = description.getTrigger();
@@ -326,20 +391,22 @@ public class DeployCloudFoundryServerGroupAtomicOperation
     @Builder.Default private Optional<String> url = Optional.empty();
   }
 
-  @Nullable
+  @NotNull
   private File downloadPackageArtifact(DeployCloudFoundryServerGroupDescription description) {
     File file = null;
     try {
-      InputStream artifactInputStream =
-          description.getArtifactCredentials().download(description.getApplicationArtifact());
       file = File.createTempFile(UUID.randomUUID().toString(), null);
-      FileOutputStream fileOutputStream = new FileOutputStream(file);
-      IOUtils.copy(artifactInputStream, fileOutputStream);
-      fileOutputStream.close();
     } catch (IOException e) {
-      if (file != null) {
-        file.delete();
-      }
+      throw new UncheckedIOException(e);
+    } finally {
+      if (file != null) file.delete();
+    }
+
+    try (InputStream artifactInputStream =
+            description.getArtifactCredentials().download(description.getApplicationArtifact());
+        FileOutputStream fileOutputStream = new FileOutputStream(file)) {
+      IOUtils.copy(artifactInputStream, fileOutputStream);
+    } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
     return file;
@@ -354,8 +421,23 @@ public class DeployCloudFoundryServerGroupAtomicOperation
         .updateStatus(
             PHASE, "Creating package for application '" + description.getServerGroupName() + "'");
 
-    String packageId = client.getApplications().createPackage(serverGroupId);
-    client.getApplications().uploadPackageBits(packageId, packageArtifact);
+    String packageId;
+    if (packageArtifact != null) {
+      // Bits Package
+      packageId =
+          client
+              .getApplications()
+              .createPackage(new CreatePackage(serverGroupId, CreatePackage.Type.BITS, null));
+      client.getApplications().uploadPackageBits(packageId, packageArtifact);
+    } else {
+      // Docker Package
+      packageId =
+          client
+              .getApplications()
+              .createPackage(
+                  new CreatePackage(
+                      serverGroupId, CreatePackage.Type.DOCKER, description.getDocker()));
+    }
 
     operationPoller.waitForOperation(
         () -> client.getApplications().packageUploadComplete(packageId),
@@ -407,14 +489,27 @@ public class DeployCloudFoundryServerGroupAtomicOperation
         convertToMb("memory", description.getApplicationAttributes().getMemory());
     Integer diskSizeAmount =
         convertToMb("disk quota", description.getApplicationAttributes().getDiskQuota());
-
     client
-        .getApplications()
-        .scaleApplication(
+        .getProcesses()
+        .scaleProcess(
             serverGroupId,
             description.getApplicationAttributes().getInstances(),
             memoryAmount,
             diskSizeAmount);
+
+    if (!description.getApplicationAttributes().getProcesses().isEmpty()) {
+      List<Process> processes = client.getProcesses().getAllProcessesByAppId(serverGroupId);
+
+      for (ProcessRequest req : description.getApplicationAttributes().getProcesses()) {
+        String processGuid = getProcessGuidByType(processes, req.getType());
+
+        Integer pMemoryAmount = convertToMb("memory", req.getMemory());
+        Integer pDiskSizeAmount = convertToMb("disk quota", req.getDiskQuota());
+        client
+            .getProcesses()
+            .scaleProcess(processGuid, req.getInstances(), pMemoryAmount, pDiskSizeAmount);
+      }
+    }
     getTask().updateStatus(PHASE, "Scaled application '" + description.getServerGroupName() + "'");
   }
 
@@ -422,13 +517,35 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       String serverGroupId, DeployCloudFoundryServerGroupDescription description) {
     CloudFoundryClient client = description.getClient();
     getTask().updateStatus(PHASE, "Updating process '" + description.getServerGroupName() + "'");
+
     client
-        .getApplications()
+        .getProcesses()
         .updateProcess(
             serverGroupId,
-            null,
+            description.getApplicationAttributes().getCommand(),
             description.getApplicationAttributes().getHealthCheckType(),
-            description.getApplicationAttributes().getHealthCheckHttpEndpoint());
+            description.getApplicationAttributes().getHealthCheckHttpEndpoint(),
+            description.getApplicationAttributes().getTimeout(),
+            null);
+
+    if (!description.getApplicationAttributes().getProcesses().isEmpty()) {
+      List<Process> processes = client.getProcesses().getAllProcessesByAppId(serverGroupId);
+
+      for (ProcessRequest req : description.getApplicationAttributes().getProcesses()) {
+        String processGuid = getProcessGuidByType(processes, req.getType());
+
+        client
+            .getProcesses()
+            .updateProcess(
+                processGuid,
+                req.getCommand(),
+                req.getHealthCheckType(),
+                req.getHealthCheckHttpEndpoint(),
+                req.getTimeout(),
+                req.getHealthCheckInvocationTimeout());
+      }
+    }
+
     getTask().updateStatus(PHASE, "Updated process '" + description.getServerGroupName() + "'");
   }
 
@@ -439,15 +556,28 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       return null;
     } else if (StringUtils.isNumeric(size)) {
       return Integer.parseInt(size);
-    } else if (size.toLowerCase().endsWith("g")) {
-      String value = size.substring(0, size.length() - 1);
-      if (StringUtils.isNumeric(value)) return Integer.parseInt(value) * 1024;
-    } else if (size.toLowerCase().endsWith("m")) {
-      String value = size.substring(0, size.length() - 1);
-      if (StringUtils.isNumeric(value)) return Integer.parseInt(value);
+    } else {
+      size = size.toLowerCase();
+      if (size.endsWith("g") || size.endsWith("gb")) {
+        String value = size.substring(0, size.indexOf("g"));
+        if (StringUtils.isNumeric(value)) return Integer.parseInt(value) * 1024;
+      } else if (size.endsWith("m") || size.endsWith("mb")) {
+        String value = size.substring(0, size.indexOf("m"));
+        if (StringUtils.isNumeric(value)) return Integer.parseInt(value);
+      }
     }
 
     throw new IllegalArgumentException(
-        "Invalid size for application " + field + " = '" + size + "'");
+        String.format("Invalid size for application %s = '%s'", field, size));
+  }
+
+  // Helper method for filtering and returning a process guid by type
+  private String getProcessGuidByType(List<Process> processes, String type) {
+    return processes.stream()
+        .filter(p -> p.getType().equalsIgnoreCase(type))
+        .map(Process::getGuid)
+        .findFirst()
+        .orElseThrow(
+            () -> new CloudFoundryApiException("Unable to find a process with type: " + type));
   }
 }

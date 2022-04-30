@@ -23,9 +23,9 @@ import com.netflix.spinnaker.clouddriver.appengine.model.ScalingPolicyType
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineClusterProvider
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineCredentials
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
-import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
-import org.springframework.validation.Errors
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository
+import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -45,7 +45,8 @@ class StartAppengineDescriptionValidatorSpec extends Specification {
   void setupSpec() {
     validator = new StartAppengineDescriptionValidator()
 
-    def credentialsRepo = new MapBackedAccountCredentialsRepository()
+    def credentialsRepo = new MapBackedCredentialsRepository(AppengineNamedAccountCredentials.CREDENTIALS_TYPE,
+      new NoopCredentialsLifecycleHandler<>())
     def mockCredentials = Mock(AppengineCredentials)
     credentials = new AppengineNamedAccountCredentials.Builder()
       .name(ACCOUNT_NAME)
@@ -53,9 +54,9 @@ class StartAppengineDescriptionValidatorSpec extends Specification {
       .applicationName(APPLICATION_NAME)
       .credentials(mockCredentials)
       .build()
-    credentialsRepo.save(ACCOUNT_NAME, credentials)
+    credentialsRepo.save(credentials)
 
-    validator.accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepo)
+    validator.credentialsRepository = credentialsRepo
   }
 
   @Unroll
@@ -66,7 +67,7 @@ class StartAppengineDescriptionValidatorSpec extends Specification {
         serverGroupName: SERVER_GROUP_NAME,
         credentials: credentials
       )
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
       validator.appengineClusterProvider = Mock(AppengineClusterProvider)
       validator.appengineClusterProvider.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME) >> serverGroup
 
@@ -92,7 +93,7 @@ class StartAppengineDescriptionValidatorSpec extends Specification {
         serverGroupName: SERVER_GROUP_NAME,
         credentials: credentials
       )
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
       validator.appengineClusterProvider = Mock(AppengineClusterProvider)
       validator.appengineClusterProvider.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME) >> serverGroup
 
@@ -119,7 +120,7 @@ class StartAppengineDescriptionValidatorSpec extends Specification {
         serverGroupName: SERVER_GROUP_NAME,
         credentials: credentials
       )
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
       validator.appengineClusterProvider = Mock(AppengineClusterProvider)
       validator.appengineClusterProvider.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME) >> null
 
@@ -135,7 +136,7 @@ class StartAppengineDescriptionValidatorSpec extends Specification {
   void "null input fails validation"() {
     setup:
       def description = new StartStopAppengineDescription()
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
 
     when:
       validator.validate([], description, errors)

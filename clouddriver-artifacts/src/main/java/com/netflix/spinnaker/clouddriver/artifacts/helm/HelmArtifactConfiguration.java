@@ -17,10 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.helm;
 
+import com.netflix.spinnaker.credentials.CredentialsTypeProperties;
 import com.squareup.okhttp.OkHttpClient;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -33,14 +31,18 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(HelmArtifactProviderProperties.class)
 @RequiredArgsConstructor
 @Slf4j
-public class HelmArtifactConfiguration {
+class HelmArtifactConfiguration {
   private final HelmArtifactProviderProperties helmArtifactProviderProperties;
 
   @Bean
-  List<? extends HelmArtifactCredentials> helmArtifactCredentials(OkHttpClient okHttpClient) {
-
-    return helmArtifactProviderProperties.getAccounts().stream()
-        .map(
+  public CredentialsTypeProperties<HelmArtifactCredentials, HelmArtifactAccount>
+      helmCredentialsProperties(OkHttpClient okHttpClient) {
+    return CredentialsTypeProperties.<HelmArtifactCredentials, HelmArtifactAccount>builder()
+        .type(HelmArtifactCredentials.CREDENTIALS_TYPE)
+        .credentialsClass(HelmArtifactCredentials.class)
+        .credentialsDefinitionClass(HelmArtifactAccount.class)
+        .defaultCredentialsSource(helmArtifactProviderProperties::getAccounts)
+        .credentialsParser(
             a -> {
               try {
                 return new HelmArtifactCredentials(a, okHttpClient);
@@ -49,7 +51,6 @@ public class HelmArtifactConfiguration {
                 return null;
               }
             })
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+        .build();
   }
 }

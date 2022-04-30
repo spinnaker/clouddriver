@@ -19,9 +19,11 @@ package com.netflix.spinnaker.clouddriver.controllers
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.configuration.CredentialsConfiguration
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials
+
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
+import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import groovy.json.JsonSlurper
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -43,7 +45,7 @@ class CredentialsControllerSpec extends Specification {
     def credsRepo = new MapBackedAccountCredentialsRepository()
     def credsProvider = new DefaultAccountCredentialsProvider(credsRepo)
     credsRepo.save("test", new TestNamedAccountCredentials())
-    def mvc = MockMvcBuilders.standaloneSetup(new CredentialsController(accountCredentialsProvider: credsProvider, objectMapper: objectMapper, credentialsConfiguration: new CredentialsConfiguration())).build()
+    def mvc = MockMvcBuilders.standaloneSetup(new CredentialsController(Optional.empty(), new CredentialsConfiguration(), objectMapper, credsProvider)).build()
 
     when:
     def result = mvc.perform(MockMvcRequestBuilders.get("/credentials").accept(MediaType.APPLICATION_JSON)).andReturn()
@@ -53,10 +55,10 @@ class CredentialsControllerSpec extends Specification {
 
     List<Map> parsedResponse = new JsonSlurper().parseText(result.response.contentAsString) as List
 
-    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", type: "testProvider", requiredGroupMembership: ["test"], permissions: [READ:["test"], WRITE:["test"]], challengeDestructiveActions: false, primaryAccount: false, providerVersion: "v1", skin: "v1"]]
+    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", type: "testProvider", requiredGroupMembership: ["test"], permissions: [READ:["test"], WRITE:["test"]], challengeDestructiveActions: false, primaryAccount: false]]
   }
 
-  static class TestNamedAccountCredentials implements AccountCredentials<Map> {
+  static class TestNamedAccountCredentials extends AbstractAccountCredentials<Map> {
 
     String name = "test"
     String environment = "env"

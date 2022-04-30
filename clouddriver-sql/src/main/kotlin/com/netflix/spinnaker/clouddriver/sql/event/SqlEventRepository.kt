@@ -30,6 +30,8 @@ import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.kork.sql.routing.withPool
 import com.netflix.spinnaker.kork.version.ServiceVersion
 import de.huxhorn.sulky.ulid.ULID
+import java.sql.SQLIntegrityConstraintViolationException
+import java.util.UUID
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.impl.DSL.currentTimestamp
@@ -38,8 +40,6 @@ import org.jooq.impl.DSL.max
 import org.jooq.impl.DSL.table
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
-import java.sql.SQLIntegrityConstraintViolationException
-import java.util.UUID
 
 class SqlEventRepository(
   private val jooq: DSLContext,
@@ -52,6 +52,7 @@ class SqlEventRepository(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private val eventCountId = registry.createId("eventing.events")
+  private val eventErrorCountId = registry.createId("eventing.errors")
 
   override fun save(
     aggregateType: String,
@@ -151,11 +152,19 @@ class SqlEventRepository(
         }
       }
     } catch (e: AggregateChangeRejectedException) {
-      registry.counter(eventCountId.withTags("aggregateType", aggregateType)).increment(newEvents.size.toLong())
+      registry.counter(
+        eventErrorCountId
+          .withTags("aggregateType", aggregateType, "exception", e.javaClass.simpleName)
+      )
+        .increment()
       throw e
     } catch (e: Exception) {
       // This is totally handling it...
-      registry.counter(eventCountId.withTags("aggregateType", aggregateType)).increment(newEvents.size.toLong())
+      registry.counter(
+        eventErrorCountId
+          .withTags("aggregateType", aggregateType, "exception", e.javaClass.simpleName)
+      )
+        .increment()
       throw SqlEventSystemException("Failed saving new events", e)
     }
 
@@ -186,14 +195,16 @@ class SqlEventRepository(
     }
 
     // timestamp is calculated on the SQL server
-    setMetadata(EventMetadata(
-      id = UUID.randomUUID().toString(),
-      aggregateType = aggregateType,
-      aggregateId = aggregateId,
-      sequence = nextSequence ?: -1,
-      originatingVersion = originatingVersion,
-      serviceVersion = serviceVersion.resolve()
-    ))
+    setMetadata(
+      EventMetadata(
+        id = UUID.randomUUID().toString(),
+        aggregateType = aggregateType,
+        aggregateId = aggregateId,
+        sequence = nextSequence ?: -1,
+        originatingVersion = originatingVersion,
+        serviceVersion = serviceVersion.resolve()
+      )
+    )
 
     if (this is CompositeSpinnakerEvent) {
       this.getComposedEvents().forEach { event ->
@@ -211,8 +222,10 @@ class SqlEventRepository(
   override fun list(aggregateType: String, aggregateId: String): List<SpinnakerEvent> {
     return withPool(POOL_NAME) {
       jooq.select().from(EVENTS_TABLE)
-        .where(field("aggregate_type").eq(aggregateType)
-          .and(field("aggregate_id").eq(aggregateId)))
+        .where(
+          field("aggregate_type").eq(aggregateType)
+            .and(field("aggregate_id").eq(aggregateId))
+        )
         .orderBy(field("sequence").asc())
         .fetchEvents(objectMapper)
     }
@@ -236,7 +249,8 @@ class SqlEventRepository(
 
       val remaining = jooq.selectCount().from(AGGREGATES_TABLE)
         .withConditions(conditions)
-        .fetchOne(0, Int::class.java) - perPage
+        .fetchSingle()
+        .value1() - perPage
 
       EventRepository.ListAggregatesResult(
         aggregates = aggregates.map { it.model },

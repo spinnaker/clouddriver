@@ -25,14 +25,15 @@ import com.netflix.spinnaker.clouddriver.event.exceptions.DuplicateEventAggregat
 import com.netflix.spinnaker.clouddriver.metrics.TimedCallable
 import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEvent
 import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEventHandler
-import com.netflix.spinnaker.kork.exceptions.ExceptionSummary
-import com.netflix.spinnaker.security.AuthenticatedRequest
+import com.netflix.spinnaker.kork.api.exceptions.ExceptionSummary
+import com.netflix.spinnaker.kork.web.context.RequestContextProvider
+import com.netflix.spinnaker.kork.web.exceptions.ExceptionSummaryService
 import groovy.transform.Canonical
 import groovy.util.logging.Slf4j
-import org.slf4j.MDC
 import org.springframework.context.ApplicationContext
 
 import javax.annotation.Nonnull
+import javax.annotation.Nullable
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.SynchronousQueue
 import java.util.concurrent.ThreadPoolExecutor
@@ -51,7 +52,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
     new ThreadFactoryBuilder().setNameFormat(DefaultOrchestrationProcessor.class.getSimpleName() + "-%d").build()) {
     @Override
     protected void afterExecute(Runnable r, Throwable t) {
-      resetMDC()
+      clearRequestContext()
       super.afterExecute(r, t)
     }
   }
@@ -62,6 +63,8 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
   private final Collection<OperationEventHandler> operationEventHandlers
   private final ObjectMapper objectMapper
   private final ExceptionClassifier exceptionClassifier
+  private final RequestContextProvider contextProvider
+  private final ExceptionSummaryService exceptionSummaryService
 
   DefaultOrchestrationProcessor(
     TaskRepository taskRepository,
@@ -69,7 +72,9 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
     Registry registry,
     Optional<Collection<OperationEventHandler>> operationEventHandlers,
     ObjectMapper objectMapper,
-    ExceptionClassifier exceptionClassifier
+    ExceptionClassifier exceptionClassifier,
+    RequestContextProvider contextProvider,
+    ExceptionSummaryService exceptionSummaryService
   ) {
     this.taskRepository = taskRepository
     this.applicationContext = applicationContext
@@ -77,17 +82,20 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
     this.operationEventHandlers = operationEventHandlers.orElse([])
     this.objectMapper = objectMapper
     this.exceptionClassifier = exceptionClassifier
+    this.contextProvider = contextProvider
+    this.exceptionSummaryService = exceptionSummaryService
   }
 
   @Override
-  Task process(List<AtomicOperation> atomicOperations, String clientRequestId) {
-
-    def orchestrationsId = registry.createId('orchestrations')
-    def atomicOperationId = registry.createId('operations')
-    def tasksId = registry.createId('tasks')
+  Task process(@Nullable String cloudProvider,
+               @Nonnull List<AtomicOperation> atomicOperations,
+               @Nonnull String clientRequestId) {
+    def orchestrationsId = registry.createId('orchestrations').withTag("cloudProvider", cloudProvider ?: "unknown")
+    def atomicOperationId = registry.createId('operations').withTag("cloudProvider", cloudProvider ?: "unknown")
+    def tasksId = registry.createId('tasks').withTag("cloudProvider", cloudProvider ?: "unknown")
 
     // Get the task (either an existing one, or a new one). If the task already exists, `shouldExecute` will be false
-    // if the task is in a non-failed state, or is not retryable.
+    // if the task is in a failed state and the failure is not retryable.
     def result = getTask(clientRequestId)
     def task = result.task
     if (!result.shouldExecute) {
@@ -114,12 +122,17 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
                   try {
                     it.handle(event)
                   } catch (e) {
+                    log.warn("Error handling event (${event}): ${atomicOperation.class.simpleName}", e)
                     task.updateStatus TASK_PHASE, "Error handling event (${event}): ${atomicOperation.class.simpleName} | ${e.class.simpleName}: [${e.message}]"
                   }
                 }
               }
 
-              task.updateStatus(TASK_PHASE, "Orchestration completed.")
+              if (task.status?.failed) {
+                task.updateStatus(TASK_PHASE, "Orchestration completed with errors, see prior task logs.")
+              } else {
+                task.updateStatus(TASK_PHASE, "Orchestration completed.")
+              }
             }.call()
           } catch (AtomicOperationException e) {
             task.updateStatus TASK_PHASE, "Orchestration failed: ${atomicOperation.class.simpleName} | ${e.class.simpleName}: [${e.errors.join(', ')}]"
@@ -183,17 +196,18 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
   }
 
   /**
-   * Ensure that the Spinnaker-related MDC values are cleared.
+   * Ensure that the Spinnaker-related context values are cleared.
    *
-   * This is particularly important for the inheritable MDC variables that are commonly to transmit the auth context.
+   * This is particularly important for the inheritable values that are used to transmit the auth context.
    */
-  static void resetMDC() {
+  void clearRequestContext() {
     try {
-      MDC.remove(AuthenticatedRequest.Header.USER.header)
-      MDC.remove(AuthenticatedRequest.Header.ACCOUNTS.header)
-      MDC.remove(AuthenticatedRequest.Header.EXECUTION_ID.header)
+      def context = contextProvider.get()
+      context.setUser(null)
+      context.setAccounts(null as String)
+      context.setExecutionId(null)
     } catch (Exception e) {
-      log.error("Unable to clear thread locals, reason: ${e.message}")
+      log.error("Unable to clear request context", e)
     }
   }
 
@@ -203,7 +217,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
    * TODO(rz): Not 100% sure we should keep these two methods.
    */
   Map<String, Object> extractExceptionSummary(Throwable e, String userMessage) {
-    def summary = ExceptionSummary.from(e)
+    ExceptionSummary summary = exceptionSummaryService.summary(e)
     Map<String, Object> map = objectMapper.convertValue(summary, Map)
     map["message"] = userMessage
     map["type"] = "EXCEPTION"
@@ -228,7 +242,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
       if (!existingTask.isRetryable()) {
         return new GetTaskResult(existingTask, false)
       }
-      existingTask.updateStatus(TASK_PHASE, "Re-initializing Orchestration Task")
+      existingTask.updateStatus(TASK_PHASE, "Re-initializing Orchestration Task (failure is retryable)")
       existingTask.retry()
       return new GetTaskResult(existingTask, true)
     }

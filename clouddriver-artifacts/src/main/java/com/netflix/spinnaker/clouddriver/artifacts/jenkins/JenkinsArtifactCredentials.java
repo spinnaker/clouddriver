@@ -16,24 +16,26 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.jenkins;
 
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.artifacts.config.SimpleHttpArtifactCredentials;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.squareup.okhttp.HttpUrl;
 import com.squareup.okhttp.OkHttpClient;
-import java.util.Collections;
-import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+@NonnullByDefault
 @Slf4j
 public class JenkinsArtifactCredentials
     extends SimpleHttpArtifactCredentials<JenkinsArtifactAccount> implements ArtifactCredentials {
-  public static final String TYPE = "jenkins/file";
+  public static final String CREDENTIALS_TYPE = "artifacts-jenkins";
+  private static final String TYPE = "jenkins/file";
 
   @Getter private final String name;
 
-  @Getter private final List<String> types = Collections.singletonList(TYPE);
+  @Getter private final ImmutableList<String> types = ImmutableList.of(TYPE);
 
   private final JenkinsArtifactAccount jenkinsArtifactAccount;
 
@@ -69,5 +71,10 @@ public class JenkinsArtifactCredentials
               + ". Read more here https://www.spinnaker.io/reference/artifacts/types/");
     }
     return url;
+  }
+
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
   }
 }

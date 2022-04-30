@@ -24,7 +24,9 @@ import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
+import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
+import com.netflix.spinnaker.credentials.Credentials;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -34,18 +36,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class LambdaAgentProvider implements AgentProvider {
   private final ObjectMapper objectMapper;
-
-  private final AccountCredentialsProvider accountCredentialsProvider;
   private final AmazonClientProvider amazonClientProvider;
+  private final LambdaServiceConfig lambdaServiceConfig;
+  private final ServiceLimitConfiguration serviceLimitConfiguration;
 
   @Autowired
   public LambdaAgentProvider(
-      AccountCredentialsProvider accountCredentialsProvider,
-      AmazonClientProvider amazonClientProvider) {
+      AmazonClientProvider amazonClientProvider,
+      LambdaServiceConfig lambdaServiceConfig,
+      ServiceLimitConfiguration serviceLimitConfiguration) {
     this.objectMapper = AmazonObjectMapperConfigurer.createConfigured();
-
-    this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
+    this.lambdaServiceConfig = lambdaServiceConfig;
+    this.serviceLimitConfiguration = serviceLimitConfiguration;
   }
 
   @Override
@@ -54,24 +57,24 @@ public class LambdaAgentProvider implements AgentProvider {
   }
 
   @Override
-  public Collection<Agent> agents() {
+  public Collection<Agent> agents(Credentials credentials) {
     List<Agent> agents = new ArrayList<>();
+    NetflixAmazonCredentials netflixAmazonCredentials = (NetflixAmazonCredentials) credentials;
+    if (netflixAmazonCredentials.getLambdaEnabled()) {
+      agents.add(
+          new IamRoleCachingAgent(objectMapper, netflixAmazonCredentials, amazonClientProvider));
 
-    accountCredentialsProvider.getAll().stream()
-        .filter(c -> c instanceof NetflixAmazonCredentials)
-        .map(c -> (NetflixAmazonCredentials) c)
-        .filter(NetflixAmazonCredentials::getLambdaEnabled)
-        .forEach(
-            credentials -> {
-              agents.add(new IamRoleCachingAgent(objectMapper, credentials, amazonClientProvider));
-
-              for (AmazonCredentials.AWSRegion region : credentials.getRegions()) {
-                agents.add(
-                    new LambdaCachingAgent(
-                        objectMapper, amazonClientProvider, credentials, region.getName()));
-              }
-            });
-
+      for (AmazonCredentials.AWSRegion region : netflixAmazonCredentials.getRegions()) {
+        agents.add(
+            new LambdaCachingAgent(
+                objectMapper,
+                amazonClientProvider,
+                netflixAmazonCredentials,
+                region.getName(),
+                lambdaServiceConfig,
+                serviceLimitConfiguration));
+      }
+    }
     return agents;
   }
 }

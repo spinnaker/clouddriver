@@ -22,14 +22,14 @@ import com.netflix.spinnaker.clouddriver.event.SpinnakerEvent
 import com.netflix.spinnaker.clouddriver.event.config.MemoryEventRepositoryConfigProperties
 import com.netflix.spinnaker.clouddriver.event.exceptions.AggregateChangeRejectedException
 import com.netflix.spinnaker.kork.exceptions.SystemException
-import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
-import org.springframework.scheduling.annotation.Scheduled
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
+import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
+import org.springframework.scheduling.annotation.Scheduled
 
 /**
  * An in-memory only [EventRepository]. This implementation should only be used for testing.
@@ -72,13 +72,15 @@ class InMemoryEventRepository(
 
       newEvents.forEachIndexed { index, newEvent ->
         // TODO(rz): Plugin more metadata (provenance, serviceVersion, etc)
-        newEvent.setMetadata(EventMetadata(
-          id = UUID.randomUUID().toString(),
-          aggregateType = aggregateType,
-          aggregateId = aggregateId,
-          sequence = currentSequence + (index + 1),
-          originatingVersion = originatingVersion
-        ))
+        newEvent.setMetadata(
+          EventMetadata(
+            id = UUID.randomUUID().toString(),
+            aggregateType = aggregateType,
+            aggregateId = aggregateId,
+            sequence = currentSequence + (index + 1),
+            originatingVersion = originatingVersion
+          )
+        )
       }
 
       registry.counter(eventWriteCountId).increment(newEvents.size.toLong())
@@ -86,8 +88,10 @@ class InMemoryEventRepository(
       aggregate.version = aggregate.version + 1
     }
 
-    log.debug("Saved $aggregateType/$aggregateId@${aggregate.version}: " +
-      "[${newEvents.joinToString(",") { it.javaClass.simpleName }}]")
+    log.debug(
+      "Saved $aggregateType/$aggregateId@${aggregate.version}: " +
+        "[${newEvents.joinToString(",") { it.javaClass.simpleName }}]"
+    )
 
     newEvents.forEach { applicationEventPublisher.publishEvent(it) }
   }

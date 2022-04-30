@@ -43,6 +43,7 @@ class KeysSpec extends Specification {
     Keys.parse(Keys.getClusterKey('cluster', 'application', 'account')) == [provider: 'aws', type: Namespace.CLUSTERS.ns, cluster: 'cluster', application: 'application', account: 'account', stack: null, detail: null]
     Keys.parse(Keys.getClusterKey('cluster-test', 'application', 'account')) == [provider: 'aws', type: Namespace.CLUSTERS.ns, cluster: 'cluster-test', application: 'application', account: 'account', stack: 'test', detail: null]
     Keys.parse(Keys.getClusterKey('cluster-test-useast1', 'application', 'account')) == [provider: 'aws', type: Namespace.CLUSTERS.ns, cluster: 'cluster-test-useast1', application: 'application', account: 'account', stack: 'test', detail: 'useast1']
+    Keys.parse(Keys.getNamedImageKey('account', 'imageName')) == [provider: 'aws', type: Namespace.NAMED_IMAGES.ns, account: 'account', imageName: 'imageName']
     Keys.parse(Keys.getImageKey('image', 'account', 'region')) == [provider: 'aws', type: Namespace.IMAGES.ns, imageId: 'image', region: 'region', account: 'account']
     Keys.parse(Keys.getInstanceHealthKey('instanceId', 'account', 'region', 'provider')) == [provider: 'aws', type: Namespace.HEALTH.ns, instanceId: 'instanceId', account: 'account', region: 'region', provider: 'provider']
     Keys.parse(Keys.getLaunchConfigKey('kato-main-v056-10062014221307', 'account', 'region')) == [provider: 'aws', type: Namespace.LAUNCH_CONFIGS.ns, launchConfig: 'kato-main-v056-10062014221307', region: 'region', account: 'account', application: 'kato', stack: 'main']
@@ -50,6 +51,7 @@ class KeysSpec extends Specification {
     Keys.parse(Keys.getLoadBalancerKey('kato-main-frontend', 'account', 'region', null, 'classic')) == [provider: 'aws', type: Namespace.LOAD_BALANCERS.ns, loadBalancer: 'kato-main-frontend', account: 'account', region: 'region', vpcId: null, loadBalancerType: 'classic', stack: 'main', detail: 'frontend', application: 'kato']
     Keys.parse(Keys.getLoadBalancerKey('kato-main-frontend', 'account', 'region', null, null)) == [provider: 'aws', type: Namespace.LOAD_BALANCERS.ns, loadBalancer: 'kato-main-frontend', account: 'account', region: 'region', vpcId: null, loadBalancerType: 'classic', stack: 'main', detail: 'frontend', application: 'kato']
     Keys.parse(Keys.getLoadBalancerKey('loadBalancer', 'account', 'region', 'vpc-12345', 'application')) == [provider: 'aws', type: Namespace.LOAD_BALANCERS.ns, loadBalancer: 'loadBalancer', account: 'account', region: 'region', vpcId: 'vpc-12345', loadBalancerType: 'application', application: 'loadbalancer', stack: null, detail: null]
+    Keys.parse(Keys.getLaunchTemplateKey('kato-main-v056-10062014221307', 'account', 'region')) == [provider: 'aws', type: Namespace.LAUNCH_TEMPLATES.ns, launchTemplateName: 'kato-main-v056-10062014221307', region: 'region', account: 'account', application: 'kato', stack: 'main']
   }
 
   def 'load balancer key backwards compatibility'() {

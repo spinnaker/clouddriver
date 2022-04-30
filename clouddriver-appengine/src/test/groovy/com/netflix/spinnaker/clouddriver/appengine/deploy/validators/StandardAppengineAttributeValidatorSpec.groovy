@@ -18,14 +18,17 @@ package com.netflix.spinnaker.clouddriver.appengine.deploy.validators
 
 import com.netflix.spinnaker.clouddriver.appengine.gitClient.AppengineGitCredentialType
 import com.netflix.spinnaker.clouddriver.appengine.gitClient.AppengineGitCredentials
+import com.netflix.spinnaker.clouddriver.appengine.model.AppengineServerGroup
 import com.netflix.spinnaker.clouddriver.appengine.model.AppengineTrafficSplit
+import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineClusterProvider
 import com.netflix.spinnaker.clouddriver.appengine.model.ShardBy
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineCredentials
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
-import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
+import com.netflix.spinnaker.credentials.CredentialsRepository
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository
+import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
-import org.springframework.validation.Errors
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -35,26 +38,52 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
   private static final ACCOUNT_NAME = "my-appengine-account"
   private static final APPLICATION_NAME = "test-app"
   private static final REGION = "us-central"
+  private static final DEFAULT_LOAD_BALANCER_NAME = "default"
+  private static final BACKEND_LOAD_BALANCER_NAME = "backend"
+  private static final LATENCY_LOAD_BALANCER_NAME = "latency_sensitive"
+
+
+  private static final SERVER_GROUP_NAME_1 = "app-stack-detail-v000"
+  private static final SERVER_GROUP_1 = new AppengineServerGroup(
+    name: SERVER_GROUP_NAME_1,
+    loadBalancers: [DEFAULT_LOAD_BALANCER_NAME]
+  )
+
+  private static final SERVER_GROUP_NAME_2 = "app-stack-detail-v001"
+  private static final SERVER_GROUP_2 = new AppengineServerGroup(
+    name: SERVER_GROUP_NAME_2,
+    loadBalancers: [DEFAULT_LOAD_BALANCER_NAME, BACKEND_LOAD_BALANCER_NAME, LATENCY_LOAD_BALANCER_NAME]
+  )
+
+  private static final SERVER_GROUP_NAME_3 = "allows-gradual-migration"
+  private static final SERVER_GROUP_3 = new AppengineServerGroup(
+    name: SERVER_GROUP_NAME_3,
+    loadBalancers: [DEFAULT_LOAD_BALANCER_NAME],
+    allowsGradualTrafficMigration: true
+  )
 
   @Shared
-  DefaultAccountCredentialsProvider accountCredentialsProvider
+  CredentialsRepository<AppengineNamedAccountCredentials> credentialsRepository
 
   @Shared
   AppengineGitCredentials gitCredentials
 
+  @Shared
+  AppengineNamedAccountCredentials namedAccountCredentials
+
   void setupSpec() {
-    def credentialsRepo = new MapBackedAccountCredentialsRepository()
-    accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepo)
+    credentialsRepository = new MapBackedCredentialsRepository<>(AppengineNamedAccountCredentials.CREDENTIALS_TYPE,
+      new NoopCredentialsLifecycleHandler<>())
 
     def mockCredentials = Mock(AppengineCredentials)
-    def namedAccountCredentials = new AppengineNamedAccountCredentials.Builder()
+    namedAccountCredentials = new AppengineNamedAccountCredentials.Builder()
       .name(ACCOUNT_NAME)
       .region(REGION)
       .applicationName(APPLICATION_NAME)
       .credentials(mockCredentials)
       .build()
 
-    credentialsRepo.save(ACCOUNT_NAME, namedAccountCredentials)
+    credentialsRepository.save(namedAccountCredentials)
 
     gitCredentials = new AppengineGitCredentials(
       httpsUsernamePasswordCredentialsProvider: Mock(UsernamePasswordCredentialsProvider)
@@ -63,7 +92,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "validate non-empty valid"() {
     setup:
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errors)
       def label = "attribute"
 
@@ -90,7 +119,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "validate non-empty invalid"() {
     setup:
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errors)
       def label = "attribute"
 
@@ -112,7 +141,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "validate by regex valid"() {
     setup:
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errors)
       def label = "attribute"
 
@@ -124,7 +153,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "validate by regex invalid"() {
     setup:
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
     def validator = new StandardAppengineAttributeValidator(DECORATOR, errors)
     def label = "attribute"
     def regex = /\w{3}-\w{6}/
@@ -137,17 +166,17 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "credentials reject (empty)"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
 
     when:
-      validator.validateCredentials(null, accountCredentialsProvider)
+      validator.validateCredentials(null, credentialsRepository)
     then:
       1 * errorsMock.rejectValue("${DECORATOR}.account", "${DECORATOR}.account.empty")
       0 * errorsMock._
 
     when:
-      validator.validateCredentials("", accountCredentialsProvider)
+      validator.validateCredentials("", credentialsRepository)
     then:
       1 * errorsMock.rejectValue("${DECORATOR}.account", "${DECORATOR}.account.empty")
       0 * errorsMock._
@@ -155,11 +184,11 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "credentials reject (unknown)"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
 
     when:
-      validator.validateCredentials("You-don't-know-me", accountCredentialsProvider)
+      validator.validateCredentials("You-don't-know-me", credentialsRepository)
     then:
       1 * errorsMock.rejectValue("${DECORATOR}.account", "${DECORATOR}.account.notFound")
       0 * errorsMock._
@@ -167,18 +196,18 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "credentials accept"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
 
     when:
-      validator.validateCredentials(ACCOUNT_NAME, accountCredentialsProvider)
+      validator.validateCredentials(ACCOUNT_NAME, credentialsRepository)
     then:
       0 * errorsMock._
   }
 
   void "git credentials reject"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
 
     when:
@@ -192,7 +221,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "git credentials reject (empty)"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
 
     when:
@@ -204,7 +233,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "git credentials accept"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
 
     when:
@@ -216,7 +245,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "details accept"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
       def label = "label"
 
@@ -243,7 +272,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "details reject"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
       def label = "label"
 
@@ -274,7 +303,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "application accept"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
       def label = "label"
 
@@ -296,7 +325,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "application reject"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
       def label = "label"
 
@@ -321,7 +350,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "stack accept"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
       def label = "label"
 
@@ -343,7 +372,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "stack reject"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
       def label = "label"
 
@@ -363,7 +392,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
   @Unroll
   void "allocations accept"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
       def label = "allocations"
 
@@ -382,7 +411,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
   @Unroll
   void "allocations reject (wrong number of decimal places)"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
       def label = "allocations"
 
@@ -400,7 +429,7 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
   void "allocations reject (does not sum to 1)"() {
     setup:
-      def errorsMock = Mock(Errors)
+      def errorsMock = Mock(ValidationErrors)
       def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
       def label = "allocations"
 
@@ -409,5 +438,74 @@ class StandardAppengineAttributeValidatorSpec extends Specification {
 
     then:
       1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.invalid (Allocations must sum to 1)")
+}
+
+void "serverGroup reject not found"() {
+  setup:
+  def errorsMock = Mock(ValidationErrors)
+  def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
+  def label = "allocations"
+  def serverGroupName = "not_exists"
+  def mockCluster = Mock(AppengineClusterProvider)
+
+  when:
+  validator.validateServerGroupsCanBeEnabled([serverGroupName], DEFAULT_LOAD_BALANCER_NAME, namedAccountCredentials, mockCluster, "split.allocations")
+
+  then:
+  1 * errorsMock.rejectValue("${DECORATOR}.split.${label}", "${DECORATOR}.split.${label}.invalid (Server group ${serverGroupName} not found).")
+}
+
+  void "serverGroup valid"() {
+    setup:
+    def errorsMock = Mock(ValidationErrors)
+    def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
+    def label = "allocations"
+    def mockCluster = Mock(AppengineClusterProvider)
+    mockCluster.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME_1) >> SERVER_GROUP_1
+    mockCluster.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME_2) >> SERVER_GROUP_2
+    mockCluster.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME_3) >> SERVER_GROUP_3
+
+    when:
+    validator.validateServerGroupsCanBeEnabled([SERVER_GROUP_NAME_1], DEFAULT_LOAD_BALANCER_NAME, namedAccountCredentials, mockCluster, "split.allocations")
+
+    then:
+    0 * errorsMock._
   }
+
+  void "same name serverGroup valid"() {
+    setup:
+    def errorsMock = Mock(ValidationErrors)
+    def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
+    def label = "allocations"
+    def mockCluster = Mock(AppengineClusterProvider)
+    mockCluster.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME_1) >> SERVER_GROUP_1
+    mockCluster.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME_2) >> SERVER_GROUP_2
+    mockCluster.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME_3) >> SERVER_GROUP_3
+
+    when:
+    validator.validateServerGroupsCanBeEnabled([SERVER_GROUP_NAME_2], DEFAULT_LOAD_BALANCER_NAME, namedAccountCredentials, mockCluster, "split.allocations")
+    validator.validateServerGroupsCanBeEnabled([SERVER_GROUP_NAME_2], BACKEND_LOAD_BALANCER_NAME, namedAccountCredentials, mockCluster, "split.allocations")
+    validator.validateServerGroupsCanBeEnabled([SERVER_GROUP_NAME_2], LATENCY_LOAD_BALANCER_NAME, namedAccountCredentials, mockCluster, "split.allocations")
+
+    then:
+    0 * errorsMock._
+  }
+
+void "serverGroup reject not registered with load balancer"() {
+  setup:
+  def errorsMock = Mock(ValidationErrors)
+  def validator = new StandardAppengineAttributeValidator(DECORATOR, errorsMock)
+  def label = "allocations"
+  def loadBalancer = "not_exists_loadBalancer"
+  def mockCluster = Mock(AppengineClusterProvider)
+  mockCluster.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME_1) >> SERVER_GROUP_1
+  mockCluster.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME_2) >> SERVER_GROUP_2
+  mockCluster.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME_3) >> SERVER_GROUP_3
+
+  when:
+  validator.validateServerGroupsCanBeEnabled([SERVER_GROUP_NAME_2], loadBalancer, namedAccountCredentials, mockCluster, "split.allocations")
+
+  then:
+  1 * errorsMock.rejectValue("${DECORATOR}.split.${label}", "${DECORATOR}.split.${label}.invalid (Server group ${SERVER_GROUP_NAME_2} not registered with load balancer ${loadBalancer}).")
+}
 }

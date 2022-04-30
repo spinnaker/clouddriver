@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpsertLambdaFunctionEventMappingDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.List;
+import org.pf4j.util.StringUtils;
 
 public class UpsertLambdaEventSourceAtomicOperation
     extends AbstractLambdaAtomicOperation<UpsertLambdaFunctionEventMappingDescription, Object>
@@ -64,8 +65,21 @@ public class UpsertLambdaEventSourceAtomicOperation
         new UpdateEventSourceMappingRequest()
             .withFunctionName(cache.getFunctionArn())
             .withBatchSize(description.getBatchsize())
+            .withBisectBatchOnFunctionError(description.getBisectBatchOnError())
+            .withMaximumBatchingWindowInSeconds(description.getMaxBatchingWindowSecs())
+            .withMaximumRecordAgeInSeconds(description.getMaxRecordAgeSecs())
+            .withMaximumRetryAttempts(description.getMaxRetryAttempts())
+            .withParallelizationFactor(description.getParallelizationFactor())
+            .withTumblingWindowInSeconds(description.getTumblingWindowSecs())
+            .withDestinationConfig(description.getDestinationConfig())
             .withEnabled(description.getEnabled())
             .withUUID(description.getUuid());
+
+    if (StringUtils.isNotNullOrEmpty(description.getQualifier())) {
+      String fullArnWithQualifier =
+          String.format("%s:%s", cache.getFunctionArn(), description.getQualifier());
+      request.setFunctionName(fullArnWithQualifier);
+    }
 
     UpdateEventSourceMappingResult result = client.updateEventSourceMapping(request);
     updateTaskStatus("Finished Updating of AWS Lambda Function Event Mapping Operation...");
@@ -81,9 +95,22 @@ public class UpsertLambdaEventSourceAtomicOperation
         new CreateEventSourceMappingRequest()
             .withFunctionName(cache.getFunctionArn())
             .withBatchSize(description.getBatchsize())
+            .withBisectBatchOnFunctionError(description.getBisectBatchOnError())
+            .withMaximumBatchingWindowInSeconds(description.getMaxBatchingWindowSecs())
+            .withMaximumRecordAgeInSeconds(description.getMaxRecordAgeSecs())
+            .withMaximumRetryAttempts(description.getMaxRetryAttempts())
+            .withParallelizationFactor(description.getParallelizationFactor())
+            .withTumblingWindowInSeconds(description.getTumblingWindowSecs())
+            .withDestinationConfig(description.getDestinationConfig())
             .withEnabled(description.getEnabled())
-            .withStartingPosition("LATEST")
+            .withStartingPosition(description.getStartingPosition())
             .withEventSourceArn(description.getEventSourceArn());
+
+    if (StringUtils.isNotNullOrEmpty(description.getQualifier())) {
+      String fullArnWithQualifier =
+          String.format("%s:%s", cache.getFunctionArn(), description.getQualifier());
+      request.setFunctionName(fullArnWithQualifier);
+    }
 
     CreateEventSourceMappingResult result = client.createEventSourceMapping(request);
     updateTaskStatus("Finished Creation of AWS Lambda Function Event Mapping Operation...");

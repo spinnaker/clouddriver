@@ -21,16 +21,17 @@ import com.huawei.openstack4j.model.compute.ext.AvailabilityZone;
 import com.netflix.spinnaker.clouddriver.huaweicloud.HuaweiCloudProvider;
 import com.netflix.spinnaker.clouddriver.huaweicloud.client.HuaweiCloudClient;
 import com.netflix.spinnaker.clouddriver.huaweicloud.client.HuaweiCloudClientImpl;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.Data;
 
 @Data
 public class HuaweiCloudNamedAccountCredentials
-    implements AccountCredentials<HuaweiCloudCredentials> {
+    extends AbstractAccountCredentials<HuaweiCloudCredentials> {
 
   private final String name;
   private final String environment;
@@ -80,15 +81,10 @@ public class HuaweiCloudNamedAccountCredentials
   }
 
   private List<String> getZonesOfRegion(String region) {
-    List<String> result = new ArrayList();
-
     List<? extends AvailabilityZone> zones = cloudClient.getZones(region);
-    zones.forEach(
-        zone -> {
-          if (zone.getZoneState().getAvailable()) {
-            result.add(zone.getZoneName());
-          }
-        });
-    return result;
+    return zones.stream()
+        .filter(zone -> zone.getZoneState().getAvailable())
+        .map(zone -> zone.getZoneName())
+        .collect(Collectors.toList());
   }
 }

@@ -30,10 +30,10 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/dockerRegistry/images")
+@RequestMapping(["/dockerRegistry/images", "/titus/images"])
 class DockerRegistryImageLookupController {
   @Autowired
-  private final Cache cacheView
+  private Cache cacheView
 
   @Autowired
   AccountCredentialsProvider accountCredentialsProvider
@@ -105,27 +105,56 @@ class DockerRegistryImageLookupController {
       if (!credentials) {
         return null
       } else {
-        def parse = Keys.parse(it.id)
+        def parse = Keys.parse(it.getId())
+        def repo  = (String) parse.repository
+        def tag   = (String) parse.tag
+
+        // if the request asks for specific repositories or tags,
+        // do the filtering accordingly
+        if (lookupOptions.repository && !lookupOptions.repository.equals(repo) ||
+            lookupOptions.repository && lookupOptions.tag && !lookupOptions.tag.equals(tag)) {
+          return null
+        }
+
+        if (lookupOptions.includeDetails) {
+          return [
+            repository : repo,
+            tag        : tag,
+            account    : it.attributes.account,
+            registry   : credentials.getRegistry(),
+            digest     : it.attributes.digest,
+            commitId   : it.attributes.labels?.commitId,
+            buildNumber: it.attributes.labels?.buildNumber,
+            branch     : it.attributes.labels?.branch,
+            artifact   : generateArtifact(credentials.getRegistry(), parse.repository, parse.tag, it.attributes.labels)
+          ]
+        }
+
         return [
-          repository: (String) parse.repository,  //TODO: Deprecate
-          tag       : (String) parse.tag,         //TODO: Deprecate
-          account   : it.attributes.account,      //TODO: Deprecate
-          registry  : credentials.registry,       //TODO: Deprecate
-          digest    : it.attributes.digest,       //TODO: Deprecate
-          artifact  : generateArtifact(credentials.registry, parse.repository, parse.tag)
+          repository: repo,
+          tag       : tag,
+          account   : it.attributes.account,
+          registry  : credentials.getRegistry(),
+          digest    : it.attributes.digest,
+          artifact  : generateArtifact(credentials.getRegistry(), parse.repository, parse.tag)
         ]
+
       }
     }
   }
 
   Map generateArtifact( String registry,def repository, def tag) {
+    generateArtifact( registry, repository, tag, new HashMap());
+  }
+
+  Map generateArtifact( String registry,def repository, def tag, def labels) {
     String reference = "${registry}/${repository}:${tag}"
     [
       name      : repository,
       type      : "docker",
       version   : tag,
       reference : reference,
-      metadata  : [ registry: registry ]
+      metadata  : [ registry: registry, labels: labels ]
     ]
   }
 
@@ -156,14 +185,21 @@ class DockerRegistryImageLookupController {
 
   private boolean isTrackDigestsDisabled() {
     return accountCredentialsProvider.all
-      .findAll { it.cloudProvider == DockerRegistryCloudProvider.DOCKER_REGISTRY }
-      .every { !((DockerRegistryNamedAccountCredentials) it).trackDigests }
+      .findAll {
+        it.getCloudProvider() == DockerRegistryCloudProvider.DOCKER_REGISTRY
+      }
+      .every {
+        !((DockerRegistryNamedAccountCredentials) it).getTrackDigests()
+      }
   }
 
   private static class LookupOptions {
     String q
     String account
     String region
+    String repository
+    String tag
     Integer count
+    Boolean includeDetails
   }
 }

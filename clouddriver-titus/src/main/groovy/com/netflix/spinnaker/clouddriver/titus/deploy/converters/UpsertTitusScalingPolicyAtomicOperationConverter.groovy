@@ -53,11 +53,11 @@ class UpsertTitusScalingPolicyAtomicOperationConverter extends AbstractAtomicOpe
 
     try {
       def titusClient = titusClientProvider.getTitusClient(converted.credentials, converted.region)
-      def titusJob = titusClient.getJobAndAllRunningAndCompletedTasks(converted.jobId)
+      def titusJob = titusClient.findJobById(converted.jobId, false)
       converted.application = titusJob.appName
     } catch (Exception e) {
       converted.application = null
-      log.error("Unable to determine application for titus job (jobId: {})", converted.jobId, e)
+      log.warn("Unable to determine application for titus job (jobId: {})", converted.jobId, e)
     }
 
     converted

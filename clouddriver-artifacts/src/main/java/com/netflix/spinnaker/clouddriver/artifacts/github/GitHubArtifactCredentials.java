@@ -20,39 +20,59 @@ package com.netflix.spinnaker.clouddriver.artifacts.github;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.artifacts.config.SimpleHttpArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.artifacts.exceptions.FailedDownloadException;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.HttpUrl;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.ResponseBody;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
+import javax.annotation.Nullable;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
+@NonnullByDefault
 @Slf4j
 public class GitHubArtifactCredentials extends SimpleHttpArtifactCredentials<GitHubArtifactAccount>
     implements ArtifactCredentials {
+  public static final String CREDENTIALS_TYPE = "artifacts-github";
   @Getter private final String name;
-  @Getter private final List<String> types = Collections.singletonList("github/file");
+  @Getter private final ImmutableList<String> types = ImmutableList.of("github/file");
 
   @JsonIgnore private final ObjectMapper objectMapper;
+  private final boolean useContentAPI;
 
   GitHubArtifactCredentials(
       GitHubArtifactAccount account, OkHttpClient okHttpClient, ObjectMapper objectMapper) {
     super(okHttpClient, account);
     this.name = account.getName();
     this.objectMapper = objectMapper;
+    this.useContentAPI = account.isUseContentAPI();
+  }
+
+  @Override
+  protected Headers getHeaders(GitHubArtifactAccount account) {
+    Headers headers = super.getHeaders(account);
+    if (account.isUseContentAPI()) {
+      return headers
+          .newBuilder()
+          .add(
+              "Accept",
+              String.format("application/vnd.github.%s.raw", account.getGithubAPIVersion()))
+          .build();
+    }
+    return headers;
   }
 
   private HttpUrl getMetadataUrl(Artifact artifact) {
-    String version = artifact.getVersion();
-    if (StringUtils.isEmpty(version)) {
+    String version = Strings.nullToEmpty(artifact.getVersion());
+    if (version.isEmpty()) {
       log.info("No version specified for artifact {}, using 'master'.", version);
       version = "master";
     }
@@ -62,6 +82,9 @@ public class GitHubArtifactCredentials extends SimpleHttpArtifactCredentials<Git
 
   @Override
   protected HttpUrl getDownloadUrl(Artifact artifact) throws IOException {
+    if (this.useContentAPI) {
+      return getMetadataUrl(artifact);
+    }
     ResponseBody metadataResponse;
     try {
       metadataResponse = fetchUrl(getMetadataUrl(artifact));
@@ -73,7 +96,7 @@ public class GitHubArtifactCredentials extends SimpleHttpArtifactCredentials<Git
 
     ContentMetadata metadata =
         objectMapper.readValue(metadataResponse.string(), ContentMetadata.class);
-    if (StringUtils.isEmpty(metadata.downloadUrl)) {
+    if (Strings.isNullOrEmpty(metadata.downloadUrl)) {
       throw new FailedDownloadException(
           "Failed to retrieve your github artifact's download URL. This is likely due to incorrect auth setup. Artifact: "
               + artifact);
@@ -81,9 +104,15 @@ public class GitHubArtifactCredentials extends SimpleHttpArtifactCredentials<Git
     return parseUrl(metadata.getDownloadUrl());
   }
 
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
+  }
+
   @Data
   static class ContentMetadata {
     @JsonProperty("download_url")
+    @Nullable
     private String downloadUrl;
   }
 }

@@ -16,10 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.maven;
 
+import com.netflix.spinnaker.credentials.CredentialsTypeProperties;
 import com.squareup.okhttp.OkHttpClient;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -32,13 +30,18 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(MavenArtifactProviderProperties.class)
 @RequiredArgsConstructor
 @Slf4j
-public class MavenArtifactConfiguration {
+class MavenArtifactConfiguration {
   private final MavenArtifactProviderProperties mavenArtifactProviderProperties;
 
   @Bean
-  List<? extends MavenArtifactCredentials> mavenArtifactCredentials(OkHttpClient okHttpClient) {
-    return mavenArtifactProviderProperties.getAccounts().stream()
-        .map(
+  public CredentialsTypeProperties<MavenArtifactCredentials, MavenArtifactAccount>
+      mavenCredentialsProperties(OkHttpClient okHttpClient) {
+    return CredentialsTypeProperties.<MavenArtifactCredentials, MavenArtifactAccount>builder()
+        .type(MavenArtifactCredentials.CREDENTIALS_TYPE)
+        .credentialsClass(MavenArtifactCredentials.class)
+        .credentialsDefinitionClass(MavenArtifactAccount.class)
+        .defaultCredentialsSource(mavenArtifactProviderProperties::getAccounts)
+        .credentialsParser(
             a -> {
               try {
                 return new MavenArtifactCredentials(a, okHttpClient);
@@ -47,7 +50,6 @@ public class MavenArtifactConfiguration {
                 return null;
               }
             })
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+        .build();
   }
 }

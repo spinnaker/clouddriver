@@ -17,11 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.gcs;
 
+import com.netflix.spinnaker.credentials.CredentialsTypeProperties;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -34,14 +32,18 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(GcsArtifactProviderProperties.class)
 @RequiredArgsConstructor
 @Slf4j
-public class GcsArtifactConfiguration {
+class GcsArtifactConfiguration {
   private final GcsArtifactProviderProperties gcsArtifactProviderProperties;
 
   @Bean
-  List<? extends GcsArtifactCredentials> gcsArtifactCredentials(
-      String clouddriverUserAgentApplicationName) {
-    return gcsArtifactProviderProperties.getAccounts().stream()
-        .map(
+  public CredentialsTypeProperties<GcsArtifactCredentials, GcsArtifactAccount>
+      gcsCredentialsProperties(String clouddriverUserAgentApplicationName) {
+    return CredentialsTypeProperties.<GcsArtifactCredentials, GcsArtifactAccount>builder()
+        .type(GcsArtifactCredentials.CREDENTIALS_TYPE)
+        .credentialsClass(GcsArtifactCredentials.class)
+        .credentialsDefinitionClass(GcsArtifactAccount.class)
+        .defaultCredentialsSource(gcsArtifactProviderProperties::getAccounts)
+        .credentialsParser(
             a -> {
               try {
                 return new GcsArtifactCredentials(clouddriverUserAgentApplicationName, a);
@@ -50,7 +52,6 @@ public class GcsArtifactConfiguration {
                 return null;
               }
             })
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+        .build();
   }
 }

@@ -29,7 +29,6 @@ import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import dev.minutest.rootContext
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
-import java.util.function.Predicate
 
 /**
  * This example shows how to do branching logic inside of Sagas.
@@ -117,8 +116,9 @@ class BranchingExampleTest : AbstractSagaTest() {
     }
   }
 
-  internal class ShouldDoOptionalThings : Predicate<Saga> {
+  internal class ShouldDoOptionalThings : SagaFlow.ConditionPredicate {
     override fun test(t: Saga): Boolean = t.getEvents().filterIsInstance<PrepareForThings>().first().doOptionalThings
+    override val name: String = "shouldDoOptionalThings"
   }
 
   internal class ThingsCompletedHandler : SagaCompletionHandler<String> {

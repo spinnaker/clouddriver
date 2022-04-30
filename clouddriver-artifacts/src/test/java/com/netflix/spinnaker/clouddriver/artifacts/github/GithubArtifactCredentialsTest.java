@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.MappingBuilder;
+import com.github.tomakehurst.wiremock.matching.RegexPattern;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.squareup.okhttp.OkHttpClient;
 import java.io.ByteArrayInputStream;
@@ -45,9 +46,8 @@ class GithubArtifactCredentialsTest {
 
   @Test
   void downloadWithToken(@WiremockResolver.Wiremock WireMockServer server) throws IOException {
-    GitHubArtifactAccount account = new GitHubArtifactAccount();
-    account.setName("my-github-account");
-    account.setToken("abc");
+    GitHubArtifactAccount account =
+        GitHubArtifactAccount.builder().name("my-github-account").token("abc").build();
 
     runTestCase(server, account, m -> m.withHeader("Authorization", equalTo("token abc")));
   }
@@ -59,19 +59,43 @@ class GithubArtifactCredentialsTest {
     Path authFile = tempDir.resolve("auth-file");
     Files.write(authFile, "zzz".getBytes());
 
-    GitHubArtifactAccount account = new GitHubArtifactAccount();
-    account.setName("my-github-account");
-    account.setTokenFile(authFile.toAbsolutePath().toString());
+    GitHubArtifactAccount account =
+        GitHubArtifactAccount.builder()
+            .name("my-github-account")
+            .tokenFile(authFile.toAbsolutePath().toString())
+            .build();
 
     runTestCase(server, account, m -> m.withHeader("Authorization", equalTo("token zzz")));
   }
 
   @Test
+  void downloadWithTokenFromFileWithReloadHeaders(
+      @TempDirectory.TempDir Path tempDir, @WiremockResolver.Wiremock WireMockServer server)
+      throws IOException {
+    Path authFile = tempDir.resolve("auth-file");
+    Files.write(authFile, "zzz".getBytes());
+
+    GitHubArtifactAccount account =
+        GitHubArtifactAccount.builder()
+            .name("my-github-account")
+            .tokenFile(authFile.toAbsolutePath().toString())
+            .build();
+
+    runTestCase(server, account, m -> m.withHeader("Authorization", equalTo("token zzz")));
+
+    Files.write(authFile, "aaa".getBytes());
+
+    runTestCase(server, account, m -> m.withHeader("Authorization", equalTo("token aaa")));
+  }
+
+  @Test
   void downloadWithBasicAuth(@WiremockResolver.Wiremock WireMockServer server) throws IOException {
-    GitHubArtifactAccount account = new GitHubArtifactAccount();
-    account.setName("my-github-account");
-    account.setUsername("user");
-    account.setPassword("passw0rd");
+    GitHubArtifactAccount account =
+        GitHubArtifactAccount.builder()
+            .name("my-github-account")
+            .username("user")
+            .password("passw0rd")
+            .build();
 
     runTestCase(server, account, m -> m.withBasicAuth("user", "passw0rd"));
   }
@@ -83,19 +107,57 @@ class GithubArtifactCredentialsTest {
     Path authFile = tempDir.resolve("auth-file");
     Files.write(authFile, "someuser:somepassw0rd!".getBytes());
 
-    GitHubArtifactAccount account = new GitHubArtifactAccount();
-    account.setName("my-github-account");
-    account.setUsernamePasswordFile(authFile.toAbsolutePath().toString());
+    GitHubArtifactAccount account =
+        GitHubArtifactAccount.builder()
+            .name("my-github-account")
+            .usernamePasswordFile(authFile.toAbsolutePath().toString())
+            .build();
 
     runTestCase(server, account, m -> m.withBasicAuth("someuser", "somepassw0rd!"));
   }
 
   @Test
   void downloadWithNoAuth(@WiremockResolver.Wiremock WireMockServer server) throws IOException {
-    GitHubArtifactAccount account = new GitHubArtifactAccount();
-    account.setName("my-github-account");
+    GitHubArtifactAccount account =
+        GitHubArtifactAccount.builder().name("my-github-account").build();
 
     runTestCase(server, account, m -> m.withHeader("Authorization", absent()));
+  }
+
+  @Test
+  void useGitHubAPIs(@WiremockResolver.Wiremock WireMockServer server) throws IOException {
+    GitHubArtifactAccount account =
+        GitHubArtifactAccount.builder()
+            .name("my-github-account")
+            .token("zzz")
+            .useContentAPI(true)
+            .build();
+
+    runTestCase(
+        server,
+        account,
+        m ->
+            m.withHeader("Authorization", equalTo("token zzz"))
+                .withHeader("Accept", equalTo("application/vnd.github.v3.raw")));
+  }
+
+  @Test
+  void useGitHubAPIsSpecificVersion(@WiremockResolver.Wiremock WireMockServer server)
+      throws IOException {
+    GitHubArtifactAccount account =
+        GitHubArtifactAccount.builder()
+            .name("my-github-account")
+            .token("zzz")
+            .useContentAPI(true)
+            .githubAPIVersion("v10")
+            .build();
+
+    runTestCase(
+        server,
+        account,
+        m ->
+            m.withHeader("Authorization", equalTo("token zzz"))
+                .withHeader("Accept", equalTo("application/vnd.github.v10.raw")));
   }
 
   private void runTestCase(
@@ -134,6 +196,14 @@ class GithubArtifactCredentialsTest {
                 .withQueryParam("ref", equalTo("master"))
                 .willReturn(
                     aResponse().withBody(objectMapper.writeValueAsString(contentMetadata)))));
+
+    server.stubFor(
+        withAuth.apply(
+            any(urlPathEqualTo(METADATA_PATH))
+                .withQueryParam("ref", equalTo("master"))
+                .withHeader(
+                    "Accept", new RegexPattern("application\\/vnd\\.github\\.v(\\d+)\\.raw"))
+                .willReturn(aResponse().withBody(FILE_CONTENTS))));
 
     server.stubFor(
         withAuth.apply(

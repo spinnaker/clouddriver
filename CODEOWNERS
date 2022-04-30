@@ -1,8 +1,11 @@
-clouddriver-kubernetes.*    @maggieneterval @ezimanyi @ethanfrogers
-clouddriver-google.*        @maggieneterval @ezimanyi @plumpy
+clouddriver-kubernetes/    @clanesf @german-muzquiz
+clouddriver-google/        @Nirmalyasen @plumpy @rebala @skandragon
+clouddriver-cloudfoundry/  @zachsmith1
+clouddriver-appengine/     @zachsmith1
+clouddriver-lambda/        @zachsmith1
 
-clouddriver-saga.*          @robzienert @cfieber
-clouddriver-core.*          @robzienert @cfieber
+clouddriver-saga/          @cfieber
+clouddriver-core/          @cfieber
 
-clouddriver-aws.*           @jeyrschabu @aravindmd
-clouddriver-titus.*         @jeyrschabu @aravindmd
+clouddriver-aws/           @jeyrschabu @aravindmd @ajordens
+clouddriver-titus/         @jeyrschabu @aravindmd @ajordens

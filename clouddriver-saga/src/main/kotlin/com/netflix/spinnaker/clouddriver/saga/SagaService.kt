@@ -19,7 +19,6 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaIntegrationException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaMissingRequiredCommandException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaNotFoundException
-import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaAction
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlowIterator
@@ -30,7 +29,6 @@ import com.netflix.spinnaker.kork.exceptions.SpinnakerException
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
-import org.springframework.core.ResolvableType
 
 /**
  * The main brains of the Saga library. Orchestrates the progression of a [Saga] until its completion.
@@ -87,7 +85,7 @@ class SagaService(
       log.debug("Applying saga action ${action.javaClass.simpleName} for ${saga.name}/${saga.id}")
 
       val requiredCommand: Class<SagaCommand> = getRequiredCommand(action)
-      if (!saga.completed(requiredCommand)) {
+      if (!saga.finalizedCommand(requiredCommand)) {
         val stepCommand = saga.getNextCommand(requiredCommand)
           ?: throw SagaMissingRequiredCommandException("Missing required command ${requiredCommand.simpleName}")
 
@@ -106,14 +104,16 @@ class SagaService(
             handledException
           )
 
-          saga.addEvent(SagaActionErrorOccurred(
-            actionName = action.javaClass.simpleName,
-            error = handledException,
-            retryable = when (handledException) {
-              is SpinnakerException -> handledException.retryable ?: false
-              else -> false
-            }
-          ))
+          saga.addEvent(
+            SagaActionErrorOccurred(
+              actionName = action.javaClass.simpleName,
+              error = handledException,
+              retryable = when (handledException) {
+                is SpinnakerException -> handledException.retryable ?: false
+                else -> false
+              }
+            )
+          )
           sagaRepository.save(saga)
 
           registry
@@ -184,26 +184,14 @@ class SagaService(
 
   private fun invokeExceptionHandler(flow: SagaFlow, exception: Exception): Exception {
     flow.exceptionHandler?.let { exceptionHandler ->
-        val handler = applicationContext.getBean(exceptionHandler)
-        return handler.handle(exception)
+      val handler = applicationContext.getBean(exceptionHandler)
+      return handler.handle(exception)
     }
     return exception
   }
 
-  private fun getRequiredCommand(action: SagaAction<SagaCommand>): Class<SagaCommand> {
-    val actionType = ResolvableType.forClass(SagaAction::class.java, action.javaClass)
-    actionType.resolve()
-
-    val commandType = actionType.getGeneric(0)
-    commandType.resolve()
-
-    val rawClass = commandType.rawClass!!
-    if (SagaCommand::class.java.isAssignableFrom(rawClass)) {
-      @Suppress("UNCHECKED_CAST")
-      return rawClass as Class<SagaCommand>
-    }
-    throw SagaSystemException("Resolved next action is not a SagaCommand: ${rawClass.simpleName}")
-  }
+  private fun getRequiredCommand(action: SagaAction<SagaCommand>): Class<SagaCommand> =
+    getCommandTypeFromAction(action.javaClass)
 
   override fun setApplicationContext(applicationContext: ApplicationContext) {
     this.applicationContext = applicationContext

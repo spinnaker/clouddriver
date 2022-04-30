@@ -16,33 +16,38 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.validators
 
+import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.aws.AmazonOperation
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.BasicAmazonDeployDescription
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
+import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
+import com.netflix.spinnaker.credentials.CredentialsRepository
 import groovy.transform.stc.ClosureParams
 import groovy.transform.stc.SimpleType
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import org.springframework.validation.Errors
 
+@Slf4j
 @Component("basicAmazonDeployDescriptionValidator")
 @AmazonOperation(AtomicOperations.CREATE_SERVER_GROUP)
 class BasicAmazonDeployDescriptionValidator extends AmazonDescriptionValidationSupport<BasicAmazonDeployDescription> {
   @Autowired
-  AccountCredentialsProvider accountCredentialsProvider
+  CredentialsRepository<NetflixAmazonCredentials> credentialsRepository
 
   @Override
-  void validate(List priorDescriptions, BasicAmazonDeployDescription description, Errors errors) {
+  void validate(List priorDescriptions, BasicAmazonDeployDescription description, ValidationErrors errors) {
     def credentials = null
 
     if (!description.credentials) {
       errors.rejectValue "credentials", "basicAmazonDeployDescription.credentials.empty"
     } else {
-      credentials = accountCredentialsProvider.getCredentials(description?.credentials?.name)
-      if (!(credentials instanceof AmazonCredentials)) {
+      credentials = credentialsRepository.getOne(description?.credentials?.name)
+      if (credentials == null) {
         errors.rejectValue("credentials", "basicAmazonDeployDescription.credentials.invalid")
       }
     }
@@ -73,22 +78,71 @@ class BasicAmazonDeployDescriptionValidator extends AmazonDescriptionValidationS
     if (!description.source?.useSourceCapacity) {
       validateCapacity description, errors
     }
+
+    // unlimitedCpuCredits (set to true / false) is valid only with supported instance types
+    if (description.unlimitedCpuCredits != null
+      && !InstanceTypeUtils.isBurstingSupportedByAllTypes(description.getAllInstanceTypes())) {
+      errors.rejectValue "unlimitedCpuCredits", "basicAmazonDeployDescription.bursting.not.supported.by.instanceType"
+    }
+
+    // spotInstancePools is applicable only for 'lowest-price' spotAllocationStrategy
+    if (description.spotInstancePools && description.spotInstancePools > 0 && description.spotAllocationStrategy != "lowest-price") {
+      errors.rejectValue "spotInstancePools", "basicAmazonDeployDescription.spotInstancePools.not.supported.for.spotAllocationStrategy"
+    }
+
+    // log warnings
+    final String warnings = getWarnings(description)
+    log.warn(warnings)
+  }
+
+  /**
+   * Log warnings to indicate potential user error, invalid configurations that could result in unexpected outcome, etc.
+   */
+  @VisibleForTesting
+  private String getWarnings(BasicAmazonDeployDescription description) {
+    List<String> warnings = []
+
+    // certain features work as expected only when AWS EC2 Launch Template feature is enabled and used
+    if (!description.setLaunchTemplate) {
+      def ltFeaturesEnabled = getLtFeaturesEnabled(description)
+
+      if (ltFeaturesEnabled) {
+        warnings.add("WARNING: The following fields ${ltFeaturesEnabled} work as expected only with AWS EC2 Launch Template, " +
+                "but 'setLaunchTemplate' is set to false in request with account: ${description.account}, " +
+                "application: ${description.application}, stack: ${description.stack})")
+      }
+    }
+    return warnings.join("\n")
+  }
+
+  private List<String> getLtFeaturesEnabled(final BasicAmazonDeployDescription descToValidate) {
+    def allLtFeatures = BasicAmazonDeployDescription.getLaunchTemplateOnlyFieldNames()
+    def descWithDefaults = new BasicAmazonDeployDescription()
+    def ltFeaturesEnabled = []
+
+    allLtFeatures.each({
+      if (descToValidate."$it" != descWithDefaults."$it") {
+        ltFeaturesEnabled.add(it)
+      }
+    })
+
+    return ltFeaturesEnabled.sort()
   }
 
   enum BlockDeviceRules {
-    deviceNameNotNull({ AmazonBlockDevice device, Errors errors ->
+    deviceNameNotNull({ AmazonBlockDevice device, ValidationErrors errors ->
       if (!device.deviceName) {
         errors.rejectValue "blockDevices", "basicAmazonDeployDescription.block.device.not.named", [] as String[], "Device name is required for block device"
       }
     }),
 
-    ephemeralConfigWrong({ AmazonBlockDevice device, Errors errors ->
+    ephemeralConfigWrong({ AmazonBlockDevice device, ValidationErrors errors ->
       if (device.virtualName && (device.deleteOnTermination != null || device.iops || device.size || device.snapshotId || device.volumeType)) {
         errors.rejectValue "blockDevices", "basicAmazonDeployDescription.block.device.ephemeral.config", [device.virtualName] as String[], "Ephemeral block device $device.deviceName with EBS configuration parameters"
       }
     }),
 
-    ebsConfigWrong({ AmazonBlockDevice device, Errors errors ->
+    ebsConfigWrong({ AmazonBlockDevice device, ValidationErrors errors ->
       if (!device.virtualName && !device.size) {
         errors.rejectValue "blockDevices", "basicAmazonDeployDescription.block.device.ebs.config", [device.deviceName] as String[], "EBS device $device.deviceName missing required value size"
       }
@@ -103,11 +157,11 @@ class BasicAmazonDeployDescriptionValidator extends AmazonDescriptionValidationS
       this.validationRule = validationRule
     }
 
-    void validateDevice(AmazonBlockDevice device, Errors errors) {
+    void validateDevice(AmazonBlockDevice device, ValidationErrors errors) {
       validationRule(device, errors)
     }
 
-    static void validate(AmazonBlockDevice device, Errors errors) {
+    static void validate(AmazonBlockDevice device, ValidationErrors errors) {
       for (rule in values()) {
         rule.validateDevice device, errors
       }

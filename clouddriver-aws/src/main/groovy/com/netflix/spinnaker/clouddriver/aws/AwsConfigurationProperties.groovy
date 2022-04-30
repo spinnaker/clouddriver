@@ -45,8 +45,28 @@ class AwsConfigurationProperties {
     final AlarmsConfig alarms = new AlarmsConfig()
   }
 
+  @Canonical
+  static class CloudFormationConfig {
+    boolean changeSetsIncludeNestedStacks = false
+  }
+
+  /**
+   * health check related config settings
+   */
+  @Canonical
+  static class HealthConfig {
+    /**
+     * flag to toggle verifying account health check. by default, account health check is enabled.
+     */
+    boolean verifyAccountHealth = true
+  }
+
   @NestedConfigurationProperty
   final ClientConfig client = new ClientConfig()
   @NestedConfigurationProperty
   final CleanupConfig cleanup = new CleanupConfig()
+  @NestedConfigurationProperty
+  final CloudFormationConfig cloudformation = new CloudFormationConfig()
+  @NestedConfigurationProperty
+  final HealthConfig health = new HealthConfig()
 }

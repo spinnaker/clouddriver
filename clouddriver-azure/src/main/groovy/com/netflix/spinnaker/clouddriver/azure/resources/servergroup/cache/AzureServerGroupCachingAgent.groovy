@@ -32,6 +32,7 @@ import com.netflix.spinnaker.clouddriver.azure.common.cache.AzureCachingAgent
 import com.netflix.spinnaker.clouddriver.azure.common.cache.MutableCacheData
 import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancer
+import com.netflix.spinnaker.clouddriver.cache.OnDemandType
 
 import static com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys.Namespace.*
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
@@ -64,10 +65,14 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
     List<AzureServerGroupDescription> serverGroups = creds.computeClient.getServerGroupsAll(region)
     serverGroups?.each {
       try {
-        if(it.loadBalancerType == AzureLoadBalancer.AzureLoadBalancerType.AZURE_LOAD_BALANCER.toString()) {
+        if (it.loadBalancerType == AzureLoadBalancer.AzureLoadBalancerType.AZURE_LOAD_BALANCER.toString()) {
           it.isDisabled = creds.networkClient.isServerGroupWithLoadBalancerDisabled(AzureUtilities.getResourceGroupName(it.appName, region), it.loadBalancerName, it.name)
+        } else if (it.loadBalancerType == AzureLoadBalancer.AzureLoadBalancerType.AZURE_APPLICATION_GATEWAY.toString()) {
+          it.isDisabled = creds.networkClient.isServerGroupWithAppGatewayDisabled(AzureUtilities.getResourceGroupName(it.appName, region), it.appGatewayName, it.name)
+        } else if (it.loadBalancerType == null) {
+          it.isDisabled = creds.networkClient.isServerGroupWithoutLoadBalancerDisabled(AzureUtilities.getResourceGroupName(it.appName, region), it.name)
         } else {
-          it.isDisabled = creds.networkClient.isServerGroupDisabled(AzureUtilities.getResourceGroupName(it.appName, region), it.appGatewayName, it.name)
+          throw new RuntimeException("Invalid load balancer type $it.loadBalancerType")
         }
 
       } catch (Exception e) {
@@ -343,8 +348,8 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
   }
 
   @Override
-  OnDemandAgent.OnDemandType getOnDemandType() {
-    OnDemandAgent.OnDemandType.ServerGroup
+  OnDemandType getOnDemandType() {
+    OnDemandType.ServerGroup
   }
 
   private static void cache(List<CacheData> data, Map<String, CacheData> cacheDataById) {

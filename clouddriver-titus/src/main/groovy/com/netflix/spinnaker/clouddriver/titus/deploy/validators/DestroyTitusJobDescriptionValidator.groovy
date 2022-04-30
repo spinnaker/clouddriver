@@ -17,32 +17,30 @@
  */
 package com.netflix.spinnaker.clouddriver.titus.deploy.validators
 
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusOperation
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.DestroyTitusJobDescription
 import org.springframework.stereotype.Component
-import org.springframework.validation.Errors
 
 @Component
 @TitusOperation(AtomicOperations.DESTROY_JOB)
 class DestroyTitusJobDescriptionValidator extends AbstractTitusDescriptionValidatorSupport<DestroyTitusJobDescription> {
 
-  DestroyTitusJobDescriptionValidator(AccountCredentialsProvider accountCredentialsProvider) {
-    super(accountCredentialsProvider, "destroyTitusJobDescription")
+  DestroyTitusJobDescriptionValidator() {
+    super("destroyTitusJobDescription")
   }
 
   @Override
-  void validate(List priorDescriptions, DestroyTitusJobDescription description, Errors errors) {
+  void validate(List priorDescriptions, DestroyTitusJobDescription description, ValidationErrors errors) {
     super.validate(priorDescriptions, description, errors)
 
     if (!description.region) {
       errors.rejectValue "region", "destroyTitusJobDescription.region.empty"
     }
-
-    def credentials = getAccountCredentials(description?.credentials?.name)
-    if (credentials && !((NetflixTitusCredentials) credentials).regions.name.contains(description.region)) {
+    if (description?.credentials && !((NetflixTitusCredentials) description?.credentials).regions.name.contains(description.region)) {
       errors.rejectValue "region", "destroyTitusJobDescription.region.not.configured", description.region, "Region not configured"
     }
 

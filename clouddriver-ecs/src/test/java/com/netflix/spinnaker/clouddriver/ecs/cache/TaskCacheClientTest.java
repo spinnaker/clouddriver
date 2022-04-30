@@ -42,6 +42,7 @@ public class TaskCacheClientTest extends CommonCacheClient {
     String key = Keys.getTaskKey(ACCOUNT, REGION, taskId);
     String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
     String taskArn = "arn:aws:ecs:" + REGION + ":012345678910:task/" + taskId;
+    String availabilityZone = REGION + "a";
 
     Task task = new Task();
     task.setClusterArn(clusterArn);
@@ -51,8 +52,10 @@ public class TaskCacheClientTest extends CommonCacheClient {
     task.setGroup("group:testservice-stack-details-v1");
     task.setContainers(Collections.emptyList());
     task.setLastStatus("RUNNING");
+    task.setHealthStatus("HEALTHY");
     task.setDesiredStatus("RUNNING");
     task.setStartedAt(new Date());
+    task.setAvailabilityZone(availabilityZone);
     Map<String, Object> attributes = TaskCachingAgent.convertTaskToAttributes(task);
 
     when(cacheView.get(TASKS.toString(), key))
@@ -89,6 +92,13 @@ public class TaskCacheClientTest extends CommonCacheClient {
         task.getLastStatus().equals(ecsTask.getLastStatus()));
 
     assertTrue(
+        "Expected the health status to be "
+            + task.getHealthStatus()
+            + " but got "
+            + ecsTask.getHealthStatus(),
+        task.getHealthStatus().equals(ecsTask.getHealthStatus()));
+
+    assertTrue(
         "Expected the desired status to be "
             + task.getDesiredStatus()
             + " but got "
@@ -105,5 +115,12 @@ public class TaskCacheClientTest extends CommonCacheClient {
     assertTrue(
         "Expected the task to have 0 containers but got " + task.getContainers().size(),
         task.getContainers().size() == 0);
+
+    assertTrue(
+        "Expected the availability zone to be "
+            + task.getAvailabilityZone()
+            + " but got "
+            + ecsTask.getAvailabilityZone(),
+        task.getAvailabilityZone().equals(ecsTask.getAvailabilityZone()));
   }
 }

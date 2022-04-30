@@ -20,13 +20,23 @@ import com.amazonaws.services.autoscaling.AmazonAutoScaling
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.BlockDeviceMapping
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
-import com.amazonaws.services.autoscaling.model.Ebs
 import com.amazonaws.services.autoscaling.model.LaunchConfiguration
+import com.amazonaws.services.autoscaling.model.LaunchTemplate
+import com.amazonaws.services.autoscaling.model.LaunchTemplateOverrides
+import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification
+import com.amazonaws.services.autoscaling.model.MixedInstancesPolicy
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.DescribeImagesRequest
 import com.amazonaws.services.ec2.model.DescribeImagesResult
+import com.amazonaws.services.ec2.model.DescribeInstanceTypesResult
 import com.amazonaws.services.ec2.model.DescribeVpcClassicLinkResult
+import com.amazonaws.services.ec2.model.EbsBlockDevice
 import com.amazonaws.services.ec2.model.Image
+import com.amazonaws.services.ec2.model.InstanceTypeInfo
+import com.amazonaws.services.ec2.model.LaunchTemplateBlockDeviceMapping
+import com.amazonaws.services.ec2.model.LaunchTemplateVersion
+import com.amazonaws.services.ec2.model.ProcessorInfo
+import com.amazonaws.services.ec2.model.ResponseLaunchTemplateData
 import com.amazonaws.services.ec2.model.VpcClassicLink
 import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing as AmazonELBV1
 import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersResult
@@ -36,13 +46,17 @@ import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsResult
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroup
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.LaunchTemplateRollOutConfig
+import com.netflix.spinnaker.clouddriver.aws.services.LaunchTemplateService
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
-import com.netflix.spinnaker.clouddriver.aws.deploy.AsgReferenceCopier
-import com.netflix.spinnaker.clouddriver.aws.deploy.AutoScalingWorker
-import com.netflix.spinnaker.clouddriver.aws.deploy.BlockDeviceConfig
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AsgReferenceCopier
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AutoScalingWorker
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.AutoScalingWorker.AsgConfiguration
+import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils
+import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.BasicAmazonDeployDescription
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.LoadBalancerLookupHelper
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.UpsertAmazonLoadBalancerResult
@@ -57,7 +71,7 @@ import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactor
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory.RegionScopedProvider
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
+import com.netflix.spinnaker.credentials.CredentialsRepository
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
@@ -89,13 +103,24 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   AmazonELBV1 elbV1 = Mock(AmazonELBV1)
   AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider = Mock(AwsConfiguration.AmazonServerGroupProvider)
 
+  String instanceType
   List<AmazonBlockDevice> blockDevices
 
   ScalingPolicyCopier scalingPolicyCopier = Mock(ScalingPolicyCopier)
 
   def setup() {
-    amazonEC2.describeImages(_) >> new DescribeImagesResult().withImages(new Image().withImageId("ami-12345"))
+    this.instanceType = 'test.large'
     this.blockDevices = [new AmazonBlockDevice(deviceName: "/dev/sdb", virtualName: "ephemeral0")]
+
+    amazonEC2.describeImages(_) >> new DescribeImagesResult()
+      .withImages(new Image().withImageId("ami-12345").withVirtualizationType('hvm').withArchitecture('x86_64'))
+    amazonEC2.describeInstanceTypes(_) >> new DescribeInstanceTypesResult(instanceTypes: [
+      new InstanceTypeInfo(
+        instanceType: this.instanceType,
+        supportedVirtualizationTypes: ['hvm'],
+        processorInfo: new ProcessorInfo(supportedArchitectures: ['x86_64'], sustainedClockSpeedInGhz: 2.8),
+      )])
+
     def rspf = Stub(RegionScopedProviderFactory) {
       forRegion(_, _) >> Stub(RegionScopedProviderFactory.RegionScopedProvider) {
         getAutoScaling() >> Stub(AmazonAutoScaling)
@@ -105,10 +130,11 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
       }
     }
     def defaults = new AwsConfiguration.DeployDefaults(iamRole: 'IamRole')
-    def credsRepo = new MapBackedAccountCredentialsRepository()
-    credsRepo.save('baz', TestCredential.named('baz'))
+    def credsRepo = Stub(CredentialsRepository) {
+      getOne("baz") >> {TestCredential.named("baz")}
+    }
     this.handler = new BasicAmazonDeployHandler(
-      rspf, credsRepo, amazonServerGroupProvider, defaults, scalingPolicyCopier, blockDeviceConfig
+      rspf, credsRepo, amazonServerGroupProvider, defaults, scalingPolicyCopier, blockDeviceConfig, Mock(LaunchTemplateRollOutConfig)
     ) {
       @Override
       LoadBalancerLookupHelper loadBalancerLookupHelper() {
@@ -124,6 +150,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   def cleanupSpec() {
     AutoScalingWorker.metaClass = null
+    InstanceTypeUtils.metaClass = null
   }
 
   void "handler supports basic deploy description type"() {
@@ -137,8 +164,11 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "handler invokes a deploy feature for each specified region"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
-    def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgConfig ->
+      deployCallCounts++
+      "foo"
+    }
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: this.instanceType)
     description.availabilityZones = ["us-west-1": [], "us-east-1": []]
     description.credentials = TestCredential.named('baz')
 
@@ -153,10 +183,14 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   void "classic load balancer names are derived from prior execution results"() {
     setup:
+    def classicLbs = []
     def setlbCalls = 0
-    AutoScalingWorker.metaClass.deploy = {}
-    AutoScalingWorker.metaClass.setClassicLoadBalancers = { setlbCalls++ }
-    def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      setlbCalls++
+      classicLbs.addAll(asgCfg.classicLoadBalancers as Collection<String>)
+      "foo"
+    }
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: this.instanceType)
     description.availabilityZones = ["us-east-1": []]
     description.credentials = TestCredential.named('baz')
 
@@ -165,15 +199,18 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
     then:
     setlbCalls
+    classicLbs == ['lb']
     1 * elbV1.describeLoadBalancers(_) >> new DescribeLoadBalancersResult().withLoadBalancerDescriptions(new LoadBalancerDescription().withLoadBalancerName("lb"))
     1 * amazonEC2.describeVpcClassicLink() >> new DescribeVpcClassicLinkResult()
   }
 
   void "handles classic load balancers"() {
-
     def classicLbs = []
-    AutoScalingWorker.metaClass.setClassicLoadBalancers = { Collection<String> lbs -> classicLbs.addAll(lbs) }
-    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", loadBalancers: ["lb"])
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      classicLbs.addAll(asgCfg.classicLoadBalancers as Collection<String>)
+      "foo"
+    }
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: this.instanceType, loadBalancers: ["lb"])
     description.availabilityZones = ["us-east-1": []]
     description.credentials = TestCredential.named('baz')
 
@@ -191,6 +228,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     given:
     def description = new BasicAmazonDeployDescription(
         amiName: "ami-12345",
+        instanceType: this.instanceType,
         capacity: new BasicAmazonDeployDescription.Capacity(min: 1, max: 10, desired: 5),
         availabilityZones: ["us-east-1": []],
         credentials: TestCredential.named('baz')
@@ -209,8 +247,11 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "handles application load balancers"() {
 
     def targetGroupARNs = []
-    AutoScalingWorker.metaClass.setTargetGroupArns = { Collection<String> arns -> targetGroupARNs.addAll(arns) }
-    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", targetGroups: ["tg"])
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      targetGroupARNs.addAll(asgCfg.targetGroupArns as Collection<String>)
+      "foo"
+    }
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: this.instanceType, targetGroups: ["tg"])
     description.availabilityZones = ["us-east-1": []]
     description.credentials = TestCredential.named('baz')
 
@@ -225,7 +266,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   }
 
   void "fails if load balancer name is not in classic load balancer"() {
-    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", loadBalancers: ["lb"])
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: this.instanceType, loadBalancers: ["lb"])
     description.availabilityZones = ["us-east-1": []]
     description.credentials = TestCredential.named('baz')
 
@@ -241,12 +282,13 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   void "should populate classic link VPC Id when classic link is enabled"() {
     def actualClassicLinkVpcId
-    AutoScalingWorker.metaClass.deploy = {
-      actualClassicLinkVpcId = classicLinkVpcId
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      actualClassicLinkVpcId = asgCfg.classicLinkVpcId
       "foo"
     }
     def description = new BasicAmazonDeployDescription(
       amiName: "ami-12345",
+      instanceType: this.instanceType,
       availabilityZones: ["us-west-1": []],
       credentials: TestCredential.named('baz')
     )
@@ -265,12 +307,13 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   void "should not populate classic link VPC Id when there is a subnetType"() {
     def actualClassicLinkVpcId
-    AutoScalingWorker.metaClass.deploy = {
-      actualClassicLinkVpcId = classicLinkVpcId
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      actualClassicLinkVpcId = asgCfg.classicLinkVpcId
       "foo"
     }
     def description = new BasicAmazonDeployDescription(
       amiName: "ami-12345",
+      instanceType: this.instanceType,
       availabilityZones: ["us-west-1": []],
       credentials: TestCredential.named('baz'),
       subnetType: "internal"
@@ -283,15 +326,54 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     actualClassicLinkVpcId == null
   }
 
-  void "should send instance class block devices to AutoScalingWorker when matched and none are specified"() {
+  void "should not modify unlimited cpu credits if applicable, and specified"() {
+    setup:
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: "t2.large", subnetType: "internal")
+    description.availabilityZones = ["us-west-1": [], "us-east-1": []]
+    description.credentials = TestCredential.named('baz')
+    description.unlimitedCpuCredits = unlimitedCreditsInput
+
+    and:
+    def unlimitedCpuCreditsPassed = null
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      unlimitedCpuCreditsPassed = asgCfg.unlimitedCpuCredits
+      "foo"
+    }
+
+    when:
+    handler.handle(description, [])
+
+    then:
+    unlimitedCpuCreditsPassed == unlimitedCreditsInput
+
+    where:
+    unlimitedCreditsInput << [true, false]
+  }
+
+  void "should set unlimited cpu credits to the default false only if applicable to all instance types"() {
+
+    expect:
+    handler.getDefaultUnlimitedCpuCredits(instanceTypes as Set) == expectedDefault
+
+    where:
+    instanceTypes               || expectedDefault
+    ["t2.small"]                ||  false
+    ["c3.large"]                ||  null
+    ["t2.large", "t3.large"]    ||  false
+    ["t2.small", "c3.large"]    ||  null
+    ["m4.large", "c3.large"]    ||  null
+  }
+
+  void "should send instance class block devices to AutoScalingWorker when matched and none are specified and absence of source ASG"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
     def setBlockDevices = []
-    AutoScalingWorker.metaClass.setBlockDevices = { List<AmazonBlockDevice> blockDevices ->
-      setBlockDevices = blockDevices
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      deployCallCounts++
+      setBlockDevices = asgCfg.blockDevices
+      "foo"
     }
-    def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: this.instanceType)
     description.instanceType = "m3.medium"
     description.availabilityZones = ["us-west-1": [], "us-east-1": []]
     description.credentials = TestCredential.named('baz')
@@ -311,13 +393,13 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "should favour explicit description block devices over default config"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
     List<AmazonBlockDevice> setBlockDevices = []
-    AutoScalingWorker.metaClass.setBlockDevices = { List<AmazonBlockDevice> blockDevices ->
-      setBlockDevices = blockDevices
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      setBlockDevices = asgCfg.blockDevices
+      deployCallCounts++
+      "foo"
     }
-    def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
-    description.instanceType = "m3.medium"
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: this.instanceType)
     description.blockDevices = [new AmazonBlockDevice(deviceName: "/dev/sdb", size: 125)]
     description.availabilityZones = ["us-west-1": [], "us-east-1": []]
     description.credentials = TestCredential.named('baz')
@@ -332,20 +414,20 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     setBlockDevices == description.blockDevices
     2 * amazonEC2.describeVpcClassicLink() >> new DescribeVpcClassicLinkResult()
     2 * amazonEC2.describeImages(_) >> new DescribeImagesResult().withImages(new Image().withImageId('ami-12345')
-      .withVirtualizationType('hvm'))
+      .withVirtualizationType('hvm').withArchitecture('x86_64'))
   }
 
   @Unroll
   void "should favour ami block device mappings over explicit description block devices and default config, if useAmiBlockDeviceMappings is set"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
     List<AmazonBlockDevice> setBlockDevices = []
-    AutoScalingWorker.metaClass.setBlockDevices = { List<AmazonBlockDevice> blockDevices ->
-      setBlockDevices = blockDevices
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      deployCallCounts++
+      setBlockDevices = asgCfg.blockDevices
+      "foo"
     }
-    def description = new BasicAmazonDeployDescription(amiName: "ami-12345")
-    description.instanceType = "m3.medium"
+    def description = new BasicAmazonDeployDescription(amiName: "ami-12345", instanceType: this.instanceType)
     description.blockDevices = [new AmazonBlockDevice(deviceName: "/dev/sdb", size: 125)]
     description.useAmiBlockDeviceMappings = useAmiBlockDeviceMappings
     description.availabilityZones = ["us-west-1": [], "us-east-1": []]
@@ -362,10 +444,11 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
       new DescribeImagesResult()
         .withImages(new Image()
         .withImageId('ami-12345')
-        .withBlockDeviceMappings([new BlockDeviceMapping()
-                                    .withDeviceName("/dev/sdh")
-                                    .withEbs(new Ebs().withVolumeSize(500))])
-        .withVirtualizationType('hvm'))
+          .withBlockDeviceMappings([new com.amazonaws.services.ec2.model.BlockDeviceMapping()
+                                      .withDeviceName("/dev/sdh")
+                                      .withEbs(new EbsBlockDevice().withVolumeSize(500))])
+          .withVirtualizationType('hvm')
+          .withArchitecture('x86_64'))
     setBlockDevices == expectedBlockDevices
 
     where:
@@ -378,11 +461,13 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "should resolve amiId from amiName"() {
     setup:
     def deployCallCounts = 0
-    AutoScalingWorker.metaClass.deploy = { deployCallCounts++; "foo" }
+    AutoScalingWorker.metaClass.deploy = { AsgConfiguration asgCfg ->
+      deployCallCounts++
+      "foo"
+    }
 
-    def description = new BasicAmazonDeployDescription(amiName: "the-greatest-ami-in-the-world", availabilityZones: ['us-west-1': []])
+    def description = new BasicAmazonDeployDescription(amiName: "the-greatest-ami-in-the-world", instanceType: this.instanceType, availabilityZones: ['us-west-1': []])
     description.credentials = TestCredential.named('baz')
-    description.instanceType = "m3.medium"
 
     when:
     def results = handler.handle(description, [])
@@ -393,29 +478,29 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
       assert req.filters.first().name == 'name'
       assert req.filters.first().values == ['the-greatest-ami-in-the-world']
 
-      return new DescribeImagesResult().withImages(new Image().withImageId('ami-12345').withVirtualizationType('hvm'))
+      return new DescribeImagesResult().withImages(new Image().withImageId('ami-12345').withVirtualizationType('hvm').withArchitecture('x86_64'))
     }
     1 * amazonEC2.describeVpcClassicLink() >> new DescribeVpcClassicLinkResult()
     deployCallCounts == 1
   }
 
   @Unroll
-  void "should copy block devices from source provider if not specified explicitly"() {
+  void "should copy block devices from source provider using a launch configuration if not specified explicitly and instance types match"() {
     given:
     def asgService = Mock(AsgService) {
-      (launchConfig ? 1 : 0) * getLaunchConfiguration(_) >> {
+      expectedCallsToAws * getLaunchConfiguration(_) >> {
         return new LaunchConfiguration()
           .withBlockDeviceMappings(new BlockDeviceMapping().withDeviceName("OLD_DEVICE")
         )
       }
     }
     def sourceRegionScopedProvider = Mock(RegionScopedProvider) {
-      (launchConfig ? 1 : 0) * getAsgService() >> { return asgService }
+      expectedCallsToAws * getAsgService() >> { return asgService }
       1 * getAutoScaling() >> {
         return Mock(AmazonAutoScaling) {
           1 * describeAutoScalingGroups(_) >> {
             return new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
-              new AutoScalingGroup().withLaunchConfigurationName(launchConfig))
+              new AutoScalingGroup().withLaunchConfigurationName("launchConfig"))
           }
         }
       }
@@ -430,10 +515,64 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     targetDescription.blockDevices*.deviceName == expectedBlockDevices
 
     where:
-    description                                                                                   | launchConfig   || expectedBlockDevices
-    new BasicAmazonDeployDescription()                                                            | "launchConfig" || ["OLD_DEVICE"]
-    new BasicAmazonDeployDescription(blockDevices: [])                                            | "launchConfig" || []
-    new BasicAmazonDeployDescription(blockDevices: [new AmazonBlockDevice(deviceName: "DEVICE")]) | "launchConfig" || ["DEVICE"]
+    description                                                                                        | expectedCallsToAws || expectedBlockDevices
+    new BasicAmazonDeployDescription(instanceType: this.instanceType)                                  |       2            || ["OLD_DEVICE"]
+    new BasicAmazonDeployDescription(blockDevices: [], instanceType: this.instanceType)                |       0            || []
+    new BasicAmazonDeployDescription(blockDevices: [new AmazonBlockDevice(deviceName: "DEVICE")],
+                                                                      instanceType: this.instanceType) |       0            || ["DEVICE"]
+  }
+
+  @Unroll
+  void "should copy block devices from source provider using a launch template if not specified explicitly and instance types match"() {
+    given:
+    def launchTemplateVersion = new LaunchTemplateVersion(
+      launchTemplateName: "lt",
+      launchTemplateId: "id",
+      versionNumber: 0,
+      launchTemplateData: new ResponseLaunchTemplateData(
+        blockDeviceMappings: [new LaunchTemplateBlockDeviceMapping(deviceName: "OLD_DEVICE")]
+      )
+    )
+
+    def launchTemplate = new LaunchTemplateSpecification(
+      launchTemplateName: launchTemplateVersion.launchTemplateName,
+      launchTemplateId: launchTemplateVersion.launchTemplateId,
+      version: launchTemplateVersion.versionNumber.toString(),
+    )
+
+    and:
+    def launchTemplateService = Mock(LaunchTemplateService) {
+      getLaunchTemplateVersion({it.launchTemplateId == launchTemplate.launchTemplateId} as LaunchTemplateSpecification) >> Optional.of(launchTemplateVersion)
+    }
+
+    def autoScaling = Mock(AmazonAutoScaling) {
+      describeAutoScalingGroups(_) >> {
+        return new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
+          new AutoScalingGroup().withLaunchTemplate(
+            launchTemplate
+          ))
+      }
+    }
+
+    def sourceRegionScopedProvider = Mock(RegionScopedProvider) {
+      getLaunchTemplateService() >> launchTemplateService
+      getAutoScaling() >> autoScaling
+    }
+
+    when:
+    def targetDescription = handler.copySourceAttributes(
+      sourceRegionScopedProvider, "sourceAsg", null, description
+    )
+
+    then:
+    targetDescription.blockDevices*.deviceName == expectedBlockDevices
+
+    where:
+    description                                                                                        || expectedBlockDevices
+    new BasicAmazonDeployDescription(instanceType: this.instanceType)                                  || ["OLD_DEVICE"]
+    new BasicAmazonDeployDescription(blockDevices: [], instanceType: this.instanceType)                || []
+    new BasicAmazonDeployDescription(blockDevices: [new AmazonBlockDevice(deviceName: "DEVICE")],
+                                                                      instanceType: this.instanceType) || ["DEVICE"]
   }
 
   @Unroll
@@ -441,6 +580,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     given:
     def regionScopedProvider = new RegionScopedProviderFactory().forRegion(testCredentials, "us-west-2")
     def description = new BasicAmazonDeployDescription(
+      instanceType: this.instanceType,
       subnetIds: subnetIds,
       copySourceCustomBlockDeviceMappings: false,
       tags: [:]
@@ -473,18 +613,18 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   void "copy source block devices #copySourceBlockDevices feature flags"() {
     given:
     if (copySourceBlockDevices != null) {
-      description.copySourceCustomBlockDeviceMappings = copySourceBlockDevices
+      description.copySourceCustomBlockDeviceMappings = copySourceBlockDevices // default copySourceCustomBlockDeviceMappings is true
     }
-    int expectedCalls = description.copySourceCustomBlockDeviceMappings ? 1 : 0
+    int expectedCallsToAws = description.copySourceCustomBlockDeviceMappings ? 2 : 0
     def asgService = Mock(AsgService) {
-      (expectedCalls) * getLaunchConfiguration(_) >> {
+      (expectedCallsToAws) * getLaunchConfiguration(_) >> {
         return new LaunchConfiguration()
           .withBlockDeviceMappings(new BlockDeviceMapping().withDeviceName("OLD_DEVICE")
         )
       }
     }
     def sourceRegionScopedProvider = Mock(RegionScopedProvider) {
-      (expectedCalls) * getAsgService() >> { return asgService }
+      (expectedCallsToAws) * getAsgService() >> { return asgService }
       1 * getAutoScaling() >> {
         return Mock(AmazonAutoScaling) {
           1 * describeAutoScalingGroups(_) >> {
@@ -504,16 +644,15 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     targetDescription.blockDevices?.deviceName == expectedBlockDevices
 
     where:
-    description                        | copySourceBlockDevices || expectedBlockDevices
-    new BasicAmazonDeployDescription() | null                   || ["OLD_DEVICE"]
-    new BasicAmazonDeployDescription() | true                   || ["OLD_DEVICE"]
-    new BasicAmazonDeployDescription() | false                  || null
+    description                                                  | copySourceBlockDevices || expectedBlockDevices
+    new BasicAmazonDeployDescription(instanceType: this.instanceType) | null                   || ["OLD_DEVICE"]
+    new BasicAmazonDeployDescription(instanceType: this.instanceType) | true                   || ["OLD_DEVICE"]
+    new BasicAmazonDeployDescription(instanceType: this.instanceType) | false                  || null
   }
-
 
   void 'should fail if useSourceCapacity requested, and source not available'() {
     given:
-    def description = new BasicAmazonDeployDescription(capacity: descriptionCapacity)
+    def description = new BasicAmazonDeployDescription(capacity: descriptionCapacity, instanceType: this.instanceType)
     def sourceRegionScopedProvider = null
 
     when:
@@ -531,7 +670,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   void 'should fail if ASG not found and useSourceCapacity requested'() {
     given:
-    def description = new BasicAmazonDeployDescription(capacity: descriptionCapacity)
+    def description = new BasicAmazonDeployDescription(capacity: descriptionCapacity, instanceType: this.instanceType)
     def sourceRegionScopedProvider = Stub(RegionScopedProvider) {
       getAutoScaling() >> Stub(AmazonAutoScaling) {
         describeAutoScalingGroups(_) >> new DescribeAutoScalingGroupsResult()
@@ -542,7 +681,6 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     handler.copySourceAttributes(
       sourceRegionScopedProvider, "sourceAsg", useSource, description
     )
-
     then:
     thrown(IllegalStateException)
 
@@ -553,7 +691,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   void 'should copy capacity from source if specified'() {
     given:
-    def description = new BasicAmazonDeployDescription(capacity: descriptionCapacity)
+    def description = new BasicAmazonDeployDescription(capacity: descriptionCapacity, instanceType: this.instanceType)
     def asgService = Stub(AsgService) {
       getLaunchConfiguration(_) >> new LaunchConfiguration()
     }
@@ -619,7 +757,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     given:
     def credentials = TestCredential.named('test', [lifecycleHooks: accountLifecycleHooks])
 
-    def description = new BasicAmazonDeployDescription(lifecycleHooks: lifecycleHooks, includeAccountLifecycleHooks: includeAccount)
+    def description = new BasicAmazonDeployDescription(instanceType: this.instanceType, lifecycleHooks: lifecycleHooks, includeAccountLifecycleHooks: includeAccount)
 
     when:
     def result = BasicAmazonDeployHandler.getLifecycleHooks(credentials, description)
@@ -643,7 +781,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     ])
 
     def description = new BasicAmazonDeployDescription(
-      includeAccountLifecycleHooks: true
+      includeAccountLifecycleHooks: true, instanceType: this.instanceType
     )
 
     when:
@@ -651,32 +789,6 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
     then:
     thrown(IllegalArgumentException)
-  }
-
-  @Unroll
-  void "should convert block device mappings to AmazonBlockDevices"() {
-    expect:
-    handler.convertBlockDevices([sourceDevice]) == [targetDevice]
-
-    where:
-    sourceDevice                                                                                                          || targetDevice
-    new BlockDeviceMapping().withDeviceName("Device1").withVirtualName("virtualName")                                     || new AmazonBlockDevice("Device1", "virtualName", null, null, null, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withIops(500))                                   || new AmazonBlockDevice("Device1", null, null, null, null, 500, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withDeleteOnTermination(true))                   || new AmazonBlockDevice("Device1", null, null, null, true, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withVolumeSize(1024))                            || new AmazonBlockDevice("Device1", null, 1024, null, null, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withVolumeType("volumeType"))                    || new AmazonBlockDevice("Device1", null, null, "volumeType", null, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snapshotId"))                    || new AmazonBlockDevice("Device1", null, null, null, null, null, "snapshotId", null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs())                                                 || new AmazonBlockDevice("Device1", null, null, null, null, null, null, null)
-
-    // if snapshot is not provided, we should set encryption correctly
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withEncrypted(null))                             || new AmazonBlockDevice("Device1", null, null, null, null, null, null, null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withEncrypted(true))                             || new AmazonBlockDevice("Device1", null, null, null, null, null, null, true)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withEncrypted(false))                            || new AmazonBlockDevice("Device1", null, null, null, null, null, null, false)
-
-    // if snapshot is provided, then we should use the snapshot's encryption value
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snap-123").withEncrypted(null))  || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snap-123").withEncrypted(true))  || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
-    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snap-123").withEncrypted(false)) || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
   }
 
   @Unroll
@@ -693,16 +805,22 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     1 * amazonEC2.describeImages(_) >> new DescribeImagesResult().withImages(new Image().withImageId('ami-12345')
       .withVirtualizationType(virtualizationType))
     1 * amazonEC2.describeVpcClassicLink() >> new DescribeVpcClassicLinkResult()
+    1 * amazonEC2.describeInstanceTypes(_) >> new DescribeInstanceTypesResult(instanceTypes: [
+      new InstanceTypeInfo(instanceType: "r3.xlarge", supportedVirtualizationTypes: ["hvm"]),
+      new InstanceTypeInfo(instanceType: "t3.micro", supportedVirtualizationTypes: ["hvm"])
+    ])
+
+    and:
     thrown IllegalArgumentException
 
     where:
     instanceType | virtualizationType
-    'c1.large'   | 'hvm'
     'r3.xlarge'  | 'paravirtual'
+    't3.micro'   | 'paravirtual'
   }
 
   @Unroll
-  void "should not throw exception when instance type matches image virtualization type or is unknown"() {
+  void "should not throw exception when instance type matches image virtualization type"() {
     setup:
     def description = new BasicAmazonDeployDescription(amiName: "a-cool-ami", availabilityZones: ['us-west-1': []])
     description.credentials = TestCredential.named('baz')
@@ -713,8 +831,18 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
     then:
     1 * amazonEC2.describeImages(_) >> new DescribeImagesResult().withImages(new Image().withImageId('ami-12345')
-      .withVirtualizationType(virtualizationType))
+      .withVirtualizationType(virtualizationType)
+      .withArchitecture("x86_64"))
     1 * amazonEC2.describeVpcClassicLink() >> new DescribeVpcClassicLinkResult()
+    1 * amazonEC2.describeInstanceTypes(_) >> new DescribeInstanceTypesResult(instanceTypes: [
+      new InstanceTypeInfo(
+        instanceType: this.instanceType,
+        supportedVirtualizationTypes: [virtualizationType],
+        processorInfo: new ProcessorInfo(supportedArchitectures: ["x86_64"], sustainedClockSpeedInGhz: 2.8),
+      )])
+
+    and:
+    noExceptionThrown()
 
     where:
     instanceType  | virtualizationType
@@ -723,7 +851,6 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     'c3.large'    | 'hvm'
     'c3.xlarge'   | 'paravirtual'
     'mystery.big' | 'hvm'
-    'mystery.big' | 'paravirtual'
     'what.the'    | 'heck'
   }
 
@@ -735,16 +862,32 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
       blockDevices: descriptionBlockDevices
     )
     def launchConfiguration = new LaunchConfiguration()
+      .withLaunchConfigurationName('lc')
       .withInstanceType(sourceInstanceType)
       .withBlockDeviceMappings(sourceBlockDevices?.collect {
       new BlockDeviceMapping().withVirtualName(it.virtualName).withDeviceName(it.deviceName)
     })
+    def sourceAsg = new AutoScalingGroup()
+      .withLaunchConfigurationName(launchConfiguration.getLaunchConfigurationName())
+
+    def asgService = Mock(AsgService) {
+      getLaunchConfiguration(_) >> launchConfiguration
+    }
+    def sourceRegionScopedProvider = Stub(RegionScopedProvider) {
+      getAsgService() >> asgService
+      getAutoScaling() >> Stub(AmazonAutoScaling) {
+        describeAutoScalingGroups(_) >> {
+          new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
+            sourceAsg)
+        }
+      }
+    }
 
     when:
-    def blockDeviceMappings = handler.buildBlockDeviceMappings(description, launchConfiguration)
+    def blockDeviceMappings = handler.buildBlockDeviceMappingsFromSourceAsg(sourceRegionScopedProvider, sourceAsg, description)
 
     then:
-    convertBlockDeviceMappings(blockDeviceMappings) == convertBlockDeviceMappings(expectedTargetBlockDevices)
+    blockDeviceMappings == expectedTargetBlockDevices
 
     where:
     sourceInstanceType | targetInstanceType | sourceBlockDevices                              | descriptionBlockDevices || expectedTargetBlockDevices
@@ -756,9 +899,74 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   }
 
   @Unroll
+  void "should regenerate block device mappings conditionally, for source ASG with mixed instances policy"() {
+    setup:
+    def launchTemplateVersion = new LaunchTemplateVersion(
+      launchTemplateName: "lt",
+      launchTemplateId: "id",
+      versionNumber: 0,
+      launchTemplateData: new ResponseLaunchTemplateData(
+        instanceType: sourceInstanceType,
+        blockDeviceMappings: sourceBlockDevices?.collect {
+          new LaunchTemplateBlockDeviceMapping().withVirtualName(it.virtualName).withDeviceName(it.deviceName)
+        }))
+    def mixedInstancesPolicy = new MixedInstancesPolicy()
+      .withLaunchTemplate(new LaunchTemplate()
+        .withLaunchTemplateSpecification(new LaunchTemplateSpecification()
+          .withLaunchTemplateId(launchTemplateVersion.launchTemplateId)
+          .withLaunchTemplateName(launchTemplateVersion.launchTemplateName)
+          .withVersion(launchTemplateVersion.versionNumber.toString()))
+        .withOverrides(
+          new LaunchTemplateOverrides().withInstanceType("c3.large").withWeightedCapacity("2"),
+          new LaunchTemplateOverrides().withInstanceType("c3.xlarge").withWeightedCapacity("4")))
+
+    def sourceAsg = new AutoScalingGroup().withMixedInstancesPolicy(mixedInstancesPolicy)
+
+    and:
+    def launchTemplateService = Mock(LaunchTemplateService) {
+      getLaunchTemplateVersion({it.launchTemplateId == launchTemplateVersion.launchTemplateId} as LaunchTemplateSpecification) >> Optional.of(launchTemplateVersion)
+    }
+
+    def sourceRegionScopedProvider = Mock(RegionScopedProvider) {
+      getLaunchTemplateService() >> launchTemplateService
+      getAutoScaling() >> Stub(AmazonAutoScaling) {
+        describeAutoScalingGroups(_) >> {
+          new DescribeAutoScalingGroupsResult().withAutoScalingGroups(sourceAsg)
+        }
+      }
+    }
+
+    and:
+    def description = new BasicAmazonDeployDescription(
+      instanceType: descInstanceType,
+      launchTemplateOverridesForInstanceType: [
+        new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c4.large", weightedCapacity: "2"),
+        new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c4.xlarge", weightedCapacity: "4")
+      ],
+      blockDevices: descBlockDevices
+    )
+
+    when:
+    def blockDeviceMappings = handler.buildBlockDeviceMappingsFromSourceAsg(sourceRegionScopedProvider, sourceAsg, description)
+
+    then:
+    blockDeviceMappings == expectedTargetBlockDevices
+
+    where:
+    sourceInstanceType| descInstanceType|    sourceBlockDevices    | descBlockDevices   || expectedTargetBlockDevices
+    "c3.xlarge"       | "c4.xlarge"     |      bD("c3.xlarge")     | bD("c3.xlarge")    || bD("c3.xlarge")                                 // use the explicitly provided block devices even if instance type has changed
+    "c3.xlarge"       | "c4.xlarge"     |      bD("c3.xlarge")     | []                 || []                                              // use the explicitly provided block devices even if an empty list
+    "c3.xlarge"       | "c4.xlarge"     |      bD("c3.xlarge")     | null               || bD("c4.xlarge")                                 // source ASG used default block devices, so use default block devices for top-level instance type in description i.e. descInstanceType
+    "c3.xlarge"       | "c4.xlarge"     |[new AmazonBlockDevice(
+                                          deviceName: "/dev/xxx")] | null               || [new AmazonBlockDevice(deviceName: "/dev/xxx")] // custom block devices should be preserved
+    "c3.xlarge"       | "c4.100xlarge"  |      bD("c3.xlarge")     | null               || [deployDefaults.unknownInstanceTypeBlockDevice] // source ASG used default bD, so use default bD but no mapping for c4.200xlarge, use the default for unknown instance types
+    "c3.xlarge"       | "c3.xlarge"     |      bD("c3.xlarge")     | null               || bD("c3.xlarge")                                 // top-level instance types match, use source ASG's block devices
+  }
+
+  @Unroll
   void "should substitute {{application}} in iamRole"() {
     given:
-    def description = new BasicAmazonDeployDescription(application: application, iamRole: iamRole)
+    def description = new BasicAmazonDeployDescription(application: application, iamRole: iamRole, instanceType: this.instanceType)
     def deployDefaults = new AwsConfiguration.DeployDefaults(iamRole: defaultIamRole)
 
     expect:
@@ -774,23 +982,12 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   }
 
   @Unroll
-  void "should assign default EBS optimized flag if unset"() {
-    expect:
-    BasicAmazonDeployHandler.getDefaultEbsOptimizedFlag(instanceType) == expectedFlag
-
-    where:
-    instanceType || expectedFlag
-    'invalid'    || false
-    'm3.medium'  || false
-    'm4.large'   || true
-  }
-
-  @Unroll
   void "should apply app/stack/detail tags when `addAppStackDetailTags` is enabled"() {
     given:
     def deployDefaults = new DeployDefaults(addAppStackDetailTags: addAppStackDetailTags)
     def description = new BasicAmazonDeployDescription(
       application: application,
+      instanceType: this.instanceType,
       stack: stack,
       freeFormDetails: details,
       tags: initialTags
@@ -848,11 +1045,5 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
 
   private Collection<AmazonBlockDevice> bD(String instanceType) {
     return blockDeviceConfig.getBlockDevicesForInstanceType(instanceType)
-  }
-
-  private Collection<Map> convertBlockDeviceMappings(Collection<AmazonBlockDevice> blockDevices) {
-    return blockDevices.collect {
-      [deviceName: it.deviceName, virtualName: it.virtualName]
-    }.sort { it.deviceName }
   }
 }

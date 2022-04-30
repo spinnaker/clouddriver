@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskState.FAILED
 import com.netflix.spinnaker.clouddriver.data.task.TaskState.STARTED
 import com.netflix.spinnaker.kork.sql.routing.withPool
 import de.huxhorn.sulky.ulid.ULID
+import java.time.Clock
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.Record
@@ -33,7 +34,6 @@ import org.jooq.impl.DSL
 import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.sql
 import org.slf4j.LoggerFactory
-import java.time.Clock
 
 class SqlTaskRepository(
   private val jooq: DSLContext,
@@ -148,11 +148,13 @@ class SqlTaskRepository(
 
         resultIdPairs.forEach { result ->
           ctx.insertInto(taskResultsTable, listOf(field("id"), field("task_id"), field("body")))
-            .values(listOf(
-              result.key,
-              task.id,
-              mapper.writeValueAsString(result.value)
-            ))
+            .values(
+              listOf(
+                result.key,
+                task.id,
+                mapper.writeValueAsString(result.value)
+              )
+            )
             .execute()
         }
       }
@@ -282,7 +284,7 @@ class SqlTaskRepository(
    */
   private fun runningTaskIds(ctx: DSLContext, thisInstance: Boolean): Array<String> {
     return withPool(poolName) {
-      val baseQuery = ctx.select()
+      val baseQuery = ctx.select(field("a.task_id"))
         .from(taskStatesTable.`as`("a"))
         .innerJoin(
           ctx.select(field("task_id"), DSL.max(field("created_at")).`as`("created"))
@@ -293,9 +295,9 @@ class SqlTaskRepository(
 
       val select = if (thisInstance) {
         baseQuery
-          .innerJoin(tasksTable.`as`("t")).on(field("a.task_id").eq("t.id"))
+          .innerJoin(tasksTable.`as`("t")).on(sql("a.task_id = t.id"))
           .where(
-            field("a.owner_id").eq(ClouddriverHostname.ID)
+            field("t.owner_id").eq(ClouddriverHostname.ID)
               .and(field("a.state").eq(TaskState.STARTED.toString()))
           )
       } else {
@@ -303,7 +305,7 @@ class SqlTaskRepository(
       }
 
       select
-        .fetch("task_id", String::class.java)
+        .fetch("a.task_id", String::class.java)
         .toTypedArray()
     }
   }

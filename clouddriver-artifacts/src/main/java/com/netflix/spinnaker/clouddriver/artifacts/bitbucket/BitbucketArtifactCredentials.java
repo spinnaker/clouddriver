@@ -17,22 +17,45 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.bitbucket;
 
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
+
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.artifacts.config.SimpleHttpArtifactCredentials;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.OkHttpClient;
-import java.util.Collections;
-import java.util.List;
+import java.util.Optional;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+@NonnullByDefault
 @Slf4j
 public class BitbucketArtifactCredentials
     extends SimpleHttpArtifactCredentials<BitbucketArtifactAccount> implements ArtifactCredentials {
+  public static final String CREDENTIALS_TYPE = "artifacts-bitbucket";
   @Getter private final String name;
-  @Getter private final List<String> types = Collections.singletonList("bitbucket/file");
+  @Getter private final ImmutableList<String> types = ImmutableList.of("bitbucket/file");
 
   BitbucketArtifactCredentials(BitbucketArtifactAccount account, OkHttpClient okHttpClient) {
     super(okHttpClient, account);
     this.name = account.getName();
+  }
+
+  @Override
+  protected Headers getHeaders(BitbucketArtifactAccount account) {
+    Headers.Builder headers = new Headers.Builder();
+    Optional<String> token = account.getTokenAsString();
+    if (token.isPresent()) {
+      headers.set(AUTHORIZATION, "Bearer " + token.get());
+      log.info("Loaded credentials for Bitbucket Artifact Account {}", account.getName());
+      return headers.build();
+    }
+    return super.getHeaders(account);
+  }
+
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
   }
 }

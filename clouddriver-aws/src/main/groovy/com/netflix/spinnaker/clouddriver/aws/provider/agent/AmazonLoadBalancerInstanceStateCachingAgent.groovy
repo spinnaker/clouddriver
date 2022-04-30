@@ -48,6 +48,10 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.LO
 
 @Slf4j
 class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent, HealthProvidingCachingAgent, AccountAware {
+
+  final static String healthId = "aws-load-balancer-instance-health"
+  private final static String STILL_REGISTERING_DESCRIPTION = "Instance registration is still in progress."
+
   final AmazonClientProvider amazonClientProvider
   final NetflixAmazonCredentials account
   final String region
@@ -55,8 +59,6 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent, Healt
   final ApplicationContext ctx
 
   private Cache cacheView
-  final static String healthId = "aws-load-balancer-instance-health"
-
 
   AmazonLoadBalancerInstanceStateCachingAgent(AmazonClientProvider amazonClientProvider,
                                               NetflixAmazonCredentials account, String region,
@@ -104,7 +106,7 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent, Healt
       .filterIdentifiers(LOAD_BALANCERS.ns, allVpcsGlob) +
       getCacheView().filterIdentifiers(LOAD_BALANCERS.ns, nonVpcGlob)
 
-    Collection<CacheData> lbHealths = new ArrayList<>()
+    Map<String, CacheData> lbHealths = new HashMap<>()
     Collection<CacheData> instanceRels = new ArrayList<>()
 
     for (loadBalancerKey in loadBalancerKeys) {
@@ -125,6 +127,15 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent, Healt
             instanceState.reasonCode,
             instanceState.description)
           loadBalancerInstances << loadBalancerInstance
+
+          // We want to track how long instances remain in a "still registering" state. Logging any time we
+          // see an instance with this description is a poor man's way of getting the metrics we need, without
+          // having to do expensive lookups - we can defer this to our logging platform to do the maths.
+          // TODO(rz): This kind of metric may be easier to create if we had a method of emitting events when
+          //  cache state changes.
+          if (instanceState.description == STILL_REGISTERING_DESCRIPTION) {
+            log.info("Instance '${instanceState.instanceId}' is still registering with load balancer '$lbName'")
+          }
         }
 
         LoadBalancerInstanceState loadBalancerInstanceState = new LoadBalancerInstanceState(
@@ -152,7 +163,29 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent, Healt
             }
           }
 
-          lbHealths.add(new DefaultCacheData(healthId, attributes, relationships))
+          CacheData lbHealth = new DefaultCacheData(healthId, attributes, relationships);
+          CacheData previousLbHealth = lbHealths.put(healthId, lbHealth);
+          if (previousLbHealth != null) {
+            // We already had health information about this instance from one
+            // load balancer It would be nice to add this health information to
+            // what we already had, and
+            // com.netflix.spinnaker.clouddriver.aws.model.edda.InstanceLoadBalancers
+            // does have a List<InstanceLoadBalancerState> that we could in
+            // theory add to, but it's only got one HealthState and multiple
+            // load balancers could have different opinions about that.
+            //
+            // So for now at least, drop the instance state information from
+            // this previous load balancer on the floor.  Log it, but at debug
+            // since this can happen frequently.
+            //
+            // This effectively retains instance health information from the
+            // last load balancer that supports it, which is consistent with the
+            // way the redis cache behaves when presented with multiple pieces
+            // of information.
+            log.debug("replaced instance health information for {}: was {}, is now {}",
+                      instanceId, previousLbHealth.attributes, attributes)
+            continue
+          }
           instanceRels.add(new DefaultCacheData(instanceId, [:], [(HEALTH.ns): [healthId]]))
         }
       } catch (LoadBalancerNotFoundException e) {
@@ -161,7 +194,7 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent, Healt
     }
     log.info("Caching ${lbHealths.size()} items in ${agentType}")
     new DefaultCacheResult(
-      (HEALTH.ns): lbHealths,
+      (HEALTH.ns): lbHealths.values(),
       (INSTANCES.ns): instanceRels)
   }
 

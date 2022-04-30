@@ -39,27 +39,33 @@ class ObjectMappingTest : JUnit5Minutests {
 
     test("can serialize and deserialize events") {
       val event = MyEvent("world")
-      event.setMetadata(EventMetadata(
-        id = "myid",
-        aggregateType = "type",
-        aggregateId = "id",
-        sequence = 999,
-        originatingVersion = 100
-      ))
+      event.setMetadata(
+        EventMetadata(
+          id = "myid",
+          aggregateType = "type",
+          aggregateId = "id",
+          sequence = 999,
+          originatingVersion = 100
+        )
+      )
 
-      val serialized = writeValueAsString(event)
-
-      expectThat(readValue<MyEvent>(serialized))
+      val serializedEvent = writeValueAsString(event)
+      expectThat(readValue<MyEvent>(serializedEvent))
         .isA<MyEvent>()
         .and {
           get { hello }.isEqualTo("world")
-          get { getMetadata() }.and {
-            get { id }.isEqualTo("myid")
-            get { aggregateType }.isEqualTo("type")
-            get { aggregateId }.isEqualTo("id")
-            get { sequence }.isEqualTo(999)
-            get { originatingVersion }.isEqualTo(100)
-          }
+          // EventMetadata should be excluded from SpinnakerEvent serialization
+          get { hasMetadata() }.isEqualTo(false)
+        }
+
+      val serializedEventMetadata = writeValueAsString(event.getMetadata())
+      expectThat(readValue<EventMetadata>(serializedEventMetadata))
+        .and {
+          get { id }.isEqualTo("myid")
+          get { aggregateType }.isEqualTo("type")
+          get { aggregateId }.isEqualTo("id")
+          get { sequence }.isEqualTo(999)
+          get { originatingVersion }.isEqualTo(100)
         }
     }
   }

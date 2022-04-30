@@ -18,6 +18,8 @@
 package com.netflix.spinnaker.clouddriver.artifacts.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.netflix.spinnaker.credentials.Credentials;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,11 +27,23 @@ import java.util.List;
 import java.util.Optional;
 import org.apache.commons.lang3.NotImplementedException;
 
-public interface ArtifactCredentials {
+@NonnullByDefault
+public interface ArtifactCredentials extends Credentials {
   String getName();
 
+  /**
+   * Returns the artifact types that are handled by these credentials.
+   *
+   * @return A list of artifact types, which should be immutable.
+   */
   List<String> getTypes();
 
+  /**
+   * Download the specified artifact
+   *
+   * @return a stream containing the contents of artifact. It is the caller's responsibility to
+   *     close this stream as soon as possible.
+   */
   InputStream download(Artifact artifact) throws IOException;
 
   default Optional<String> resolveArtifactName(Artifact artifact) {
@@ -57,6 +71,6 @@ public interface ArtifactCredentials {
   }
 
   default boolean handlesType(String type) {
-    return getTypes().stream().anyMatch(it -> it.equals(type));
+    return getTypes().contains(type);
   }
 }

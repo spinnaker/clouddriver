@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.titus.model
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter
+import com.fasterxml.jackson.annotation.JsonAnySetter
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
@@ -39,6 +42,7 @@ class TitusServerGroup implements ServerGroup, Serializable {
   final String type = TitusCloudProvider.ID
   final String cloudProvider = TitusCloudProvider.ID
   String entryPoint
+  String cmd
   String awsAccount
   String accountId
   String iamProfile
@@ -68,6 +72,9 @@ class TitusServerGroup implements ServerGroup, Serializable {
   ServiceJobProcesses serviceJobProcesses
   SubmitJobRequest.Constraints constraints
 
+  @JsonIgnore
+  private Map<String, Object> extraAttributes = new LinkedHashMap<String, Object>()
+
   TitusServerGroup() {}
 
   TitusServerGroup(Job job, String account, String region) {
@@ -78,6 +85,7 @@ class TitusServerGroup implements ServerGroup, Serializable {
     image << [dockerImageVersion: job.version]
     image << [dockerImageDigest: job.digest]
     entryPoint = job.entryPoint
+    cmd = job.cmd
     iamProfile = job.iamProfile
     resources.cpu = job.cpu
     resources.memory = job.memory
@@ -114,6 +122,26 @@ class TitusServerGroup implements ServerGroup, Serializable {
     ]
     serviceJobProcesses = job.serviceJobProcesses
     constraints = job.constraints
+  }
+
+  @JsonAnyGetter
+  @Override
+  Map<String, Object> getExtraAttributes() {
+    return extraAttributes
+  }
+
+  /**
+   * Setter for non explicitly defined values.
+   *
+   * Used for both Jackson mapping {@code @JsonAnySetter} as well
+   * as Groovy's implicit Map constructor (this is the reason the
+   * method is named {@code set(String name, Object value)}
+   * @param name The property name
+   * @param value The property value
+   */
+  @JsonAnySetter
+  void set(String name, Object value) {
+    extraAttributes.put(name, value)
   }
 
   @Override

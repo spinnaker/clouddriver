@@ -19,13 +19,15 @@ package com.netflix.spinnaker.clouddriver.azure.security
 import com.netflix.spinnaker.clouddriver.azure.client.AzureComputeClient
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureCustomImageStorage
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureVMImage
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials
+
+import com.netflix.spinnaker.fiat.model.resources.Permissions
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 
 @Slf4j
 @CompileStatic
-public class AzureNamedAccountCredentials implements AccountCredentials<AzureCredentials> {
+public class AzureNamedAccountCredentials extends AbstractAccountCredentials<AzureCredentials> {
   private static final String CLOUD_PROVIDER = "azure"
   final String accountName
   final String environment
@@ -46,6 +48,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
   final List<String> regionsSupportZones
   final List<String> availabilityZones
   final Boolean useSshPublicKey
+  final Permissions permissions
 
   AzureNamedAccountCredentials(String accountName,
                                String environment,
@@ -61,6 +64,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
                                String defaultKeyVault,
                                Boolean useSshPublicKey,
                                String applicationName,
+                               Permissions permissions = null,
                                List<String> requiredGroupMembership = null) {
     this.accountName = accountName
     this.environment = environment
@@ -77,6 +81,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
     this.defaultResourceGroup = defaultResourceGroup
     this.useSshPublicKey = useSshPublicKey
     this.requiredGroupMembership = requiredGroupMembership ?: [] as List<String>
+    this.permissions = permissions
     this.credentials = appKey.isEmpty() ? null : buildCredentials()
     this.locationToInstanceTypesMap = this.credentials.computeClient.getVirtualMachineSizesByRegions(this.regions)
     this.regionsSupportZones = Arrays.asList("centralus", "eastus", "eastus2", "francecentral", "northeurope", "southeastasia", "westeurope", "westus2")

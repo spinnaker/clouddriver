@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.titus.deploy.validators
 
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusOperation
@@ -23,19 +24,18 @@ import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentia
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.DestroyTitusServerGroupDescription
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import org.springframework.validation.Errors
 
 @Component
 @TitusOperation(AtomicOperations.DESTROY_SERVER_GROUP)
 class DestroyTitusServerGroupDescriptionValidator extends AbstractTitusDescriptionValidatorSupport<DestroyTitusServerGroupDescription> {
 
   @Autowired
-  DestroyTitusServerGroupDescriptionValidator(AccountCredentialsProvider accountCredentialsProvider) {
-    super(accountCredentialsProvider, "destroyTitusServerGroupDescription")
+  DestroyTitusServerGroupDescriptionValidator() {
+    super("destroyTitusServerGroupDescription")
   }
 
   @Override
-  void validate(List priorDescriptions, DestroyTitusServerGroupDescription description, Errors errors) {
+  void validate(List priorDescriptions, DestroyTitusServerGroupDescription description, ValidationErrors errors) {
 
     super.validate(priorDescriptions, description, errors)
 
@@ -43,8 +43,7 @@ class DestroyTitusServerGroupDescriptionValidator extends AbstractTitusDescripti
       errors.rejectValue "region", "destroyTitusServerGroupDescription.region.empty"
     }
 
-    def credentials = getAccountCredentials(description?.credentials?.name)
-    if (credentials && !((NetflixTitusCredentials) credentials).regions.name.contains(description.region)) {
+    if (description?.credentials && !((NetflixTitusCredentials) description?.credentials).regions.name.contains(description.region)) {
       errors.rejectValue "region", "destroyTitusServerGroupDescription.region.not.configured", description.region, "Region not configured"
     }
 

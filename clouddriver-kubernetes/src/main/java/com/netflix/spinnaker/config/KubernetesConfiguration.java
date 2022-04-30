@@ -15,12 +15,30 @@
  */
 package com.netflix.spinnaker.config;
 
+import com.netflix.spectator.api.Registry;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.health.KubernetesHealthIndicator;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentialsParser;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
+import com.netflix.spinnaker.credentials.CredentialsLifecycleHandler;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
+import com.netflix.spinnaker.credentials.definition.AbstractCredentialsLoader;
+import com.netflix.spinnaker.credentials.definition.BasicCredentialsLoader;
+import com.netflix.spinnaker.credentials.definition.CredentialsDefinitionSource;
+import com.netflix.spinnaker.credentials.definition.CredentialsParser;
+import com.netflix.spinnaker.credentials.poller.Poller;
+import javax.annotation.Nullable;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -33,14 +51,77 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ComponentScan({"com.netflix.spinnaker.clouddriver.kubernetes"})
 public class KubernetesConfiguration {
   @Bean
+  @RefreshScope
   @ConfigurationProperties("kubernetes")
   public KubernetesConfigurationProperties kubernetesConfigurationProperties() {
     return new KubernetesConfigurationProperties();
   }
 
   @Bean
+  @RefreshScope
+  @ConfigurationProperties("kubernetes")
+  public KubernetesAccountProperties kubernetesAccountProperties() {
+    return new KubernetesAccountProperties();
+  }
+
+  @Bean
   public KubernetesHealthIndicator kubernetesHealthIndicator(
-      AccountCredentialsProvider accountCredentialsProvider) {
-    return new KubernetesHealthIndicator(accountCredentialsProvider);
+      Registry registry,
+      CredentialsRepository<KubernetesNamedAccountCredentials> credentialsRepository,
+      KubernetesConfigurationProperties kubernetesConfigurationProperties) {
+    return new KubernetesHealthIndicator(
+        registry, credentialsRepository, kubernetesConfigurationProperties);
+  }
+
+  @Bean
+  public KubernetesProvider kubernetesProvider() {
+    return new KubernetesProvider();
+  }
+
+  @Bean
+  public CredentialsParser<ManagedAccount, KubernetesNamedAccountCredentials>
+      kubernetesCredentialsParser(KubernetesCredentials.Factory credentialFactory) {
+    return new KubernetesCredentialsParser(credentialFactory);
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(
+      value = KubernetesNamedAccountCredentials.class,
+      parameterizedContainer = AbstractCredentialsLoader.class)
+  public AbstractCredentialsLoader<KubernetesNamedAccountCredentials> kubernetesCredentialsLoader(
+      @Nullable CredentialsDefinitionSource<ManagedAccount> kubernetesCredentialSource,
+      KubernetesAccountProperties accountProperties,
+      CredentialsParser<ManagedAccount, KubernetesNamedAccountCredentials> credentialsParser,
+      CredentialsRepository<KubernetesNamedAccountCredentials> kubernetesCredentialsRepository) {
+
+    if (kubernetesCredentialSource == null) {
+      kubernetesCredentialSource = accountProperties::getAccounts;
+    }
+    return new BasicCredentialsLoader<>(
+        kubernetesCredentialSource, credentialsParser, kubernetesCredentialsRepository);
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(
+      value = KubernetesNamedAccountCredentials.class,
+      parameterizedContainer = CredentialsRepository.class)
+  public CredentialsRepository<KubernetesNamedAccountCredentials> kubernetesCredentialsRepository(
+      CredentialsLifecycleHandler<KubernetesNamedAccountCredentials> eventHandler) {
+    return new MapBackedCredentialsRepository<>(KubernetesProvider.PROVIDER_NAME, eventHandler);
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(
+      value = ManagedAccount.class,
+      parameterizedContainer = CredentialsDefinitionSource.class)
+  public CredentialsInitializerSynchronizable kubernetesCredentialsInitializerSynchronizable(
+      AbstractCredentialsLoader<KubernetesNamedAccountCredentials> loader) {
+    final Poller<KubernetesNamedAccountCredentials> poller = new Poller<>(loader);
+    return new CredentialsInitializerSynchronizable() {
+      @Override
+      public void synchronize() {
+        poller.run();
+      }
+    };
   }
 }

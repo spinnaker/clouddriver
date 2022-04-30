@@ -19,12 +19,12 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
 import com.amazonaws.services.identitymanagement.model.ListRolesRequest;
 import com.amazonaws.services.identitymanagement.model.ListRolesResult;
 import com.amazonaws.services.identitymanagement.model.Role;
+import com.netflix.spinnaker.cats.agent.AccountAware;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
@@ -46,16 +46,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IamRoleCachingAgent implements CachingAgent {
+public class IamRoleCachingAgent implements CachingAgent, AccountAware {
 
   static final Collection<AgentDataType> types =
       Collections.unmodifiableCollection(Arrays.asList(AUTHORITATIVE.forType(IAM_ROLE.toString())));
   private final Logger log = LoggerFactory.getLogger(getClass());
   private AmazonClientProvider amazonClientProvider;
-  private AWSCredentialsProvider awsCredentialsProvider;
   private NetflixAmazonCredentials account;
   private String accountName;
   private IamPolicyReader iamPolicyReader;
@@ -63,12 +63,10 @@ public class IamRoleCachingAgent implements CachingAgent {
   public IamRoleCachingAgent(
       NetflixAmazonCredentials account,
       AmazonClientProvider amazonClientProvider,
-      AWSCredentialsProvider awsCredentialsProvider,
       IamPolicyReader iamPolicyReader) {
     this.account = account;
     this.accountName = account.getName();
     this.amazonClientProvider = amazonClientProvider;
-    this.awsCredentialsProvider = awsCredentialsProvider;
     this.iamPolicyReader = iamPolicyReader;
   }
 
@@ -83,8 +81,7 @@ public class IamRoleCachingAgent implements CachingAgent {
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    AmazonIdentityManagement iam =
-        amazonClientProvider.getIam(account, Regions.DEFAULT_REGION.getName(), false);
+    AmazonIdentityManagement iam = amazonClientProvider.getIam(account, getIamRegion(), false);
 
     Set<IamRole> cacheableRoles = fetchIamRoles(iam, accountName);
     Map<String, Collection<CacheData>> newDataMap = generateFreshData(cacheableRoles);
@@ -132,6 +129,23 @@ public class IamRoleCachingAgent implements CachingAgent {
     Map<String, Collection<String>> evictionsByKey = new HashMap<>();
     evictionsByKey.put(IAM_ROLE.toString(), evictedKeys);
     return evictionsByKey;
+  }
+
+  protected String getIamRegion() {
+    // sample a region from the account in case the default won't work
+    String testRegion =
+        !account.getRegions().isEmpty() && account.getRegions().get(0) != null
+            ? account.getRegions().get(0).getName()
+            : "";
+
+    if (StringUtils.isNotBlank(testRegion)
+        && (testRegion.startsWith("cn-") || testRegion.startsWith("us-gov-"))) {
+      log.debug("retrieving IAM Roles from given region: {}", testRegion);
+      return testRegion;
+    }
+
+    log.debug("retrieving IAM Roles from default region: {}", Regions.DEFAULT_REGION.getName());
+    return Regions.DEFAULT_REGION.getName();
   }
 
   Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
@@ -199,5 +213,10 @@ public class IamRoleCachingAgent implements CachingAgent {
   @Override
   public Collection<AgentDataType> getProvidedDataTypes() {
     return types;
+  }
+
+  @Override
+  public String getAccountName() {
+    return accountName;
   }
 }

@@ -16,37 +16,42 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
+import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.RouteId;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.LoadBalancersDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryDomain;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryLoadBalancer;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
-import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider;
-import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
 import io.vavr.collection.HashMap;
 import io.vavr.collection.List;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ForkJoinPool;
+import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 
 class AbstractLoadBalancersAtomicOperationConverterTest {
   private final CloudFoundryClient cloudFoundryClient = new MockCloudFoundryClient();
+  private final CacheRepository cacheRepository = mock(CacheRepository.class);
 
   {
     when(cloudFoundryClient.getOrganizations().findByName(any()))
@@ -61,7 +66,7 @@ class AbstractLoadBalancersAtomicOperationConverterTest {
                           .build());
                 });
 
-    when(cloudFoundryClient.getOrganizations().findSpaceByRegion(any()))
+    when(cloudFoundryClient.getSpaces().findSpaceByRegion(any()))
         .thenReturn(Optional.of(CloudFoundrySpace.builder().build()));
 
     when(cloudFoundryClient.getRoutes().toRouteId(any()))
@@ -85,29 +90,42 @@ class AbstractLoadBalancersAtomicOperationConverterTest {
   }
 
   private final CloudFoundryCredentials cloudFoundryCredentials =
-      new CloudFoundryCredentials("test", "", "", "", "", "", "", false) {
+      new CloudFoundryCredentials(
+          "test",
+          "managerUri",
+          "metricsUri",
+          "api.host",
+          "username",
+          "password",
+          "environment",
+          false,
+          false,
+          500,
+          cacheRepository,
+          null,
+          ForkJoinPool.commonPool(),
+          emptyMap(),
+          new OkHttpClient(),
+          new CloudFoundryConfigurationProperties.ClientConfig(),
+          new CloudFoundryConfigurationProperties.LocalCacheConfig()) {
         public CloudFoundryClient getClient() {
           return cloudFoundryClient;
         }
       };
 
-  private final AccountCredentialsRepository accountCredentialsRepository =
-      new MapBackedAccountCredentialsRepository();
+  private final CredentialsRepository<CloudFoundryCredentials> credentialsRepository =
+      new MapBackedCredentialsRepository<>(CloudFoundryProvider.PROVIDER_ID, null);
 
   {
-    accountCredentialsRepository.update("test", cloudFoundryCredentials);
+    credentialsRepository.save(cloudFoundryCredentials);
   }
-
-  private final AccountCredentialsProvider accountCredentialsProvider =
-      new DefaultAccountCredentialsProvider(accountCredentialsRepository);
 
   private final TestAbstractLoadBalancersAtomicOperationConverter converter =
       new TestAbstractLoadBalancersAtomicOperationConverter();
 
   @BeforeEach
   void initializeClassUnderTest() {
-    converter.setAccountCredentialsProvider(accountCredentialsProvider);
-    converter.setObjectMapper(new ObjectMapper());
+    converter.setCredentialsRepository(credentialsRepository);
   }
 
   @Test

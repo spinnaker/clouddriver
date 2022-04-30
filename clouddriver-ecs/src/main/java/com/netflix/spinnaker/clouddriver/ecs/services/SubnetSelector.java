@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.ecs.model.EcsSubnet;
 import com.netflix.spinnaker.clouddriver.ecs.provider.view.AmazonPrimitiveConverter;
 import com.netflix.spinnaker.clouddriver.ecs.provider.view.EcsAccountMapper;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +47,10 @@ public class SubnetSelector {
   }
 
   public Collection<String> resolveSubnetsIds(
-      String ecsAccountName, String region, String subnetType) {
+      String ecsAccountName,
+      String region,
+      Collection<String> availabilityZones,
+      String subnetType) {
     String correspondingAwsAccountName =
         ecsAccountMapper.fromEcsAccountNameToAws(ecsAccountName).getName();
 
@@ -59,10 +63,25 @@ public class SubnetSelector {
     Set<String> filteredSubnetIds =
         ecsSubnets.stream()
             .filter(subnet -> subnetType.equals(subnet.getPurpose()))
+            .filter(subnet -> availabilityZones.contains(subnet.getAvailabilityZone()))
             .map(AmazonSubnet::getId)
             .collect(Collectors.toSet());
 
     return filteredSubnetIds;
+  }
+
+  public Set<String> resolveSubnetsIdsForMultipleSubnetTypes(
+      String ecsAccountName,
+      String region,
+      Collection<String> availabilityZones,
+      Set<String> subnetTypes) {
+
+    Set<String> subnetIds = new HashSet<String>();
+    for (String subnetType : subnetTypes) {
+      subnetIds.addAll(resolveSubnetsIds(ecsAccountName, region, availabilityZones, subnetType));
+    }
+
+    return subnetIds;
   }
 
   public Collection<String> getSubnetVpcIds(

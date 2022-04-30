@@ -8,8 +8,8 @@
  */
 package com.netflix.spinnaker.clouddriver.oracle.deploy.validator
 
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.oracle.deploy.description.EnableDisableOracleServerGroupDescription
-import org.springframework.validation.Errors
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -25,7 +25,7 @@ class EnableDisableOracleServerGroupDescriptionValidatorSpec extends Specificati
   void "invalid description fails validation"() {
     setup:
     def description = new EnableDisableOracleServerGroupDescription()
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -41,7 +41,7 @@ class EnableDisableOracleServerGroupDescriptionValidatorSpec extends Specificati
       region: "us-phoenix-1",
       accountName: "DEFAULT"
     )
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)

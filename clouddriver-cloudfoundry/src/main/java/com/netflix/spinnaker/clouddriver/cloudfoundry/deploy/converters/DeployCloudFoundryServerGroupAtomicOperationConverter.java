@@ -23,17 +23,26 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.google.common.collect.Lists;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryOperation;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.CloudFoundryArtifactCredentials;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.RouteId;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Docker;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessRequest;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops.DeployCloudFoundryServerGroupAtomicOperation;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.util.RandomWordGenerator;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryDomain;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryLoadBalancer;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
+import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.Collections;
 import java.util.List;
@@ -49,12 +58,17 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
     extends AbstractCloudFoundryServerGroupAtomicOperationConverter {
   private final OperationPoller operationPoller;
   private final ArtifactCredentialsRepository credentialsRepository;
+  private final CredentialsRepository<DockerRegistryNamedAccountCredentials>
+      dockerRegistryCredentialsRepository;
 
   public DeployCloudFoundryServerGroupAtomicOperationConverter(
       @Qualifier("cloudFoundryOperationPoller") OperationPoller operationPoller,
-      ArtifactCredentialsRepository credentialsRepository) {
+      ArtifactCredentialsRepository credentialsRepository,
+      CredentialsRepository<DockerRegistryNamedAccountCredentials>
+          dockerRegistryCredentialsRepository) {
     this.operationPoller = operationPoller;
     this.credentialsRepository = credentialsRepository;
+    this.dockerRegistryCredentialsRepository = dockerRegistryCredentialsRepository;
   }
 
   @Override
@@ -68,6 +82,7 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
     DeployCloudFoundryServerGroupDescription converted =
         getObjectMapper().convertValue(input, DeployCloudFoundryServerGroupDescription.class);
     CloudFoundryCredentials credentials = getCredentialsObject(input.get("credentials").toString());
+    converted.setCredentials(credentials);
     converted.setClient(credentials.getClient());
     converted.setAccountName(credentials.getName());
 
@@ -82,31 +97,82 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
     // fail early if we're not going to be able to locate credentials to download the artifact in
     // the deploy operation.
     converted.setArtifactCredentials(getArtifactCredentials(converted));
-
-    converted.setApplicationAttributes(
+    DeployCloudFoundryServerGroupDescription.ApplicationAttributes applicationAttributes =
         convertManifest(
-            converted.getManifest().stream().findFirst().orElse(Collections.emptyMap())));
+            converted.getManifest().stream().findFirst().orElse(Collections.emptyMap()));
+    converted.setApplicationAttributes(applicationAttributes);
+    converted.setDocker(
+        converted.getArtifactCredentials().getTypes().contains("docker/image")
+            ? resolveDockerAccount(converted.getApplicationArtifact())
+            : null);
+    List<String> routes = applicationAttributes.getRoutes();
+
+    if ((routes == null || routes.isEmpty()) && applicationAttributes.getRandomRoute()) {
+      setRandomRoute(converted);
+    }
     return converted;
+  }
+
+  private void setRandomRoute(DeployCloudFoundryServerGroupDescription client) {
+    CloudFoundryDomain defaultDomain = client.getClient().getDomains().getDefault();
+    if (defaultDomain != null) {
+      String routeName = null;
+      for (int i = 0; i < 10; i++) {
+        routeName = RandomWordGenerator.randomQualifiedNoun() + "." + defaultDomain.getName();
+        RouteId routeId = client.getClient().getRoutes().toRouteId(routeName);
+        CloudFoundryLoadBalancer cloudFoundryLoadBalancer =
+            client.getClient().getRoutes().find(routeId, client.getSpace().getId());
+        if (cloudFoundryLoadBalancer == null) {
+          break;
+        }
+      }
+
+      client.getApplicationAttributes().setRoutes(Lists.newArrayList(routeName));
+    }
+  }
+
+  private Docker resolveDockerAccount(Artifact artifact) {
+    DockerRegistryNamedAccountCredentials dockerCreds =
+        dockerRegistryCredentialsRepository.getAll().stream()
+            .filter(reg -> reg.getRegistry().equals(artifact.getReference().split("/")[0]))
+            .filter(reg -> reg.getRepositories().contains(artifact.getName().split("/", 2)[1]))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        "Could not find a docker registry for the docker image: "
+                            + artifact.getName()));
+
+    return Docker.builder()
+        .image(artifact.getReference())
+        .username(dockerCreds.getUsername())
+        .password(dockerCreds.getPassword())
+        .build();
   }
 
   private ArtifactCredentials getArtifactCredentials(
       DeployCloudFoundryServerGroupDescription converted) {
     Artifact artifact = converted.getApplicationArtifact();
+    if (artifact == null) {
+      throw new IllegalArgumentException("No artifact definition in stage configuration");
+    }
+
     String artifactAccount = artifact.getArtifactAccount();
     if (CloudFoundryArtifactCredentials.TYPE.equals(artifact.getType())) {
       CloudFoundryCredentials credentials = getCredentialsObject(artifactAccount);
-      artifact.setUuid(
-          getServerGroupId(artifact.getName(), artifact.getLocation(), credentials.getClient()));
+      String uuid =
+          getServerGroupId(artifact.getName(), artifact.getLocation(), credentials.getClient());
+      converted.setApplicationArtifact(artifact.toBuilder().uuid(uuid).build());
       return new CloudFoundryArtifactCredentials(credentials.getClient());
     }
 
-    return credentialsRepository.getAllCredentials().stream()
-        .filter(creds -> creds.getName().equals(artifactAccount))
-        .findAny()
-        .orElseThrow(
-            () ->
-                new IllegalArgumentException(
-                    "Unable to find artifact credentials '" + artifactAccount + "'"));
+    ArtifactCredentials credentials =
+        credentialsRepository.getFirstCredentialsWithName(artifactAccount);
+    if (credentials == null) {
+      throw new IllegalArgumentException(
+          "Unable to find artifact credentials '" + artifactAccount + "'");
+    }
+    return credentials;
   }
 
   // visible for testing
@@ -114,11 +180,9 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
       Map<Object, Object> manifestMap) {
     List<CloudFoundryManifest> manifestApps =
         new ObjectMapper()
-            .setPropertyNamingStrategy(PropertyNamingStrategy.KEBAB_CASE)
+            .setPropertyNamingStrategy(PropertyNamingStrategies.KEBAB_CASE)
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .convertValue(
-                manifestMap.get("applications"),
-                new TypeReference<List<CloudFoundryManifest>>() {});
+            .convertValue(manifestMap.get("applications"), new TypeReference<>() {});
 
     return manifestApps.stream()
         .findFirst()
@@ -149,9 +213,17 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
                           .flatMap(route -> route.values().stream())
                           .collect(toList()));
               attrs.setEnv(app.getEnv());
+              attrs.setStack(app.getStack());
+              attrs.setCommand(app.getCommand());
+              attrs.setProcesses(app.getProcesses());
+              attrs.setRandomRoute(app.getRandomRoute());
+              attrs.setTimeout(app.getTimeout());
               return attrs;
             })
-        .get();
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException(
+                    "No app manifest found in Cloud Foundry manifest file"));
   }
 
   @Data
@@ -177,5 +249,15 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
     @Nullable private List<Map<String, String>> routes;
 
     @Nullable private Map<String, String> env;
+
+    @Nullable private String stack;
+
+    @Nullable private String command;
+
+    @Nullable private Boolean randomRoute;
+
+    @Nullable private Integer timeout;
+
+    private List<ProcessRequest> processes = Collections.emptyList();
   }
 }

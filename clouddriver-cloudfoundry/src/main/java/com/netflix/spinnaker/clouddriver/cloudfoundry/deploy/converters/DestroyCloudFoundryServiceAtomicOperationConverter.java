@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryOperation;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DestroyCloudFoundryServiceDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops.DestroyCloudFoundryServiceAtomicOperation;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import java.util.Map;
@@ -38,6 +39,8 @@ public class DestroyCloudFoundryServiceAtomicOperationConverter
   public DestroyCloudFoundryServiceDescription convertDescription(Map input) {
     DestroyCloudFoundryServiceDescription converted =
         getObjectMapper().convertValue(input, DestroyCloudFoundryServiceDescription.class);
+    CloudFoundryCredentials credentials = getCredentialsObject(input.get("credentials").toString());
+    converted.setCredentials(credentials);
     converted.setClient(getClient(input));
     converted.setSpace(
         findSpace(converted.getRegion(), converted.getClient())
@@ -45,6 +48,10 @@ public class DestroyCloudFoundryServiceAtomicOperationConverter
                 () ->
                     new IllegalArgumentException(
                         "Unable to find space '" + converted.getRegion() + "'.")));
+    if (converted.getApplication() == null || converted.getApplication().isEmpty()) {
+      throw new IllegalArgumentException(
+          "Application must not be null. Please re-create the destroy service stage in order to automatically add this field.");
+    }
     return converted;
   }
 }

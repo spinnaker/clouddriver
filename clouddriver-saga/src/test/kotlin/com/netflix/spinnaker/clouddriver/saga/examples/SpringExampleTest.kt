@@ -17,6 +17,7 @@ package com.netflix.spinnaker.clouddriver.saga.examples
 
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.clouddriver.event.config.EventSourceAutoConfiguration
 import com.netflix.spinnaker.clouddriver.saga.Action1
 import com.netflix.spinnaker.clouddriver.saga.Action2
 import com.netflix.spinnaker.clouddriver.saga.Action3
@@ -29,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import java.util.function.Predicate
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.assertj.AssertableApplicationContext
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -37,7 +39,6 @@ import org.springframework.context.annotation.Configuration
 import strikt.api.expectThat
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
-import java.util.function.Predicate
 
 /**
  * Shows an example of how to wire up a Saga using Spring!
@@ -47,9 +48,12 @@ class SpringExampleTest : JUnit5Minutests {
     context("a saga flow") {
       fixture {
         ApplicationContextRunner()
-          .withConfiguration(AutoConfigurations.of(
-            SagaAutoConfiguration::class.java
-          ))
+          .withConfiguration(
+            AutoConfigurations.of(
+              SagaAutoConfiguration::class.java,
+              EventSourceAutoConfiguration::class.java
+            )
+          )
       }
 
       val flow = SagaFlow()

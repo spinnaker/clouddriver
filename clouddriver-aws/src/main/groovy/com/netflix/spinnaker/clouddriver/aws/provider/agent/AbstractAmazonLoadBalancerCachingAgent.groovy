@@ -34,6 +34,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
+import com.netflix.spinnaker.clouddriver.cache.OnDemandType
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -103,6 +104,7 @@ abstract class AbstractAmazonLoadBalancerCachingAgent implements CachingAgent, O
   final String region
   final ObjectMapper objectMapper
   final Registry registry
+  final AmazonCachingAgentFilter amazonCachingAgentFilter
   final OnDemandMetricsSupport metricsSupport
 
   AbstractAmazonLoadBalancerCachingAgent(AmazonCloudProvider amazonCloudProvider,
@@ -110,25 +112,27 @@ abstract class AbstractAmazonLoadBalancerCachingAgent implements CachingAgent, O
                                          NetflixAmazonCredentials account,
                                          String region,
                                          ObjectMapper objectMapper,
-                                         Registry registry) {
+                                         Registry registry,
+                                         AmazonCachingAgentFilter amazonCachingAgentFilter) {
     this.amazonCloudProvider = amazonCloudProvider
     this.amazonClientProvider = amazonClientProvider
     this.account = account
     this.region = region
     this.objectMapper = objectMapper.copy().enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     this.registry = registry
-    this.metricsSupport = new OnDemandMetricsSupport(registry, this, amazonCloudProvider.id + ":" + "${amazonCloudProvider.id}:${OnDemandAgent.OnDemandType.LoadBalancer}")
+    this.amazonCachingAgentFilter = amazonCachingAgentFilter
+    this.metricsSupport = new OnDemandMetricsSupport(registry, this, amazonCloudProvider.id + ":" + "${amazonCloudProvider.id}:${OnDemandType.LoadBalancer}")
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
-    type == OnDemandAgent.OnDemandType.LoadBalancer && cloudProvider == amazonCloudProvider.id
+  boolean handles(OnDemandType type, String cloudProvider) {
+    type == OnDemandType.LoadBalancer && cloudProvider == amazonCloudProvider.id
   }
 
   abstract CacheResult loadDataInternal(ProviderCache providerCache)
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     return []
   }
 

@@ -9,6 +9,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
@@ -23,8 +24,9 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.Keys;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.ResourceCacheData;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Applications;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Organizations;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Spaces;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.moniker.Moniker;
 import io.vavr.collection.HashMap;
 import io.vavr.collection.HashSet;
@@ -34,6 +36,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class CloudFoundryServerGroupCachingAgentTest {
@@ -42,10 +45,11 @@ class CloudFoundryServerGroupCachingAgentTest {
   private ObjectMapper objectMapper =
       new ObjectMapper().disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
   private CloudFoundryClient cloudFoundryClient = mock(CloudFoundryClient.class);
+  private CloudFoundryCredentials credentials = mock(CloudFoundryCredentials.class);
   private Registry registry = mock(Registry.class);
   private final Clock internalClock = Clock.fixed(now, ZoneId.systemDefault());
   private CloudFoundryServerGroupCachingAgent cloudFoundryServerGroupCachingAgent =
-      new CloudFoundryServerGroupCachingAgent(accountName, cloudFoundryClient, registry);
+      new CloudFoundryServerGroupCachingAgent(credentials, registry);
   private ProviderCache mockProviderCache = mock(ProviderCache.class);
   private String spaceId = "space-guid";
   private String spaceName = "space";
@@ -57,6 +61,70 @@ class CloudFoundryServerGroupCachingAgentTest {
           .name(spaceName)
           .organization(CloudFoundryOrganization.builder().id(orgId).name(orgName).build())
           .build();
+  private Spaces spaces = mock(Spaces.class);
+
+  @BeforeEach
+  void before() {
+    when(credentials.getClient()).thenReturn(cloudFoundryClient);
+    when(credentials.getName()).thenReturn(accountName);
+    when(cloudFoundryClient.getSpaces()).thenReturn(spaces);
+    when(spaces.findSpaceByRegion(any())).thenReturn(Optional.empty());
+  }
+
+  @Test
+  void buildOnDemandCacheDataShouldIncludeServerGroupAttributes() throws JsonProcessingException {
+
+    CloudFoundryInstance cloudFoundryInstance =
+        CloudFoundryInstance.builder().appGuid("instance-guid-1").key("instance-key").build();
+
+    CloudFoundryServerGroup onDemandCloudFoundryServerGroup =
+        CloudFoundryServerGroup.builder()
+            .name("serverGroupName")
+            .id("sg-guid-1")
+            .account(accountName)
+            .space(cloudFoundrySpace)
+            .diskQuota(1024)
+            .instances(singleton(cloudFoundryInstance))
+            .build();
+
+    Map<String, Collection<String>> serverGroupRelationships =
+        HashMap.<String, Collection<String>>of(
+                INSTANCES.getNs(),
+                singleton(Keys.getInstanceKey(accountName, cloudFoundryInstance.getName())),
+                LOAD_BALANCERS.getNs(),
+                emptyList())
+            .toJavaMap();
+
+    ResourceCacheData onDemandCacheResults =
+        new ResourceCacheData(
+            Keys.getServerGroupKey(
+                accountName,
+                onDemandCloudFoundryServerGroup.getName(),
+                onDemandCloudFoundryServerGroup.getRegion()),
+            cacheView(onDemandCloudFoundryServerGroup),
+            serverGroupRelationships);
+
+    CacheData cacheData =
+        cloudFoundryServerGroupCachingAgent.buildOnDemandCacheData(
+            Keys.getServerGroupKey(
+                accountName,
+                onDemandCloudFoundryServerGroup.getName(),
+                onDemandCloudFoundryServerGroup.getRegion()),
+            Collections.singletonMap(
+                SERVER_GROUPS.getNs(), Collections.singleton(onDemandCacheResults)));
+
+    ResourceCacheData result =
+        objectMapper
+            .readValue(
+                cacheData.getAttributes().get("cacheResults").toString(),
+                new TypeReference<Map<String, Collection<ResourceCacheData>>>() {})
+            .get("serverGroups")
+            .stream()
+            .findFirst()
+            .get();
+
+    assertThat(result).isEqualToComparingFieldByFieldRecursively(onDemandCacheResults);
+  }
 
   @Test
   void handleShouldReturnNullWhenAccountDoesNotMatch() {
@@ -84,15 +152,10 @@ class CloudFoundryServerGroupCachingAgentTest {
                 "region", region)
             .toJavaMap();
 
-    Organizations organizations = mock(Organizations.class);
-    when(organizations.findSpaceByRegion(any())).thenReturn(Optional.empty());
-
-    when(cloudFoundryClient.getOrganizations()).thenReturn(organizations);
-
     OnDemandAgent.OnDemandResult result =
         cloudFoundryServerGroupCachingAgent.handle(mockProviderCache, data);
     assertThat(result).isNull();
-    verify(organizations).findSpaceByRegion(eq(region));
+    verify(spaces).findSpaceByRegion(eq(region));
   }
 
   @Test
@@ -104,18 +167,16 @@ class CloudFoundryServerGroupCachingAgentTest {
                 "region", region)
             .toJavaMap();
 
-    Organizations organizations = mock(Organizations.class);
-    when(cloudFoundryClient.getOrganizations()).thenReturn(organizations);
-    when(organizations.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
+    when(spaces.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
 
     OnDemandAgent.OnDemandResult result =
         cloudFoundryServerGroupCachingAgent.handle(mockProviderCache, data);
     assertThat(result).isNull();
-    verify(organizations).findSpaceByRegion(eq(region));
+    verify(spaces).findSpaceByRegion(eq(region));
   }
 
   @Test
-  void handleShouldReturnNullWhenServerGroupDoesNotExist() {
+  void handleShouldReturnAnEvictResultWhenServerGroupDoesNotExists() {
     String region = "org > space";
     String serverGroupName = "server-group";
     Map<String, Object> data =
@@ -125,20 +186,21 @@ class CloudFoundryServerGroupCachingAgentTest {
                 "serverGroupName", serverGroupName)
             .toJavaMap();
 
-    Organizations organizations = mock(Organizations.class);
-    when(cloudFoundryClient.getOrganizations()).thenReturn(organizations);
-    when(organizations.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
+    when(spaces.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
 
     Applications mockApplications = mock(Applications.class);
     when(cloudFoundryClient.getApplications()).thenReturn(mockApplications);
     when(mockApplications.findServerGroupByNameAndSpaceId(any(), any())).thenReturn(null);
 
+    when(mockProviderCache.filterIdentifiers(any(), any()))
+        .thenReturn(Collections.singletonList("key"));
+
     OnDemandAgent.OnDemandResult result =
         cloudFoundryServerGroupCachingAgent.handle(mockProviderCache, data);
 
-    assertThat(result).isNull();
-    verify(organizations).findSpaceByRegion(eq(region));
-    verify(mockApplications).findServerGroupByNameAndSpaceId(eq(serverGroupName), eq(spaceId));
+    assertThat(result).isNotNull();
+    assertThat(result.getEvictions()).hasSize(1);
+    assertThat(result.getEvictions().get(SERVER_GROUPS.getNs())).containsExactly("key");
   }
 
   @Test
@@ -170,12 +232,10 @@ class CloudFoundryServerGroupCachingAgentTest {
                             Keys.getInstanceKey(accountName, cloudFoundryInstance.getName())),
                     LOAD_BALANCERS.getNs(), Collections.emptyList())
                 .toJavaMap());
-    Organizations mockOrganizations = mock(Organizations.class);
-    when(mockOrganizations.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
+    when(spaces.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
     Applications mockApplications = mock(Applications.class);
     when(mockApplications.findServerGroupByNameAndSpaceId(any(), any()))
         .thenReturn(matchingCloudFoundryServerGroup);
-    when(cloudFoundryClient.getOrganizations()).thenReturn(mockOrganizations);
     when(cloudFoundryClient.getApplications()).thenReturn(mockApplications);
     Map<String, Collection<CacheData>> cacheResults =
         HashMap.<String, Collection<CacheData>>of(
@@ -235,7 +295,7 @@ class CloudFoundryServerGroupCachingAgentTest {
                     "processedTime", processedTime)
                 .toJavaMap());
 
-    Collection<Map> result =
+    Collection<Map<String, Object>> result =
         cloudFoundryServerGroupCachingAgent.pendingOnDemandRequests(mockProviderCache);
 
     assertThat(result).isEqualTo(expectedResult);
@@ -360,7 +420,7 @@ class CloudFoundryServerGroupCachingAgentTest {
     when(mockProviderCache.getAll(any(), anyCollection())).thenReturn(emptySet());
 
     Applications mockApplications = mock(Applications.class);
-    when(mockApplications.all())
+    when(mockApplications.all(emptyList()))
         .thenReturn(List.of(cloudFoundryApplication1, cloudFoundryApplication3).toJavaList());
 
     when(cloudFoundryClient.getApplications()).thenReturn(mockApplications);
@@ -453,7 +513,7 @@ class CloudFoundryServerGroupCachingAgentTest {
     CacheResult result = cloudFoundryServerGroupCachingAgent.loadData(mockProviderCache);
 
     assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
-    verify(mockApplications).all();
+    verify(mockApplications).all(emptyList());
   }
 
   @Test
@@ -524,7 +584,8 @@ class CloudFoundryServerGroupCachingAgentTest {
             .toJavaMap();
 
     Applications mockApplications = mock(Applications.class);
-    when(mockApplications.all()).thenReturn(List.of(cloudFoundryApplication).toJavaList());
+    when(mockApplications.all(emptyList()))
+        .thenReturn(List.of(cloudFoundryApplication).toJavaList());
 
     ResourceCacheData onDemandCacheResults =
         new ResourceCacheData(
@@ -603,5 +664,20 @@ class CloudFoundryServerGroupCachingAgentTest {
     CacheResult result = cloudFoundryServerGroupCachingAgent.loadData(mockProviderCache);
 
     assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+  }
+
+  @Test
+  void shouldReturnNullWhenAccountNameDiffers() {
+    Map<String, String> data =
+        HashMap.of(
+                "account", "NotAccount",
+                "region", "org1 > space1",
+                "serverGroupName", "doesntMatter")
+            .toJavaMap();
+
+    OnDemandAgent.OnDemandResult result =
+        cloudFoundryServerGroupCachingAgent.handle(mockProviderCache, data);
+
+    assertThat(result).isEqualTo(null);
   }
 }

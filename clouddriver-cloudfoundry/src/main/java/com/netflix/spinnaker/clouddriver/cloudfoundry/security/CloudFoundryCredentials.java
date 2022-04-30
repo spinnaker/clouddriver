@@ -16,24 +16,46 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.security;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonMap;
+import static java.util.Collections.*;
 import static java.util.stream.Collectors.toList;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.HttpCloudFoundryClient;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
+import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.*;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 
 @Slf4j
 @Getter
-@JsonIgnoreProperties({"credentials", "client", "password"})
-public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryClient> {
+@JsonIgnoreProperties({
+  "credentials",
+  "client",
+  "password",
+  "spaceSupplier",
+  "cacheRepository",
+  "forkJoinPool",
+  "filteredSpaces",
+  "spacesLive"
+})
+public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFoundryClient> {
+  private static final int SPACE_EXPIRY_SECONDS = 30;
 
   private final String name;
   private final String appsManagerUri;
@@ -41,17 +63,27 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
   private final String apiHost;
   private final String userName;
   private final String password;
+  private final boolean skipSslValidation;
+  private final boolean onlySpinnakerManaged;
 
   @Nullable private final String environment;
+  @Nullable private final Integer resultsPerPage;
 
   private final String accountType = "cloudfoundry";
-
   private final String cloudProvider = "cloudfoundry";
 
   @Deprecated private final List<String> requiredGroupMembership = Collections.emptyList();
-  private final boolean skipSslValidation;
 
-  private CloudFoundryClient credentials;
+  private final Supplier<List<CloudFoundrySpace>> spaceSupplier =
+      Memoizer.memoizeWithExpiration(this::spaceSupplier, SPACE_EXPIRY_SECONDS, TimeUnit.SECONDS);
+
+  private final CacheRepository cacheRepository;
+  private final Permissions permissions;
+  private final ForkJoinPool forkJoinPool;
+  private final List<CloudFoundrySpace> filteredSpaces;
+
+  @Getter(AccessLevel.NONE)
+  private final CloudFoundryClient cloudFoundryClient;
 
   public CloudFoundryCredentials(
       String name,
@@ -61,7 +93,16 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
       String userName,
       String password,
       String environment,
-      boolean skipSslValidation) {
+      boolean skipSslValidation,
+      boolean onlySpinnakerManaged,
+      Integer resultsPerPage,
+      CacheRepository cacheRepository,
+      Permissions permissions,
+      ForkJoinPool forkJoinPool,
+      Map<String, Set<String>> spaceFilter,
+      OkHttpClient okHttpClient,
+      CloudFoundryConfigurationProperties.ClientConfig clientConfig,
+      CloudFoundryConfigurationProperties.LocalCacheConfig localCacheConfig) {
     this.name = name;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
@@ -70,26 +111,64 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
     this.password = password;
     this.environment = Optional.ofNullable(environment).orElse("dev");
     this.skipSslValidation = skipSslValidation;
+    this.onlySpinnakerManaged = onlySpinnakerManaged;
+    this.resultsPerPage = Optional.ofNullable(resultsPerPage).orElse(100);
+    this.cacheRepository = cacheRepository;
+    this.permissions = permissions == null ? Permissions.EMPTY : permissions;
+    this.forkJoinPool = forkJoinPool;
+    this.cloudFoundryClient =
+        new HttpCloudFoundryClient(
+            name,
+            appsManagerUri,
+            metricsUri,
+            apiHost,
+            userName,
+            password,
+            true,
+            skipSslValidation,
+            onlySpinnakerManaged,
+            resultsPerPage,
+            forkJoinPool,
+            okHttpClient.newBuilder(),
+            clientConfig,
+            localCacheConfig);
+    this.filteredSpaces = createFilteredSpaces(spaceFilter);
   }
 
   public CloudFoundryClient getCredentials() {
-    if (this.credentials == null) {
-      this.credentials =
-          new HttpCloudFoundryClient(
-              name, appsManagerUri, metricsUri, apiHost, userName, password, skipSslValidation);
-    }
-    return credentials;
+    return getClient();
   }
 
   public CloudFoundryClient getClient() {
-    return getCredentials();
+    return cloudFoundryClient;
   }
 
   public Collection<Map<String, String>> getRegions() {
+    return spaceSupplier.get().stream()
+        .filter(
+            s -> {
+              if (!filteredSpaces.isEmpty()) {
+                List<String> filteredRegions =
+                    filteredSpaces.stream().map(CloudFoundrySpace::getRegion).collect(toList());
+                return filteredRegions.contains(s.getRegion());
+              }
+              return true;
+            })
+        .map(space -> singletonMap("name", space.getRegion()))
+        .collect(toList());
+  }
+
+  protected List<CloudFoundrySpace> spaceSupplier() {
+    Set<CloudFoundrySpace> spaces = cacheRepository.findSpacesByAccount(name);
+    if (!spaces.isEmpty()) {
+      return new ArrayList<>(spaces);
+    }
+    return getSpacesLive();
+  }
+
+  private List<CloudFoundrySpace> getSpacesLive() {
     try {
-      return getCredentials().getSpaces().all().stream()
-          .map(space -> singletonMap("name", space.getRegion()))
-          .collect(toList());
+      return getClient().getSpaces().all();
     } catch (CloudFoundryApiException e) {
       log.warn("Unable to determine regions for Cloud Foundry account " + name, e);
       return emptyList();
@@ -109,12 +188,83 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
         && Objects.equals(userName, that.userName)
         && Objects.equals(password, that.password)
         && Objects.equals(environment, that.environment)
-        && Objects.equals(skipSslValidation, that.skipSslValidation);
+        && Objects.equals(skipSslValidation, that.skipSslValidation)
+        && Objects.equals(resultsPerPage, that.resultsPerPage);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        name, appsManagerUri, metricsUri, userName, password, environment, skipSslValidation);
+        name,
+        appsManagerUri,
+        metricsUri,
+        userName,
+        password,
+        environment,
+        skipSslValidation,
+        resultsPerPage);
+  }
+
+  protected List<CloudFoundrySpace> createFilteredSpaces(Map<String, Set<String>> spaceFilter) {
+    List<CloudFoundrySpace> spaces = new ArrayList<>();
+    if (spaceFilter.isEmpty()) {
+      return emptyList();
+    }
+
+    Set<String> filteredRegions = new HashSet<>();
+    // IF an Org is provided without spaces -> add all spaces for the ORG
+    for (String orgName : spaceFilter.keySet()) {
+      if (spaceFilter.get(orgName).isEmpty() || spaceFilter.get(orgName) == null) {
+        List<CloudFoundrySpace> allSpacesByOrg =
+            this.getClient()
+                .getSpaces()
+                .findAllBySpaceNamesAndOrgNames(null, singletonList(orgName));
+        spaces.addAll(allSpacesByOrg);
+      } else {
+        for (String spaceName : spaceFilter.get(orgName)) {
+          filteredRegions.add(orgName + " > " + spaceName);
+        }
+      }
+    }
+    // IF an Org is provided with spaces -> add all spaces that are in the ORG and filteredRegions
+    List<CloudFoundrySpace> allSpaces =
+        this.getClient()
+            .getSpaces()
+            .findAllBySpaceNamesAndOrgNames(
+                spaceFilter.values().stream()
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toList()),
+                List.copyOf(spaceFilter.keySet()));
+    allSpaces.stream().filter(s -> filteredRegions.contains(s.getRegion())).forEach(spaces::add);
+
+    if (spaces.isEmpty())
+      throw new IllegalArgumentException(
+          "The spaceFilter had Orgs and/or Spaces but CloudFoundry returned no spaces as a result. Spaces must not be null or empty when a spaceFilter is included.");
+
+    return ImmutableList.copyOf(spaces);
+  }
+
+  /**
+   * Thin wrapper around a Caffeine cache that handles memoizing a supplier function with expiration
+   */
+  private static class Memoizer<T> implements Supplier<T> {
+    private static final String CACHE_KEY = "key";
+    private final LoadingCache<String, T> cache;
+
+    private Memoizer(Supplier<T> supplier, long expirySeconds, TimeUnit timeUnit) {
+      this.cache =
+          Caffeine.newBuilder()
+              .refreshAfterWrite(expirySeconds, timeUnit)
+              .build(key -> supplier.get());
+    }
+
+    public static <U> Memoizer<U> memoizeWithExpiration(
+        Supplier<U> supplier, long expirySeconds, TimeUnit timeUnit) {
+      return new Memoizer<>(supplier, expirySeconds, timeUnit);
+    }
+
+    public T get() {
+      return cache.get(CACHE_KEY);
+    }
   }
 }

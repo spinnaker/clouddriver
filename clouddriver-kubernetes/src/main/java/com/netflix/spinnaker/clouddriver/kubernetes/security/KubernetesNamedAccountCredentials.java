@@ -1,7 +1,7 @@
 /*
  * Copyright 2016 Google, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License")
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -12,42 +12,39 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package com.netflix.spinnaker.clouddriver.kubernetes.security;
 
 import static lombok.EqualsAndHashCode.Include;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties.ManagedAccount;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
-import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.*;
+import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 @Getter
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
 @ParametersAreNonnullByDefault
-public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
-    implements AccountCredentials<C> {
+public class KubernetesNamedAccountCredentials
+    extends AbstractAccountCredentials<KubernetesCredentials> {
   private final String cloudProvider = "kubernetes";
 
-  @Include private final String name;
-
-  @Include private final ProviderVersion providerVersion;
+  @Nonnull @Include private final String name;
 
   @Include private final String environment;
 
   @Include private final String accountType;
 
-  @Include private final String skin;
-
   @Include private final int cacheThreads;
 
-  @Include private final C credentials;
+  @Include private final KubernetesCredentials credentials;
 
   @Include private final List<String> requiredGroupMembership;
 
@@ -56,16 +53,13 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
   @Include private final Long cacheIntervalSeconds;
 
   public KubernetesNamedAccountCredentials(
-      ManagedAccount managedAccount, KubernetesCredentialFactory<C> credentialFactory) {
-    this.name = managedAccount.getName();
-    this.providerVersion = managedAccount.getProviderVersion();
+      ManagedAccount managedAccount, KubernetesCredentials.Factory credentialFactory) {
+    managedAccount.validate();
+    this.name = Objects.requireNonNull(managedAccount.getName());
     this.environment =
         Optional.ofNullable(managedAccount.getEnvironment()).orElse(managedAccount.getName());
     this.accountType =
         Optional.ofNullable(managedAccount.getAccountType()).orElse(managedAccount.getName());
-    this.skin =
-        Optional.ofNullable(managedAccount.getSkin())
-            .orElse(managedAccount.getProviderVersion().toString());
     this.cacheThreads = managedAccount.getCacheThreads();
     this.cacheIntervalSeconds = managedAccount.getCacheIntervalSeconds();
 
@@ -81,8 +75,26 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
     this.credentials = credentialFactory.build(managedAccount);
   }
 
+  /**
+   * This method is deprecated and users should instead supply {@link
+   * KubernetesNamedAccountCredentials#permissions}. In order to continue to support users who have
+   * `requiredGroupMembership` in their account config, we still need to override this method. We'll
+   * need to either communicate the backwards-incompatible change or translate the supplied
+   * `requiredGroupMembership` into {@link KubernetesNamedAccountCredentials#permissions} before
+   * removing this override.
+   */
+  @Override
+  @SuppressWarnings("deprecation")
+  public List<String> getRequiredGroupMembership() {
+    return requiredGroupMembership;
+  }
+
+  /**
+   * Get the namespaces without making a call to the kubernetes cluster. If the cache is empty,
+   * return an empty list.
+   */
   public List<String> getNamespaces() {
-    return credentials.getDeclaredNamespaces();
+    return credentials.getDeclaredNamespacesFromCache();
   }
 
   public Map<String, String> getSpinnakerKindMap() {

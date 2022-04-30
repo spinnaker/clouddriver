@@ -17,7 +17,9 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.provider.agent;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.Keys.Namespace.*;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.LOAD_BALANCERS;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.SERVER_GROUPS;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toSet;
@@ -31,15 +33,14 @@ import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
+import com.netflix.spinnaker.clouddriver.cache.OnDemandType;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.Keys;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.ResourceCacheData;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.RouteId;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryLoadBalancer;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
-import io.vavr.collection.HashMap;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import java.util.*;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -55,8 +56,8 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
       Collections.singletonList(AUTHORITATIVE.forType(LOAD_BALANCERS.getNs()));
 
   public CloudFoundryLoadBalancerCachingAgent(
-      String account, CloudFoundryClient client, Registry registry) {
-    super(account, client, registry);
+      CloudFoundryCredentials credentials, Registry registry) {
+    super(credentials, registry);
   }
 
   @Override
@@ -64,7 +65,10 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
     long loadDataStart = this.getInternalClock().millis();
     String accountName = getAccountName();
     log.info("Caching all load balancers (routes) in Cloud Foundry account " + accountName);
-    List<CloudFoundryLoadBalancer> loadBalancers = this.getClient().getRoutes().all();
+    List<CloudFoundrySpace> spaceFilters = this.getCredentials().getFilteredSpaces();
+
+    // Once Routes are migrated to v3 we can take advantage of space_guids. Until then...
+    List<CloudFoundryLoadBalancer> loadBalancers = this.getClient().getRoutes().all(spaceFilters);
 
     Collection<CacheData> onDemandCacheData =
         providerCache.getAll(
@@ -77,24 +81,50 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
         cacheData -> {
           long cacheTime = (long) cacheData.getAttributes().get("cacheTime");
           if (cacheTime < loadDataStart
-              && (int) cacheData.getAttributes().get("processedCount") > 0) {
+              && (int) cacheData.getAttributes().computeIfAbsent("processedCount", s -> 0) > 0) {
             toEvict.add(cacheData.getId());
           } else {
             toKeep.put(cacheData.getId(), cacheData);
           }
         });
 
+    Map<String, CacheData> loadBalancersByServerGroupIds = new HashMap<>();
+    loadBalancers.stream()
+        .forEach(
+            lb ->
+                lb.getMappedApps().stream()
+                    .forEach(
+                        sg ->
+                            loadBalancersByServerGroupIds
+                                .computeIfAbsent(
+                                    sg.getId(),
+                                    (s) ->
+                                        new ResourceCacheData(
+                                            Keys.getServerGroupKey(
+                                                sg.getAccount(), sg.getName(), sg.getRegion()),
+                                            emptyMap(),
+                                            new java.util.HashMap<>()))
+                                .getRelationships()
+                                .computeIfAbsent(LOAD_BALANCERS.getNs(), k -> new HashSet<>())
+                                .add(lb.getId())));
+
     Map<String, Collection<CacheData>> results =
-        HashMap.<String, Collection<CacheData>>of(
+        io.vavr.collection.HashMap.of(
                 LOAD_BALANCERS.getNs(),
                 loadBalancers.stream()
                     .map(lb -> setCacheData(toKeep, lb, loadDataStart))
-                    .collect(toSet()))
+                    .collect(toSet()),
+                SERVER_GROUPS.getNs(),
+                loadBalancersByServerGroupIds.values())
             .toJavaMap();
 
     onDemandCacheData.forEach(this::processOnDemandCacheData);
     results.put(ON_DEMAND.getNs(), toKeep.values());
 
+    log.debug(
+        "LoadBalancer cache loaded for Cloud Foundry account {}, ({} sec)",
+        accountName,
+        (getInternalClock().millis() - loadDataStart) / 1000);
     return new DefaultCacheResult(results, Collections.singletonMap(ON_DEMAND.getNs(), toEvict));
   }
 
@@ -102,7 +132,7 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
       Map<String, CacheData> onDemandCacheDataToKeep,
       CloudFoundryLoadBalancer cloudFoundryLoadBalancer,
       long start) {
-    String account = this.getAccount();
+    String account = this.getAccountName();
     String key = Keys.getLoadBalancerKey(account, cloudFoundryLoadBalancer);
     CacheData lbCacheData = onDemandCacheDataToKeep.get(key);
     if (lbCacheData != null && (long) lbCacheData.getAttributes().get("cacheTime") > start) {
@@ -124,7 +154,7 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return type.equals(OnDemandAgent.OnDemandType.LoadBalancer)
+    return type.equals(OnDemandType.LoadBalancer)
         && cloudProvider.equals(CloudFoundryProvider.PROVIDER_ID);
   }
 
@@ -138,7 +168,12 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
     if (account == null || region == null || loadBalancerName == null) {
       return null;
     }
-    CloudFoundrySpace space = getClient().getOrganizations().findSpaceByRegion(region).orElse(null);
+
+    if (!this.getAccountName().equals(account)) {
+      return null;
+    }
+
+    CloudFoundrySpace space = getClient().getSpaces().findSpaceByRegion(region).orElse(null);
     if (space == null) {
       return null;
     }
@@ -152,7 +187,7 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
     String loadBalancerKey =
         Optional.ofNullable(cloudFoundryLoadBalancer)
             .map(lb -> Keys.getLoadBalancerKey(account, lb))
-            .orElse(Keys.getLoadBalancerKey(this.getAccount(), loadBalancerName, region));
+            .orElse(Keys.getLoadBalancerKey(this.getAccountName(), loadBalancerName, region));
     Map<String, Collection<String>> evictions;
 
     DefaultCacheResult loadBalancerCacheResults;
@@ -191,7 +226,7 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<String> keys =
         providerCache.filterIdentifiers(ON_DEMAND.getNs(), Keys.getAllLoadBalancers());
     return providerCache.getAll(ON_DEMAND.getNs(), keys, RelationshipCacheFilter.none()).stream()
@@ -201,7 +236,7 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
               Map<String, String> details = Keys.parse(loadbalancerId).orElse(emptyMap());
               Map<String, Object> attributes = it.getAttributes();
 
-              return HashMap.of(
+              return io.vavr.collection.HashMap.of(
                       "id",
                       loadbalancerId,
                       "details",

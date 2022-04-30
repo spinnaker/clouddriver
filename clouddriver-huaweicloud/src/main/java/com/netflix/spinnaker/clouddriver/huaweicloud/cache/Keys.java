@@ -20,17 +20,21 @@ import com.google.common.base.CaseFormat;
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.cache.KeyParser;
 import com.netflix.spinnaker.clouddriver.huaweicloud.HuaweiCloudProvider;
+import com.netflix.spinnaker.clouddriver.huaweicloud.HuaweiCloudUtils;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Component("HuaweiCloudKeys")
 public class Keys implements KeyParser {
 
   public static enum Namespace {
+    IMAGES,
+    INSTANCE_TYPES,
+    NETWORKS,
     SECURITY_GROUPS,
+    SUBNETS,
     ON_DEMAND;
 
     public final String ns;
@@ -76,41 +80,56 @@ public class Keys implements KeyParser {
     return HuaweiCloudProvider.ID;
   }
 
+  private static Map emptyMap() {
+    return Collections.emptyMap();
+  }
+
+  public static Map<String, String> parse(String key, Namespace targetType) {
+    Map<String, String> keys = parse(key);
+    return (!keys.isEmpty() && !targetType.ns.equals(keys.get("type"))) ? emptyMap() : keys;
+  }
+
   public static Map<String, String> parse(String key) {
+    if (HuaweiCloudUtils.isEmptyStr(key)) {
+      return emptyMap();
+    }
+
     String[] parts = key.split(SEPARATOR);
     if ((parts.length < 2) || (!getCloudProviderId().equals(parts[0]))) {
-      return Collections.emptyMap();
+      return emptyMap();
     }
 
     Namespace ns;
     try {
       ns = Namespace.valueOf(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, parts[1]));
     } catch (Exception e) {
-      return Collections.emptyMap();
+      return emptyMap();
     }
 
-    Map<String, String> result = new HashMap();
+    Map<String, String> result;
 
     switch (ns) {
+      case IMAGES:
+        result = parseSimpleKey(parts);
+        break;
+      case INSTANCE_TYPES:
+        result = parseSimpleKey(parts);
+        break;
+      case NETWORKS:
+        result = parseSimpleKey(parts);
+        break;
       case SECURITY_GROUPS:
-        if (parts.length == 6) {
-          Names names = Names.parseName(parts[4]);
-          if (StringUtils.isEmpty(names.getApp())) {
-            break;
-          }
-          result.put("application", names.getApp());
-          result.put("account", parts[2]);
-          result.put("region", parts[3]);
-          result.put("name", parts[4]);
-          result.put("id", parts[5]);
-        }
+        result = parseSecurityGroupKey(parts);
+        break;
+      case SUBNETS:
+        result = parseSimpleKey(parts);
         break;
       default:
-        return Collections.emptyMap();
+        return emptyMap();
     }
 
     if (result.isEmpty()) {
-      return Collections.emptyMap();
+      return result;
     }
 
     result.put("provider", parts[0]);
@@ -118,18 +137,70 @@ public class Keys implements KeyParser {
     return result;
   }
 
+  public static String getImageKey(String imageId, String account, String region) {
+    return getSimpleKey(Namespace.IMAGES, imageId, account, region);
+  }
+
+  public static String getInstanceTypeKey(String instanceType, String account, String region) {
+    return getSimpleKey(Namespace.INSTANCE_TYPES, instanceType, account, region);
+  }
+
+  public static String getNetworkKey(String networkId, String account, String region) {
+    return getSimpleKey(Namespace.NETWORKS, networkId, account, region);
+  }
+
   public static String getSecurityGroupKey(
       String securityGroupName, String securityGroupId, String account, String region) {
+    String identifier = securityGroupName + SEPARATOR + securityGroupId;
+    return getSimpleKey(Namespace.SECURITY_GROUPS, identifier, account, region);
+  }
+
+  private static Map parseSecurityGroupKey(String[] parts) {
+    if (parts.length != 6) {
+      return emptyMap();
+    }
+
+    Names names = Names.parseName(parts[4]);
+    if (HuaweiCloudUtils.isEmptyStr(names.getApp())) {
+      return emptyMap();
+    }
+
+    Map<String, String> result = new HashMap();
+    result.put("application", names.getApp());
+    result.put("account", parts[2]);
+    result.put("region", parts[3]);
+    result.put("name", parts[4]);
+    result.put("id", parts[5]);
+
+    return result;
+  }
+
+  public static String getSubnetKey(String subnetId, String account, String region) {
+    return getSimpleKey(Namespace.SUBNETS, subnetId, account, region);
+  }
+
+  private static String getSimpleKey(
+      Namespace namespace, String identifier, String account, String region) {
     return getCloudProviderId()
         + SEPARATOR
-        + Namespace.SECURITY_GROUPS
+        + namespace
         + SEPARATOR
         + account
         + SEPARATOR
         + region
         + SEPARATOR
-        + securityGroupName
-        + SEPARATOR
-        + securityGroupId;
+        + identifier;
+  }
+
+  private static Map parseSimpleKey(String[] parts) {
+    if (parts.length != 5) {
+      return emptyMap();
+    }
+
+    Map<String, String> result = new HashMap();
+    result.put("account", parts[2]);
+    result.put("region", parts[3]);
+    result.put("id", parts[4]);
+    return result;
   }
 }

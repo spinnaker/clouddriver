@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.description;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable;
 import lombok.AllArgsConstructor;
@@ -29,10 +28,15 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class KubernetesAtomicOperationDescription<C extends KubernetesCredentials>
+public class KubernetesAtomicOperationDescription
     implements DeployDescription, CredentialsNameable {
   @JsonProperty("account")
   String account;
 
-  KubernetesNamedAccountCredentials<C> credentials;
+  KubernetesNamedAccountCredentials credentials;
+
+  @Override
+  public boolean requiresApplicationRestriction() {
+    return false;
+  }
 }

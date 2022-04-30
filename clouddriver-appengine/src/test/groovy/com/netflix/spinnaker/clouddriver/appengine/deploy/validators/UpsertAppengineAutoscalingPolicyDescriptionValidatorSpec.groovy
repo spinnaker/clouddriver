@@ -23,9 +23,9 @@ import com.netflix.spinnaker.clouddriver.appengine.model.ScalingPolicyType
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineClusterProvider
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineCredentials
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
-import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
-import org.springframework.validation.Errors
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository
+import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -45,7 +45,8 @@ class UpsertAppengineAutoscalingPolicyDescriptionValidatorSpec extends Specifica
   void setupSpec() {
     validator = new UpsertAppengineAutoscalingPolicyDescriptionValidator()
 
-    def credentialsRepo = new MapBackedAccountCredentialsRepository()
+    def credentialsRepo = new MapBackedCredentialsRepository(AppengineNamedAccountCredentials.CREDENTIALS_TYPE,
+      new NoopCredentialsLifecycleHandler<>())
     def mockCredentials = Mock(AppengineCredentials)
     credentials = new AppengineNamedAccountCredentials.Builder()
       .name(ACCOUNT_NAME)
@@ -53,9 +54,9 @@ class UpsertAppengineAutoscalingPolicyDescriptionValidatorSpec extends Specifica
       .applicationName(APPLICATION_NAME)
       .credentials(mockCredentials)
       .build()
-    credentialsRepo.save(ACCOUNT_NAME, credentials)
+    credentialsRepo.save(credentials)
 
-    validator.accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepo)
+    validator.credentialsRepository = credentialsRepo
   }
 
   void "pass validation with proper description inputs"() {
@@ -70,7 +71,7 @@ class UpsertAppengineAutoscalingPolicyDescriptionValidatorSpec extends Specifica
       env: AppengineServerGroup.Environment.STANDARD,
       scalingPolicy: new AppengineScalingPolicy(type: ScalingPolicyType.AUTOMATIC))
 
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
     validator.appengineClusterProvider = Mock(AppengineClusterProvider)
     validator.appengineClusterProvider.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME) >> serverGroup
 
@@ -92,7 +93,7 @@ class UpsertAppengineAutoscalingPolicyDescriptionValidatorSpec extends Specifica
       maxIdleInstances: 20)
     def serverGroup = new AppengineServerGroup(env: env, scalingPolicy: new AppengineScalingPolicy(type: type))
 
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
     validator.appengineClusterProvider = Mock(AppengineClusterProvider)
     validator.appengineClusterProvider.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME) >> serverGroup
 
@@ -120,7 +121,7 @@ class UpsertAppengineAutoscalingPolicyDescriptionValidatorSpec extends Specifica
       credentials: credentials,
       minIdleInstances: 10,
       maxIdleInstances: 20)
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
     validator.appengineClusterProvider = Mock(AppengineClusterProvider)
     validator.appengineClusterProvider.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME) >> null
 
@@ -144,7 +145,7 @@ class UpsertAppengineAutoscalingPolicyDescriptionValidatorSpec extends Specifica
     def serverGroup = new AppengineServerGroup(env: AppengineServerGroup.Environment.STANDARD,
                                                scalingPolicy: new AppengineScalingPolicy(type: ScalingPolicyType.AUTOMATIC))
 
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
     validator.appengineClusterProvider = Mock(AppengineClusterProvider)
     validator.appengineClusterProvider.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME) >> serverGroup
 

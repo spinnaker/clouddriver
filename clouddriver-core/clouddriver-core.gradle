@@ -1,6 +1,10 @@
 dependencies {
+  api("io.spinnaker.kork:kork-api")
+  api("io.spinnaker.kork:kork-plugins")
+
   implementation project(":cats:cats-core")
   implementation project(":cats:cats-redis")
+  implementation project(":clouddriver-api")
   implementation project(":clouddriver-security")
   implementation project(":clouddriver-saga")
 
@@ -8,31 +12,39 @@ dependencies {
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
 
+  // This is because some classes in this module use the Groovy @Immutable annotation,
+  // which appears to require consumers to have core groovy on the classpath
+  api "org.codehaus.groovy:groovy"
+
+  implementation "javax.inject:javax.inject:1"
+  implementation "javax.validation:validation-api"
   implementation "net.logstash.logback:logstash-logback-encoder"
   implementation "com.fasterxml.jackson.module:jackson-module-kotlin"
+  implementation "com.fasterxml.jackson.datatype:jackson-datatype-joda"
   implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
-  implementation "com.netflix.eureka:eureka-client"
   implementation "com.netflix.frigga:frigga"
-  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
-  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
-  implementation "com.netflix.spinnaker.kork:kork-artifacts"
-  implementation "com.netflix.spinnaker.kork:kork-config"
-  implementation "com.netflix.spinnaker.kork:kork-core"
-  implementation "com.netflix.spinnaker.kork:kork-jedis"
-  implementation "com.netflix.spinnaker.kork:kork-web"
-  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "io.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "io.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "io.spinnaker.kork:kork-artifacts"
+  implementation "io.spinnaker.kork:kork-credentials"
+  implementation "io.spinnaker.kork:kork-core"
+  implementation "io.spinnaker.kork:kork-jedis"
+  implementation "io.spinnaker.kork:kork-retrofit"
+  implementation "io.spinnaker.kork:kork-web"
+  implementation "io.spinnaker.kork:kork-annotations"
+  implementation "io.spinnaker.kork:kork-moniker"
+  implementation "io.spinnaker.kork:kork-secrets"
   implementation "com.squareup.okhttp:okhttp"
   implementation "com.squareup.okhttp:okhttp-apache"
   implementation "com.squareup.okhttp:okhttp-urlconnection"
   implementation "com.squareup.retrofit:converter-jackson"
   implementation "com.squareup.retrofit:retrofit"
+  implementation "com.jakewharton.retrofit:retrofit1-okhttp3-client"
   implementation "io.reactivex:rxjava"
   implementation "net.jodah:failsafe:1.0.4"
   implementation "org.apache.commons:commons-exec"
   implementation "org.codehaus.groovy:groovy-all"
   implementation "org.springframework.boot:spring-boot-actuator"
-  implementation "org.springframework.cloud:spring-cloud-context"
-  implementation "org.springframework.cloud:spring-cloud-config-server"
   implementation "redis.clients:jedis"
   implementation "org.jooq:jooq"
 
@@ -40,7 +52,7 @@ dependencies {
   testImplementation project(":clouddriver-core-tck")
 
   testImplementation "cglib:cglib-nodep"
-  testImplementation "com.netflix.spinnaker.kork:kork-jedis-test"
+  testImplementation "io.spinnaker.kork:kork-jedis-test"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
@@ -49,4 +61,5 @@ dependencies {
   testImplementation "org.junit.jupiter:junit-jupiter-engine"
   testImplementation "org.junit.jupiter:junit-jupiter-params"
   testImplementation "org.mockito:mockito-core"
+  testImplementation "org.springframework.boot:spring-boot-starter-test"
 }

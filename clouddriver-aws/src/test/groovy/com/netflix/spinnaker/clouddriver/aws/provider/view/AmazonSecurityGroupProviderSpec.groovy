@@ -16,25 +16,20 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider.view
 
-import com.amazonaws.services.ec2.model.IpPermission
-import com.amazonaws.services.ec2.model.IpRange
-import com.amazonaws.services.ec2.model.Ipv6Range
-import com.amazonaws.services.ec2.model.SecurityGroup
-import com.amazonaws.services.ec2.model.UserIdGroupPair
+import com.amazonaws.services.ec2.model.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.cache.WriteableCache
 import com.netflix.spinnaker.cats.mem.InMemoryCache
+import com.netflix.spinnaker.clouddriver.aws.cache.Keys
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonSecurityGroup
+import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.model.securitygroups.IpRangeRule
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule
 import com.netflix.spinnaker.clouddriver.model.securitygroups.SecurityGroupRule
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import com.netflix.spinnaker.clouddriver.aws.cache.Keys
-import com.netflix.spinnaker.clouddriver.aws.model.AmazonSecurityGroup
-import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider
+import com.netflix.spinnaker.credentials.CredentialsRepository
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
@@ -47,32 +42,23 @@ class AmazonSecurityGroupProviderSpec extends Specification {
   WriteableCache cache = new InMemoryCache()
   ObjectMapper mapper = new ObjectMapper()
 
-  final credential1 = Stub(NetflixAmazonCredentials) {
+  def credential1 = Stub(NetflixAmazonCredentials) {
     getName() >> "accountName1"
     getAccountId() >> "accountId1"
   }
 
-  final credential2 = Stub(NetflixAmazonCredentials) {
+  def credential2 = Stub(NetflixAmazonCredentials) {
     getName() >> "accountName2"
     getAccountId() >> "accountId2"
   }
 
-  final accountCredentialsProvider = new AccountCredentialsProvider() {
-
-    @Override
-    Set<? extends AccountCredentials> getAll() {
-      [credential1, credential2]
-    }
-
-    @Override
-    AccountCredentials getCredentials(String name) {
-      return null
-    }
+  def credentialsRepository = Stub(CredentialsRepository) {
+    getAll() >> [credential1, credential2]
   }
 
 
   def setup() {
-    provider = new AmazonSecurityGroupProvider(accountCredentialsProvider, cache, mapper)
+    provider = new AmazonSecurityGroupProvider(credentialsRepository, cache, mapper)
     cache.mergeAll(Keys.Namespace.SECURITY_GROUPS.ns, getAllGroups())
   }
 
@@ -162,9 +148,26 @@ class AmazonSecurityGroupProviderSpec extends Specification {
 
   }
 
+  void "getById returns match based on account, region, and id"() {
+
+    when:
+    def result = provider.getById(account, region, id, null)
+
+    then:
+    result != null
+    result.accountName == account
+    result.region == region
+    result.id == id
+
+    where:
+    account = 'prod'
+    region = 'us-east-1'
+    id = 'sg-a'
+  }
+
   void "should add both ipRangeRules and securityGroup rules"() {
     given:
-    String groupId = 'id-a'
+    String groupId = 'sg-a'
     String groupName = 'name-a'
     String vpcId = null
     SecurityGroup mixedRangedGroupA = new SecurityGroup(
@@ -180,7 +183,7 @@ class AmazonSecurityGroupProviderSpec extends Specification {
           ipv4Ranges: [new IpRange(cidrIp: '0.0.0.0/32'), new IpRange(cidrIp: '0.0.0.1/31')],
           ipv6Ranges: [new Ipv6Range(cidrIpv6: '::/0')],
           userIdGroupPairs: [
-            new UserIdGroupPair(groupId: 'id-b', groupName: 'name-b', userId: 'test')
+            new UserIdGroupPair(groupId: 'sg-b', groupName: 'name-b', userId: 'test')
           ]
         )
       ])
@@ -210,8 +213,8 @@ class AmazonSecurityGroupProviderSpec extends Specification {
 
   void "should add security group ingress with different protocols"() {
     given:
-    SecurityGroup securityGroupA = new SecurityGroup(ownerId: "accountId1", groupId: 'id-a', groupName: 'name-a', description: 'a')
-    SecurityGroup securityGroupB = new SecurityGroup(ownerId: "accountId1", groupId: 'id-b', groupName: 'name-b', description: 'b')
+    SecurityGroup securityGroupA = new SecurityGroup(ownerId: "accountId1", groupId: 'sg-a', groupName: 'name-a', description: 'a')
+    SecurityGroup securityGroupB = new SecurityGroup(ownerId: "accountId1", groupId: 'sg-b', groupName: 'name-b', description: 'b')
     securityGroupB.ipPermissions = [
       new IpPermission(ipProtocol: "TCP", fromPort: 7001, toPort: 7001, userIdGroupPairs: [
         new UserIdGroupPair(userId: "accountId1", groupId: securityGroupA.groupId, groupName: securityGroupA.groupName)
@@ -222,7 +225,7 @@ class AmazonSecurityGroupProviderSpec extends Specification {
     ]
     String account = 'test'
     String region = 'us-east-1'
-    def key = Keys.getSecurityGroupKey('name-b', 'id-b', region, account, null)
+    def key = Keys.getSecurityGroupKey('name-b', 'sg-b', region, account, null)
     Map<String, Object> attributes = mapper.convertValue(securityGroupB, AwsInfrastructureProvider.ATTRIBUTES)
     def cacheData = new DefaultCacheData(key, attributes, [:])
     cache.merge(Keys.Namespace.SECURITY_GROUPS.ns, cacheData)
@@ -231,11 +234,11 @@ class AmazonSecurityGroupProviderSpec extends Specification {
     def sg = provider.get(account, region, 'name-b', null)
 
     then:
-    sg == new AmazonSecurityGroup(id: "id-b", name: "name-b", description: "b",
+    sg == new AmazonSecurityGroup(id: "sg-b", name: "name-b", description: "b",
       accountName: account, region: region, inboundRules: [
       new SecurityGroupRule(protocol: "TCP",
         securityGroup: new AmazonSecurityGroup(
-          id: 'id-a',
+          id: 'sg-a',
           name: 'name-a',
           accountName: "accountName1",
           accountId: "accountId1",
@@ -247,7 +250,7 @@ class AmazonSecurityGroupProviderSpec extends Specification {
       ),
       new SecurityGroupRule(protocol: "UDP",
         securityGroup: new AmazonSecurityGroup(
-          id: 'id-a',
+          id: 'sg-a',
           name: 'name-a',
           accountName: "accountName1",
           accountId: "accountId1",
@@ -267,7 +270,7 @@ class AmazonSecurityGroupProviderSpec extends Specification {
     String account = 'test'
     String region = 'us-east-1'
     SecurityGroup group = new SecurityGroup(
-      groupId: 'id-a',
+      groupId: 'sg-a',
       groupName: 'name-a',
       description: 'a',
       ipPermissions: [
@@ -284,7 +287,7 @@ class AmazonSecurityGroupProviderSpec extends Specification {
           ipRanges: ['0.0.0.0/32', '0.0.0.1/31']
         )
       ])
-    def key = Keys.getSecurityGroupKey('name-a', 'id-a', region, account, null)
+    def key = Keys.getSecurityGroupKey('name-a', 'sg-a', region, account, null)
     Map<String, Object> attributes = mapper.convertValue(group, AwsInfrastructureProvider.ATTRIBUTES)
     def cacheData = new DefaultCacheData(key, attributes, [:])
     cache.merge(Keys.Namespace.SECURITY_GROUPS.ns, cacheData)
@@ -308,7 +311,7 @@ class AmazonSecurityGroupProviderSpec extends Specification {
     String account = 'test'
     String region = 'us-east-1'
     SecurityGroup group = new SecurityGroup(
-      groupId: 'id-a',
+      groupId: 'sg-a',
       groupName: 'name-a',
       description: 'a',
       ipPermissions: [
@@ -325,7 +328,7 @@ class AmazonSecurityGroupProviderSpec extends Specification {
           ipRanges: ['0.0.0.0/32', '0.0.0.1/31']
         )
       ])
-    def key = Keys.getSecurityGroupKey('name-a', 'id-a', region, account, null)
+    def key = Keys.getSecurityGroupKey('name-a', 'sg-a', region, account, null)
     Map<String, Object> attributes = mapper.convertValue(group, AwsInfrastructureProvider.ATTRIBUTES)
     def cacheData = new DefaultCacheData(key, attributes, [:])
     cache.merge(Keys.Namespace.SECURITY_GROUPS.ns, cacheData)
@@ -347,15 +350,15 @@ class AmazonSecurityGroupProviderSpec extends Specification {
     String vpcId = 'vpc-1234'
     String account = 'accountName1'
     String region = 'us-east-1'
-    SecurityGroup securityGroupA = new SecurityGroup(ownerId: account, groupId: 'id-a', groupName: 'name-a', description: 'a', vpcId: vpcId)
-    SecurityGroup securityGroupB = new SecurityGroup(ownerId: account, groupId: 'id-b', groupName: 'name-b', description: 'b', vpcId: vpcId)
+    SecurityGroup securityGroupA = new SecurityGroup(ownerId: account, groupId: 'sg-a', groupName: 'name-a', description: 'a', vpcId: vpcId)
+    SecurityGroup securityGroupB = new SecurityGroup(ownerId: account, groupId: 'sg-b', groupName: 'name-b', description: 'b', vpcId: vpcId)
     securityGroupA.ipPermissions = [
         new IpPermission(ipProtocol: "TCP", fromPort: 7001, toPort: 7001, userIdGroupPairs: [
             new UserIdGroupPair(userId: "accountId1", groupId: securityGroupB.groupId)
         ])
     ]
-    def keyA = Keys.getSecurityGroupKey('name-a', 'id-a', region, account, vpcId)
-    def keyB = Keys.getSecurityGroupKey('name-b', 'id-b', region, account, vpcId)
+    def keyA = Keys.getSecurityGroupKey('name-a', 'sg-a', region, account, vpcId)
+    def keyB = Keys.getSecurityGroupKey('name-b', 'sg-b', region, account, vpcId)
     Map<String, Object> attributesA = mapper.convertValue(securityGroupA, AwsInfrastructureProvider.ATTRIBUTES)
     Map<String, Object> attributesB = mapper.convertValue(securityGroupB, AwsInfrastructureProvider.ATTRIBUTES)
     def cacheDataA = new DefaultCacheData(keyA, attributesA, [:])
@@ -378,15 +381,15 @@ class AmazonSecurityGroupProviderSpec extends Specification {
     String account1 = 'accountName1'
     String account2 = 'accountName2'
     String region = 'us-east-1'
-    SecurityGroup securityGroupA = new SecurityGroup(ownerId: account1, groupId: 'id-a', groupName: 'name-a', description: 'a', vpcId: vpcId1)
-    SecurityGroup securityGroupB = new SecurityGroup(ownerId: account2, groupId: 'id-b', groupName: 'name-b', description: 'b', vpcId: vpcId2)
+    SecurityGroup securityGroupA = new SecurityGroup(ownerId: account1, groupId: 'sg-a', groupName: 'name-a', description: 'a', vpcId: vpcId1)
+    SecurityGroup securityGroupB = new SecurityGroup(ownerId: account2, groupId: 'sg-b', groupName: 'name-b', description: 'b', vpcId: vpcId2)
     securityGroupA.ipPermissions = [
         new IpPermission(ipProtocol: "TCP", fromPort: 7001, toPort: 7001, userIdGroupPairs: [
             new UserIdGroupPair(userId: "accountId2", groupId: securityGroupB.groupId)
         ])
     ]
-    def keyA = Keys.getSecurityGroupKey('name-a', 'id-a', region, account1, vpcId1)
-    def keyB = Keys.getSecurityGroupKey('name-b', 'id-b', region, account2, vpcId2)
+    def keyA = Keys.getSecurityGroupKey('name-a', 'sg-a', region, account1, vpcId1)
+    def keyB = Keys.getSecurityGroupKey('name-b', 'sg-b', region, account2, vpcId2)
     Map<String, Object> attributesA = mapper.convertValue(securityGroupA, AwsInfrastructureProvider.ATTRIBUTES)
     Map<String, Object> attributesB = mapper.convertValue(securityGroupB, AwsInfrastructureProvider.ATTRIBUTES)
     def cacheDataA = new DefaultCacheData(keyA, attributesA, [:])
@@ -407,22 +410,22 @@ class AmazonSecurityGroupProviderSpec extends Specification {
   Map<String, Map<String, List<SecurityGroup>>> securityGroupMap = [
     prod: [
       'us-east-1': [
-        new SecurityGroup(groupId: 'a', groupName: 'a'),
-        new SecurityGroup(groupId: 'b', groupName: 'b'),
+        new SecurityGroup(groupId: 'sg-a', groupName: 'a'),
+        new SecurityGroup(groupId: 'sg-b', groupName: 'b'),
       ],
       'us-west-1': [
-        new SecurityGroup(groupId: 'a', groupName: 'a'),
-        new SecurityGroup(groupId: 'b', groupName: 'b'),
+        new SecurityGroup(groupId: 'sg-a', groupName: 'a'),
+        new SecurityGroup(groupId: 'sg-b', groupName: 'b'),
       ]
     ],
     test: [
       'us-east-1': [
-        new SecurityGroup(groupId: 'a', groupName: 'a'),
-        new SecurityGroup(groupId: 'b', groupName: 'b'),
+        new SecurityGroup(groupId: 'sg-a', groupName: 'a'),
+        new SecurityGroup(groupId: 'sg-b', groupName: 'b'),
       ],
       'us-west-1': [
-        new SecurityGroup(groupId: 'a', groupName: 'a'),
-        new SecurityGroup(groupId: 'b', groupName: 'b'),
+        new SecurityGroup(groupId: 'sg-a', groupName: 'a'),
+        new SecurityGroup(groupId: 'sg-b', groupName: 'b'),
       ]
     ]
   ]

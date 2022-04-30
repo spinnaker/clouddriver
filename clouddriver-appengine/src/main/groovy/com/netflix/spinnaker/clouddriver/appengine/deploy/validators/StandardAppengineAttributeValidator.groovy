@@ -27,28 +27,27 @@ import com.netflix.spinnaker.clouddriver.appengine.model.ShardBy
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineClusterProvider
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineInstanceProvider
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineLoadBalancerProvider
-import com.netflix.spinnaker.clouddriver.appengine.security.AppengineCredentials
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import org.springframework.validation.Errors
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
+import com.netflix.spinnaker.credentials.CredentialsRepository
 
 class StandardAppengineAttributeValidator {
   static final namePattern = /^[a-z0-9]+([-a-z0-9]*[a-z0-9])?$/
   static final prefixPattern = /^[a-z0-9]+$/
 
   String context
-  Errors errors
+  ValidationErrors errors
 
-  StandardAppengineAttributeValidator(String context, Errors errors) {
+  StandardAppengineAttributeValidator(String context, ValidationErrors errors) {
     this.context = context
     this.errors = errors
   }
 
-  def validateCredentials(String credentials, AccountCredentialsProvider accountCredentialsProvider) {
+  def validateCredentials(String credentials, CredentialsRepository<AppengineNamedAccountCredentials> credentialsRepository) {
     def result = validateNotEmpty(credentials, "account")
     if (result) {
-      def appengineCredentials = accountCredentialsProvider.getCredentials(credentials)
-      if (!(appengineCredentials?.credentials instanceof AppengineCredentials)) {
+      def appengineCredentials = credentialsRepository.getOne(credentials)
+      if (!appengineCredentials) {
         errors.rejectValue("${context}.account",  "${context}.account.notFound")
         result = false
       }
@@ -188,7 +187,7 @@ class StandardAppengineAttributeValidator {
       if (!serverGroup) {
         reject.notFound << serverGroupName
         return reject
-      } else if (loadBalancerName && serverGroup?.loadBalancers[0] != loadBalancerName) {
+      } else if (loadBalancerName && serverGroup?.loadBalancers.contains(loadBalancerName) != true ) {
         reject.notRegisteredWithLoadBalancer << serverGroupName
         return reject
       } else {

@@ -18,12 +18,11 @@ package com.netflix.spinnaker.clouddriver.orchestration
 
 import com.netflix.spinnaker.clouddriver.core.CloudProvider
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
-import com.netflix.spinnaker.clouddriver.security.ProviderVersion
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import org.springframework.beans.factory.NoSuchBeanDefinitionException
 import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.validation.Errors
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -39,7 +38,7 @@ class AnnotationsBasedAtomicOperationsRegistrySpec extends Specification {
 
   void 'annotations based registry should return the converter if the specified name matches the component name'() {
     when:
-    def converter = atomicOperationsRegistry.getAtomicOperationConverter('operationOldDescription', null, ProviderVersion.v1)
+    def converter = atomicOperationsRegistry.getAtomicOperationConverter('operationOldDescription', null)
 
     then:
     noExceptionThrown()
@@ -47,39 +46,19 @@ class AnnotationsBasedAtomicOperationsRegistrySpec extends Specification {
     converter instanceof TestConverter
   }
 
-  void 'annotations based registry should fail to return the converter if the specified name matches the component name but an incorrect version is used'() {
+  void 'annotations based registry should return the converter that matches the AtomicOperationDescription name and cloud provider'() {
     when:
-    def converter = atomicOperationsRegistry.getAtomicOperationConverter('operationOldDescription', null, ProviderVersion.v2)
-
-    then:
-    thrown(AtomicOperationConverterNotFoundException)
-    converter == null
-  }
-
-
-  void 'annotations based registry should return the converter that matches the AtomicOperationDescription name and cloud provider and default version'() {
-    when:
-    def converter = atomicOperationsRegistry.getAtomicOperationConverter('operationDescription', 'test-provider', ProviderVersion.v1)
+    def converter = atomicOperationsRegistry.getAtomicOperationConverter('operationDescription', 'test-provider')
 
     then:
     noExceptionThrown()
     converter != null
     converter instanceof TestConverter
-  }
-
-  void 'annotations based registry should return the converter that matches the AtomicOperationDescription name and cloud provider and version'() {
-    when:
-    def converter = atomicOperationsRegistry.getAtomicOperationConverter('operationDescription', 'test-provider', ProviderVersion.v2)
-
-    then:
-    noExceptionThrown()
-    converter != null
-    converter instanceof TestConverterV2
   }
 
   void 'annotations based registry should throw a NoSuchBeanDefinitionException if no converter found for given name with no cloud provider specified'() {
     when:
-    def converter = atomicOperationsRegistry.getAtomicOperationConverter('foo', null, ProviderVersion.v1)
+    def converter = atomicOperationsRegistry.getAtomicOperationConverter('foo', null)
 
     then:
     thrown(NoSuchBeanDefinitionException)
@@ -88,23 +67,7 @@ class AnnotationsBasedAtomicOperationsRegistrySpec extends Specification {
 
   void 'annotations based registry should throw an AtomicOperationConverterNotFoundException if no converter found for given name with cloud provider specified'() {
     when:
-    def converter = atomicOperationsRegistry.getAtomicOperationConverter('foo', 'test-provider', ProviderVersion.v1)
-
-    then:
-    thrown(AtomicOperationConverterNotFoundException)
-    converter == null
-  }
-
-  void 'uncallable converter should reject any version'() {
-    when:
-    def converter = atomicOperationsRegistry.getAtomicOperationConverter('noOperationDescription', 'test-provider', ProviderVersion.v1)
-
-    then:
-    thrown(AtomicOperationConverterNotFoundException)
-    converter == null
-
-    when:
-    converter = atomicOperationsRegistry.getAtomicOperationConverter('noOperationDescription', 'test-provider', ProviderVersion.v2)
+    def converter = atomicOperationsRegistry.getAtomicOperationConverter('foo', 'test-provider')
 
     then:
     thrown(AtomicOperationConverterNotFoundException)
@@ -113,49 +76,60 @@ class AnnotationsBasedAtomicOperationsRegistrySpec extends Specification {
 
   void 'annotations based registry should return the validator if the specified name matches the component name'() {
     when:
-    def validator = atomicOperationsRegistry.getAtomicOperationDescriptionValidator('operationOldDescriptionValidator', null, ProviderVersion.v1)
+    def compositeValidator = atomicOperationsRegistry.getAtomicOperationDescriptionValidator('operationOldDescriptionValidator', null)
 
     then:
     noExceptionThrown()
-    validator != null
-    validator instanceof TestValidator
+    compositeValidator != null
+    compositeValidator instanceof CompositeDescriptionValidator
+    compositeValidator.getValidator() instanceof TestValidator
   }
 
-  void 'annotations based registry should return the validator that matches the AtomicOperationDescription name and cloud provider'() {
+  void 'annotations based registry should return a composite validator that contains the validator that matches the AtomicOperationDescription name and cloud provider'() {
     when:
-    def validator = atomicOperationsRegistry.getAtomicOperationDescriptionValidator('operationDescriptionValidator', 'test-provider', ProviderVersion.v1)
+    def compositeValidator = atomicOperationsRegistry.getAtomicOperationDescriptionValidator('operationDescriptionValidator', 'test-provider')
 
     then:
     noExceptionThrown()
-    validator != null
-    validator instanceof TestValidator
+    compositeValidator != null
+    compositeValidator instanceof CompositeDescriptionValidator
+    compositeValidator.getValidator() instanceof TestValidator
   }
 
   void 'annotations based registry should return a null if no validator found for given name with no cloud provider specified'() {
     when:
-    def validator = atomicOperationsRegistry.getAtomicOperationDescriptionValidator('foo', null, ProviderVersion.v1)
+    def validator = atomicOperationsRegistry.getAtomicOperationDescriptionValidator('foo', null)
 
     then:
     noExceptionThrown()
     validator == null
   }
 
-  void 'annotations based registry should return a null if no validator found for given name with no version specified'() {
+  void 'annotations based registry should return a composite validator with a null validator if no validator found for given name with cloud provider specified'() {
     when:
-    def validator = atomicOperationsRegistry.getAtomicOperationDescriptionValidator('foo', 'test-provider', null)
+    def compositeValidator = atomicOperationsRegistry.getAtomicOperationDescriptionValidator('foo', 'test-provider')
 
     then:
     noExceptionThrown()
-    validator == null
+    compositeValidator != null
+    compositeValidator instanceof CompositeDescriptionValidator
+    compositeValidator.getValidator() == null
   }
 
-  void 'annotations based registry should return a null if no validator found for given name with cloud provider specified'() {
+  void 'should return matching converter based on description version'() {
     when:
-    def validator = atomicOperationsRegistry.getAtomicOperationDescriptionValidator('foo', 'test-provider', ProviderVersion.v1)
+    def converter = atomicOperationsRegistry.getAtomicOperationConverter('versionedDescription', 'test-provider')
 
     then:
     noExceptionThrown()
-    validator == null
+    converter instanceof VersionedDescriptionConverter
+
+    when:
+    converter = atomicOperationsRegistry.getAtomicOperationConverter('versionedDescription@v2', 'test-provider')
+
+    then:
+    noExceptionThrown()
+    converter instanceof VersionedDescriptionV2Converter
   }
 
   static class MyCloudProvider implements CloudProvider {
@@ -171,24 +145,19 @@ class AnnotationsBasedAtomicOperationsRegistrySpec extends Specification {
       new TestConverter()
     }
 
-    @Bean(name = "operationOldDescriptionV2")
-    AtomicOperationConverter testConverterV2() {
-      new TestConverterV2()
-    }
-
-    @Bean(name = "uncallableOperation")
-    AtomicOperationConverter testNothingConverter() {
-      new TestNothingConverter()
-    }
-
     @Bean(name = "operationOldDescriptionValidator")
     DescriptionValidator descriptionValidator() {
       new TestValidator()
     }
 
-    @Bean(name = "operationOldDescriptionValidatorV2")
-    DescriptionValidator descriptionValidatorV2() {
-      new TestValidatorV2()
+    @Bean(name = "versionedConverterV1")
+    AtomicOperationConverter versionedConverter() {
+      new VersionedDescriptionConverter()
+    }
+
+    @Bean(name = "versionedConverterV2")
+    AtomicOperationConverter versionedConverterV2() {
+      new VersionedDescriptionV2Converter()
     }
   }
 
@@ -199,7 +168,7 @@ class AnnotationsBasedAtomicOperationsRegistrySpec extends Specification {
       return null
     }
     @Override
-    Object convertDescription(Map input) {
+    OperationDescription convertDescription(Map input) {
       return null
     }
   }
@@ -207,50 +176,41 @@ class AnnotationsBasedAtomicOperationsRegistrySpec extends Specification {
   @TestProviderOperation("operationDescription")
   static class TestValidator extends DescriptionValidator {
     @Override
-    void validate(List priorDescriptions, Object description, Errors errors) {
+    void validate(List priorDescriptions, Object description, ValidationErrors errors) {
     }
   }
 
-  @TestProviderOperation("operationDescription")
-  static class TestConverterV2 implements AtomicOperationConverter {
+  @TestProviderOperation("versionedDescription")
+  static class VersionedDescriptionConverter implements AtomicOperationConverter {
     @Override
     AtomicOperation convertOperation(Map input) {
       return null
     }
     @Override
-    Object convertDescription(Map input) {
+    OperationDescription convertDescription(Map input) {
       return null
     }
     @Override
-    boolean acceptsVersion(ProviderVersion version) {
-      return version == ProviderVersion.v2
+    boolean acceptsVersion(String version) {
+      return version == null || version == "v1"
     }
   }
 
-  @TestProviderOperation("operationDescription")
-  static class TestValidatorV2 extends DescriptionValidator {
-    @Override
-    void validate(List priorDescriptions, Object description, Errors errors) {
-    }
-    @Override
-    boolean acceptsVersion(ProviderVersion version) {
-      return version == ProviderVersion.v2
-    }
-  }
-
-  @TestProviderOperation("noOperationDescription")
-  static class TestNothingConverter implements AtomicOperationConverter {
+  @TestProviderOperation("versionedDescription@v2")
+  static class VersionedDescriptionV2Converter implements AtomicOperationConverter {
     @Override
     AtomicOperation convertOperation(Map input) {
       return null
     }
     @Override
-    Object convertDescription(Map input) {
+    OperationDescription convertDescription(Map input) {
       return null
     }
     @Override
-    boolean acceptsVersion(ProviderVersion version) {
-      return false
+    boolean acceptsVersion(String version) {
+      return version == "v2"
     }
   }
+
+
 }

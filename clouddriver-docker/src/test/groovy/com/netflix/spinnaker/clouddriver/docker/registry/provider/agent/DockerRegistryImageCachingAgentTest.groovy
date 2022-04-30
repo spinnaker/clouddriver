@@ -28,11 +28,11 @@ import java.time.Instant
 
 class DockerRegistryImageCachingAgentTest extends Specification {
 
-  final KEY_PREFIX = "dockerRegistry"
-  final ACCOUNT_NAME = "test-docker"
-  final REGISTRY_NAME = "test-registry"
-  final CACHE_GROUP_TAGGED_IMAGE = "taggedImage"
-  final CACHE_GROUP_IMAGE_ID = "imageId"
+  def KEY_PREFIX = "dockerRegistry"
+  def ACCOUNT_NAME = "test-docker"
+  def REGISTRY_NAME = "test-registry"
+  def CACHE_GROUP_TAGGED_IMAGE = "taggedImage"
+  def CACHE_GROUP_IMAGE_ID = "imageId"
 
   DockerRegistryImageCachingAgent agent
   def credentials = Mock(DockerRegistryCredentials)
@@ -151,6 +151,26 @@ class DockerRegistryImageCachingAgentTest extends Specification {
       assert cacheResultTaggedImages[i].attributes.get("account") == ACCOUNT_NAME
       assert cacheResultTaggedImages[i].attributes.get("digest") == "${repoTagSequence[i][0]}_${repoTagSequence[i][1]}"
       assert cacheResultTaggedImages[i].attributes.get("date") == null
+    }
+  }
+
+  def "cached tags should include label if inspectDigest is true"() {
+    given:
+    credentials.inspectDigests >> true
+    credentials.repositories >> ["repo-1"]
+    client.getTags("repo-1") >> new DockerRegistryTags().tap { name="repo-1"; tags=["tag-1"] }
+    client.getConfigDigest("repo-1", "tag-1") >> "digest-1"
+    client.getDigestContent("repo-1", "digest-1") >> ["config": ["Labels": ["commitId": "id1", "buildNumber": "1"] ]]
+
+    when:
+    def cacheResult = agent.loadData(null)
+
+    then:
+    sortCacheResult(cacheResult)
+    def cacheResultTaggedImages = cacheResult.cacheResults.get(CACHE_GROUP_TAGGED_IMAGE)
+    for (int i = 0; i < cacheResultTaggedImages.size(); i++) {
+      assert cacheResultTaggedImages[i].attributes.get("digest") == "digest-1"
+      assert cacheResultTaggedImages[i].attributes.get("labels") == ["commitId": "id1", "buildNumber": "1"]
     }
   }
 

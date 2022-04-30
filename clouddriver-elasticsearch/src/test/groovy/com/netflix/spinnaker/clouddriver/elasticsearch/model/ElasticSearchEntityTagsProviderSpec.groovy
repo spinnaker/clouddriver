@@ -24,28 +24,28 @@ import com.netflix.spinnaker.config.ElasticSearchConfig
 import com.netflix.spinnaker.config.ElasticSearchConfigProperties
 import com.netflix.spinnaker.kork.core.RetrySupport
 import io.searchbox.client.JestClient
+import io.searchbox.client.JestResult
 import io.searchbox.indices.CreateIndex
 import io.searchbox.indices.DeleteIndex
-import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.node.Node
+import io.searchbox.indices.Refresh
+import io.searchbox.indices.template.PutTemplate
 import org.springframework.context.ApplicationContext
+import org.testcontainers.elasticsearch.ElasticsearchContainer
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
 
 import java.util.function.Supplier
 
-import static org.elasticsearch.node.NodeBuilder.nodeBuilder
-
 class ElasticSearchEntityTagsProviderSpec extends Specification {
-  @Shared
-  Node node
-
   @Shared
   JestClient jestClient
 
   @Shared
   ElasticSearchConfigProperties elasticSearchConfigProperties
+
+  @Shared
+  ElasticsearchContainer esContainer = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:6.8.2")
 
   RetrySupport retrySupport = Spy(RetrySupport) {
     _ * sleep(_) >> { /* do nothing */ }
@@ -61,54 +61,117 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
   }
 
   def setupSpec() {
-    def elasticSearchSettings = Settings.settingsBuilder()
-      .put("script.inline", "on")
-      .put("script.indexed", "on")
-      .put("path.data", "./es-tmp/es")
-      .put("path.home", "./es-tmp/es")
-
-    node = nodeBuilder()
-      .local(true)
-      .settings(elasticSearchSettings.build())
-      .node()
+    esContainer.start()
 
     elasticSearchConfigProperties = new ElasticSearchConfigProperties(
       activeIndex: "tags_v1",
-      connection: getConnectionString(node)
+      connection: "http://" + esContainer.getHttpHostAddress()
     )
     def config = new ElasticSearchConfig()
     jestClient = config.jestClient(elasticSearchConfigProperties)
   }
 
+  def cleanupSpec() {
+    esContainer.stop()
+  }
+
   def setup() {
-    jestClient.execute(new DeleteIndex.Builder(elasticSearchConfigProperties.activeIndex).build());
+    jestClient.execute(new DeleteIndex.Builder(elasticSearchConfigProperties.activeIndex).build())
 
     def settings = """{
+  "order": 0,
+  "index_patterns": [
+    "tags_v*"
+  ],
   "settings": {
-    "refresh_interval": "1s"
+    "index": {
+      "number_of_shards": "1",
+      "number_of_replicas": "1",
+      "refresh_interval": "-1"
+    }
   },
   "mappings": {
-    "_default_": {
+    "_doc": {
+      "dynamic": "false",
+      "dynamic_templates": [
+        {
+          "tags_template": {
+            "path_match": "tagsMetadata",
+            "mapping": {
+              "index": "no"
+            }
+          }
+        },
+        {
+          "entityRef_template": {
+            "path_match": "entityRef.*",
+            "mapping": {
+              "index": "keyword"
+            }
+          }
+        }
+      ],
       "properties": {
-        "tags": {
-          "type": "nested"
+        "id": {
+          "type": "text"
         },
         "entityRef": {
           "properties": {
+            "accountId": {
+              "type": "keyword"
+            },
+            "application": {
+              "type": "keyword"
+            },
+            "entityType": {
+              "type": "text"
+            },
+            "cloudProvider": {
+              "type": "keyword"
+            },
             "entityId": {
-              "type": "string",
-              "index": "not_analyzed"
+              "type": "keyword"
+            },
+            "region": {
+              "type": "keyword"
+            },
+            "account": {
+              "type": "keyword"
+            }
+          }
+        },
+        "tags": {
+          "type": "nested",
+          "properties": {
+            "valueType": {
+              "type": "keyword"
+            },
+            "name": {
+              "type": "keyword"
+            },
+            "namespace": {
+              "type": "keyword"
+            },
+            "value": {
+              "type": "keyword"
             }
           }
         }
       }
     }
-  }
+  },
+  "aliases": {}
 }"""
 
-    jestClient.execute(new CreateIndex.Builder(elasticSearchConfigProperties.activeIndex)
-      .settings(settings)
-      .build());
+    def result = jestClient.execute(
+      new PutTemplate.Builder("tags_v1", settings).build()
+    )
+    assert(result.succeeded)
+
+    result = jestClient
+      .execute(new CreateIndex.Builder(elasticSearchConfigProperties.activeIndex)
+        .build())
+    assert(result.succeeded)
 
     entityTagsProvider = new ElasticSearchEntityTagsProvider(
       applicationContext,
@@ -124,6 +187,7 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
     given:
     def entityTags = buildEntityTags("aws:cluster:front50-main:myaccount:*", ["tag1": "value1", "tag2": "value2"])
     entityTagsProvider.index(entityTags)
+    refreshIndices()
     entityTagsProvider.verifyIndex(entityTags)
 
     expect:
@@ -134,12 +198,14 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
     !entityTagsProvider.get(entityTags.id, ["tag3": "value3"]).isPresent()
   }
 
+  @Unroll
   def "should assign entityRef.application if not specified"() {
     given:
     def entityTags = buildEntityTags("aws:cluster:front50-main:myaccount:*", ["tag1": "value1", "tag2": "value2"])
     entityTags.entityRef.application = application
 
     entityTagsProvider.index(entityTags)
+    refreshIndices()
     entityTagsProvider.verifyIndex(entityTags)
 
     expect:
@@ -157,10 +223,12 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
     given:
     def entityTags = buildEntityTags("aws:cluster:clouddriver-main:myaccount:*", ["tag3": "value3"])
     entityTagsProvider.index(entityTags)
+    refreshIndices()
     entityTagsProvider.verifyIndex(entityTags)
 
     def moreEntityTags = buildEntityTags("aws:cluster:front50-main:myaccount:*", ["tag1": "value1"])
     entityTagsProvider.index(moreEntityTags)
+    refreshIndices()
     entityTagsProvider.verifyIndex(moreEntityTags)
 
     expect:
@@ -224,6 +292,7 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
 
     when:
     entityTagsProvider.reindex()
+    refreshIndices()
 
     then:
     1 * front50Service.getAllEntityTags(true) >> { return allEntityTags }
@@ -242,11 +311,13 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
     ]
     allEntityTags.each {
       entityTagsProvider.index(it)
+      refreshIndices()
       entityTagsProvider.verifyIndex(it)
     }
 
     when:
     entityTagsProvider.bulkDelete(allEntityTags)
+    refreshIndices()
 
     then:
     verifyNotIndexed(allEntityTags[0])
@@ -257,12 +328,14 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
   def "should delete all entity tags in namespace"() {
     given:
     def allEntityTags = [
+      buildEntityTags("titus:servergroup:clouddriver-main-^1.0.0-v150:myaccount:us-west-1", ["a": "1"], "my_namespace"),
       buildEntityTags("aws:servergroup:clouddriver-main-v001:myaccount:us-west-1", ["a": "1"], "my_namespace"),
       buildEntityTags("aws:servergroup:clouddriver-main-v002:myaccount:us-west-1", ["b": "2"], "my_namespace"),
       buildEntityTags("aws:servergroup:clouddriver-main-v003:myaccount:us-west-1", ["c": "3"]),
     ]
     allEntityTags.each {
       entityTagsProvider.index(it)
+      refreshIndices()
       entityTagsProvider.verifyIndex(it)
     }
 
@@ -290,7 +363,7 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
 
     when:
     entityTagsProvider.deleteByNamespace("my_namespace", false, false) // remove from elasticsearch (only!)
-    Thread.sleep(1000)
+    refreshIndices()
 
     def allIndexedEntityTags = entityTagsProvider.getAll(
       null, null, null, null, null, null, null, null, [:], 100
@@ -320,14 +393,7 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
   }
 
   boolean verifyNotIndexed(EntityTags entityTags) {
-    return (1..5).any {
-      if (!entityTagsProvider.get(entityTags.id).isPresent()) {
-        return true
-      }
-
-      Thread.sleep(500)
-      return false
-    }
+    return !entityTagsProvider.get(entityTags.id).isPresent()
   }
 
   private static EntityTags buildEntityTags(String id, Map<String, String> tags, String namespace = "default") {
@@ -345,11 +411,11 @@ class ElasticSearchEntityTagsProviderSpec extends Specification {
     )
   }
 
-  // The Node object does not store its connection string, so we need to make a request to the cluster
-  // to get it using the Node's client.
-  private static String getConnectionString(Node node) {
-    def nodeName = node.settings().get("name")
-    def nodeInfoResponse = node.client().admin().cluster().prepareNodesInfo(nodeName).execute().get()
-    return "http://" + nodeInfoResponse[0].serviceAttributes.http_address
+  private void refreshIndices() {
+    JestResult result = jestClient.execute(new Refresh.Builder().build())
+    if (!result.isSucceeded()) {
+      throw new ElasticSearchException(
+        String.format("Failed to refresh index: %s", result.getErrorMessage()))
+    }
   }
 }

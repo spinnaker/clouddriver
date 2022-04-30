@@ -32,8 +32,8 @@ import com.netflix.spinnaker.clouddriver.appengine.model.AppengineLoadBalancer
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.MutableCacheData
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent.OnDemandResult
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
+import com.netflix.spinnaker.clouddriver.cache.OnDemandType
 import groovy.util.logging.Slf4j
 
 import java.util.concurrent.TimeUnit
@@ -78,12 +78,12 @@ class AppengineLoadBalancerCachingAgent extends AbstractAppengineCachingAgent im
     metricsSupport = new OnDemandMetricsSupport(
       registry,
       this,
-      "$AppengineCloudProvider.ID:$OnDemandAgent.OnDemandType.LoadBalancer")
+      "$AppengineCloudProvider.ID:$OnDemandType.LoadBalancer")
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
-    type == OnDemandAgent.OnDemandType.LoadBalancer && cloudProvider == AppengineCloudProvider.ID
+  boolean handles(OnDemandType type, String cloudProvider) {
+    type == OnDemandType.LoadBalancer && cloudProvider == AppengineCloudProvider.ID
   }
 
   @Override
@@ -210,7 +210,7 @@ class AppengineLoadBalancerCachingAgent extends AbstractAppengineCachingAgent im
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     def keys = providerCache.getIdentifiers(ON_DEMAND.ns)
     keys = keys.findResults {
       def parse = Keys.parse(it)

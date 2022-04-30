@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.sql.event
 
+import com.fasterxml.jackson.annotation.JsonTypeName
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
@@ -30,7 +31,6 @@ import dev.minutest.rootContext
 import io.mockk.every
 import io.mockk.mockk
 import org.springframework.context.ApplicationEventPublisher
-import org.testcontainers.shaded.com.fasterxml.jackson.annotation.JsonTypeName
 import strikt.api.expect
 import strikt.api.expectThat
 import strikt.api.expectThrows
@@ -49,6 +49,10 @@ class SqlEventRepositoryTest : JUnit5Minutests {
       Fixture()
     }
 
+    after {
+      SqlTestUtil.cleanupDb(database.context)
+    }
+
     context("event lifecycle") {
       test("events can be saved") {
         subject.save("agg", "1", 0, listOf(MyEvent("one")))
@@ -56,12 +60,12 @@ class SqlEventRepositoryTest : JUnit5Minutests {
         expectThat(subject.listAggregates(ListAggregatesCriteria()))
           .isA<ListAggregatesResult>()
           .get { aggregates }.isNotEmpty()
-            .get { first() }
-              .and {
-                get { type }.isEqualTo("agg")
-                get { id }.isEqualTo("1")
-                get { version }.isEqualTo(1)
-              }
+          .get { first() }
+          .and {
+            get { type }.isEqualTo("agg")
+            get { id }.isEqualTo("1")
+            get { version }.isEqualTo(1)
+          }
 
         subject.save("agg", "1", 1, listOf(MyEvent("two"), MyEvent("three")))
 
@@ -94,8 +98,8 @@ class SqlEventRepositoryTest : JUnit5Minutests {
 
         expectThat(subject.list("agg", "1"))
           .get { map { it.getMetadata().sequence } }
-            .isA<List<Long>>()
-            .containsExactly(1, 2, 3, 4)
+          .isA<List<Long>>()
+          .containsExactly(1, 2, 3, 4)
       }
 
       context("listing aggregates") {
@@ -209,7 +213,6 @@ class SqlEventRepositoryTest : JUnit5Minutests {
 
     init {
       every { serviceVersion.resolve() } returns "v1.2.3"
-      SqlTestUtil.cleanupDb(database.context)
     }
   }
 

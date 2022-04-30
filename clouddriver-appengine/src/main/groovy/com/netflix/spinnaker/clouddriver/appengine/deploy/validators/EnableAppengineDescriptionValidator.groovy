@@ -19,27 +19,28 @@ package com.netflix.spinnaker.clouddriver.appengine.deploy.validators
 import com.netflix.spinnaker.clouddriver.appengine.AppengineOperation
 import com.netflix.spinnaker.clouddriver.appengine.deploy.description.EnableDisableAppengineDescription
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineClusterProvider
+import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
+import com.netflix.spinnaker.credentials.CredentialsRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import org.springframework.validation.Errors
 
 @AppengineOperation(AtomicOperations.ENABLE_SERVER_GROUP)
 @Component("enableAppengineDescriptionValidator")
 class EnableAppengineDescriptionValidator extends DescriptionValidator<EnableDisableAppengineDescription> {
   @Autowired
-  AccountCredentialsProvider accountCredentialsProvider
+  CredentialsRepository<AppengineNamedAccountCredentials> credentialsRepository
 
   @Autowired
   AppengineClusterProvider appengineClusterProvider
 
   @Override
-  void validate(List priorDescriptions, EnableDisableAppengineDescription description, Errors errors) {
+  void validate(List priorDescriptions, EnableDisableAppengineDescription description, ValidationErrors errors) {
     def helper = new StandardAppengineAttributeValidator("enableAppengineAtomicOperationDescription", errors)
 
-    helper.validateCredentials(description.accountName, accountCredentialsProvider)
+    helper.validateCredentials(description.accountName, credentialsRepository)
     helper.validateNotEmpty(description.serverGroupName, "serverGroupName")
     helper.validateServerGroupsCanBeEnabled([description.serverGroupName],
                                             null,

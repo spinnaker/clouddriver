@@ -17,6 +17,8 @@
 package com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model
 
 import com.google.common.collect.Sets
+import com.microsoft.azure.management.compute.TerminateNotificationProfile
+import com.microsoft.azure.management.compute.ResourceIdentityType
 import com.microsoft.azure.management.compute.VirtualMachineScaleSetDataDisk
 import com.microsoft.azure.management.compute.implementation.VirtualMachineScaleSetInner
 import com.netflix.frigga.Names
@@ -69,8 +71,15 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
   Boolean hasNewSubnet = false
   Boolean createNewSubnet = false
   AzureExtensionCustomScriptSettings customScriptsSettings
+  AzureExtensionHealthSettings healthSettings
   Boolean enableInboundNAT = false
   List<VirtualMachineScaleSetDataDisk> dataDisks
+  Integer terminationNotBeforeTimeoutInMinutes
+  String windowsTimeZone
+  Boolean doNotRunExtensionsOnOverprovisionedVMs = false
+  Boolean useSystemManagedIdentity = false
+  String userAssignedIdentities
+  Boolean enableIpForwarding = false
 
   static class AzureScaleSetSku {
     String name
@@ -91,7 +100,12 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
     int frontEndPortRangeStart
     int frontEndPortRangeEnd
     int backendPort
+  }
 
+  static class AzureExtensionHealthSettings {
+    String protocol
+    String port
+    String requestPath
   }
 
   static class AzureExtensionCustomScriptSettings {
@@ -169,8 +183,21 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
     azureSG.loadBalancerName = scaleSet.tags?.loadBalancerName
     azureSG.enableInboundNAT = scaleSet.tags?.enableInboundNAT
     azureSG.appGatewayName = scaleSet.tags?.appGatewayName
-    azureSG.loadBalancerType = azureSG.appGatewayName != null ? AzureLoadBalancer.AzureLoadBalancerType.AZURE_APPLICATION_GATEWAY.toString() : AzureLoadBalancer.AzureLoadBalancerType.AZURE_LOAD_BALANCER.toString()
+    if (azureSG.appGatewayName == null && azureSG.loadBalancerName == null) {
+      azureSG.loadBalancerType = null
+    } else if (azureSG.appGatewayName == null) {
+      azureSG.loadBalancerType = AzureLoadBalancer.AzureLoadBalancerType.AZURE_LOAD_BALANCER.toString()
+    } else {
+      azureSG.loadBalancerType = AzureLoadBalancer.AzureLoadBalancerType.AZURE_APPLICATION_GATEWAY.toString()
+    }
     azureSG.appGatewayBapId = scaleSet.tags?.appGatewayBapId
+
+    def networkInterfaceConfigurations = scaleSet.virtualMachineProfile()?.networkProfile()?.networkInterfaceConfigurations()
+
+    if (networkInterfaceConfigurations && networkInterfaceConfigurations.size() > 0) {
+      azureSG.enableIpForwarding = networkInterfaceConfigurations[0].enableIPForwarding()
+    }
+    // scaleSet.virtualMachineProfile()?.networkProfile()?.networkInterfaceConfigurations()?[0].ipConfigurations()?[0].applicationGatewayBackendAddressPools()?[0].id()
     // TODO: appGatewayBapId can be retrieved via scaleSet->networkProfile->networkInterfaceConfigurations->ipConfigurations->ApplicationGatewayBackendAddressPools
     azureSG.subnetId = scaleSet.tags?.subnetId
     azureSG.subnet = AzureUtilities.getNameFromResourceId(azureSG.subnetId)
@@ -183,15 +210,43 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
     if (!azureSG.image.isCustom) {
       // Azure server group which was created using Azure Market Store images will have a number of storage accounts
       //   that were created at the time the server group was created; these storage account should be in saved in the
-      //   tags map under storrageAccountNames key as a comma separated list of strings
+      //   tags map under storageAccountNames key as a comma separated list of strings
       azureSG.storageAccountNames = new ArrayList<String>()
       String storageNames = scaleSet.tags?.storageAccountNames
 
       if (storageNames) azureSG.storageAccountNames.addAll(storageNames.split(","))
     }
+    azureSG.doNotRunExtensionsOnOverprovisionedVMs = scaleSet.doNotRunExtensionsOnOverprovisionedVMs()
+
+    //Fetch system and user assigned identity details
+    if(scaleSet.identity()!=null) {
+      ResourceIdentityType rType = scaleSet.identity().type()
+      azureSG.useSystemManagedIdentity = rType == ResourceIdentityType.SYSTEM_ASSIGNED_USER_ASSIGNED || rType == ResourceIdentityType.SYSTEM_ASSIGNED
+      if (rType == ResourceIdentityType.USER_ASSIGNED || rType == ResourceIdentityType.SYSTEM_ASSIGNED_USER_ASSIGNED) {
+        StringBuilder sb = new StringBuilder()
+        for (String identity : scaleSet.identity().userAssignedIdentities().keySet()) {
+          if (sb.length() > 0) {
+            sb.append(",")
+          }
+          sb.append(identity)
+        }
+        azureSG.userAssignedIdentities = sb.toString()
+      }
+    }
+
 
     azureSG.region = scaleSet.location()
     azureSG.upgradePolicy = getPolicyFromMode(scaleSet.upgradePolicy().mode().name())
+
+    def termProfile = scaleSet.virtualMachineProfile()?.scheduledEventsProfile()?.terminateNotificationProfile()
+    if (termProfile)
+    {
+      String[] str = termProfile.notBeforeTimeout().findAll( /\d+/ )
+      if (str.size() > 0) {
+        azureSG.terminationNotBeforeTimeoutInMinutes = str[0].toInteger()
+      }
+    }
+    azureSG.windowsTimeZone = scaleSet.virtualMachineProfile()?.osProfile()?.windowsConfiguration()?.timeZone()
 
     // Get the image reference data
     def storageProfile = scaleSet.virtualMachineProfile()?.storageProfile()

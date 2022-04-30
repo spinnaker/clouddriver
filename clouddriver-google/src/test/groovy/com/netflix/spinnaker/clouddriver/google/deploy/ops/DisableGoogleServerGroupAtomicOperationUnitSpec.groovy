@@ -77,7 +77,7 @@ class DisableGoogleServerGroupAtomicOperationUnitSpec extends Specification {
 
   def setupSpec() {
     TaskRepository.threadLocalTask.set(Mock(Task))
-    safeRetry = new SafeRetry(maxRetries: 10, maxWaitInterval: 60000, retryIntervalBase: 0, jitterMultiplier: 0)
+    safeRetry = SafeRetry.withoutDelay()
   }
 
   def setup() {
@@ -162,9 +162,9 @@ class DisableGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       3 * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
       3 * globalForwardingRulesList.execute() >> new ForwardingRuleList(items: [])
 
-      1 * computeMock.forwardingRules() >> forwardingRules
-      1 * forwardingRules.list(PROJECT_NAME, _) >> forwardingRulesList
-      1 * forwardingRulesList.execute() >> new ForwardingRuleList(items: [])
+      2 * computeMock.forwardingRules() >> forwardingRules
+      2 * forwardingRules.list(PROJECT_NAME, _) >> forwardingRulesList
+      2 * forwardingRulesList.execute() >> new ForwardingRuleList(items: [])
 
       registry.timer(
           GoogleApiTestUtils.makeOkId(

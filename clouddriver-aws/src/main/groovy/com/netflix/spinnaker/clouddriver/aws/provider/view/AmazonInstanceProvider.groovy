@@ -20,19 +20,17 @@ import com.amazonaws.services.ec2.model.GetConsoleOutputRequest
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
+import com.netflix.spinnaker.clouddriver.aws.data.Keys
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonInstance
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.core.provider.agent.ExternalHealthProvider
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import com.netflix.spinnaker.clouddriver.aws.data.Keys
-import com.netflix.spinnaker.clouddriver.aws.model.AmazonInstance
+import com.netflix.spinnaker.credentials.CredentialsRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.INSTANCES
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.SERVER_GROUPS
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.*
 
 @Component
 class AmazonInstanceProvider implements InstanceProvider<AmazonInstance, String> {
@@ -52,7 +50,7 @@ class AmazonInstanceProvider implements InstanceProvider<AmazonInstance, String>
   AmazonClientProvider amazonClientProvider
 
   @Autowired
-  AccountCredentialsProvider accountCredentialsProvider
+  CredentialsRepository<NetflixAmazonCredentials> credentialsRepository
 
   @Override
   AmazonInstance getInstance(String account, String region, String id) {
@@ -67,26 +65,26 @@ class AmazonInstanceProvider implements InstanceProvider<AmazonInstance, String>
       instance.serverGroup = serverGroup.serverGroup
       instance.cluster = serverGroup.cluster
     }
+    def healthKeys = []
     if (instanceEntry.relationships[HEALTH.ns]) {
-      instance.health.addAll(cacheView.getAll(HEALTH.ns, instanceEntry.relationships[HEALTH.ns])*.attributes)
+      healthKeys.addAll(instanceEntry.relationships[HEALTH.ns])
     }
     externalHealthProviders.each { externalHealthProvider ->
-      def healthKeys = []
       externalHealthProvider.agents.each { externalHealthAgent ->
         healthKeys << Keys.getInstanceHealthKey(instance.name, account, region, externalHealthAgent.healthId)
       }
-      healthKeys.unique().each { key ->
-        def externalHealth = cacheView.getAll(HEALTH.ns, key)
-        if (externalHealth) {
-          instance.health.addAll(externalHealth*.attributes)
-        }
+    }
+    healthKeys.unique().each { key ->
+      def instanceHealth = cacheView.getAll(HEALTH.ns, key)
+      if (instanceHealth) {
+        instance.health.addAll(instanceHealth*.attributes)
       }
     }
     instance
   }
 
   String getConsoleOutput(String account, String region, String id) {
-    def credentials = accountCredentialsProvider.getCredentials(account)
+    def credentials = credentialsRepository.getOne(account)
     if (!(credentials instanceof NetflixAmazonCredentials)) {
       throw new IllegalArgumentException("Invalid credentials: ${account}:${region}")
     }

@@ -17,31 +17,32 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.validators
 
 import com.netflix.spinnaker.clouddriver.aws.AmazonOperation
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyAsgLaunchConfigurationDescription
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
+import com.netflix.spinnaker.credentials.CredentialsRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import org.springframework.validation.Errors
 
 @AmazonOperation(AtomicOperations.UPDATE_LAUNCH_CONFIG)
 @Component("modifyAsgLaunchConfigurationDescriptionValidator")
 class ModifyAsgLaunchConfigurationDescriptionValidator extends AmazonDescriptionValidationSupport<ModifyAsgLaunchConfigurationDescription> {
   @Autowired
-  AccountCredentialsProvider accountCredentialsProvider
+  CredentialsRepository<NetflixAmazonCredentials> credentialsRepository
 
   @Override
-  void validate(List priorDescriptions, ModifyAsgLaunchConfigurationDescription description, Errors errors) {
+  void validate(List priorDescriptions, ModifyAsgLaunchConfigurationDescription description, ValidationErrors errors) {
     def key = ModifyAsgLaunchConfigurationDescription.class.simpleName
     validateRegion(description, description.region, key, errors)
 
     if (!description.credentials) {
       errors.rejectValue "credentials", "modifyAsgLaunchConfigurationDescription.credentials.empty"
     } else {
-      def credentials = accountCredentialsProvider.getCredentials(description?.credentials?.name)
-      if (!(credentials instanceof AmazonCredentials)) {
+      def credentials = credentialsRepository.getOne(description?.credentials?.name)
+      if (credentials == null) {
         errors.rejectValue("credentials", "modifyAsgLaunchConfigurationDescription.credentials.invalid")
       }
     }

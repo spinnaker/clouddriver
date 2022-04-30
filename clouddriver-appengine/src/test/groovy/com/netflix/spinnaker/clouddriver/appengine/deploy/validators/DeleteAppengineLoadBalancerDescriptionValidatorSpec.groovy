@@ -19,9 +19,9 @@ package com.netflix.spinnaker.clouddriver.appengine.deploy.validators
 import com.netflix.spinnaker.clouddriver.appengine.deploy.description.DeleteAppengineLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineCredentials
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
-import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
-import org.springframework.validation.Errors
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository
+import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -37,7 +37,8 @@ class DeleteAppengineLoadBalancerDescriptionValidatorSpec extends Specification 
   void setupSpec() {
     validator = new DeleteAppengineLoadBalancerDescriptionValidator()
 
-    def credentialsRepo = new MapBackedAccountCredentialsRepository()
+    def credentialsRepo = new MapBackedCredentialsRepository(AppengineNamedAccountCredentials.CREDENTIALS_TYPE,
+      new NoopCredentialsLifecycleHandler<>())
     def mockCredentials = Mock(AppengineCredentials)
     def namedAccountCredentials = new AppengineNamedAccountCredentials.Builder()
       .name(ACCOUNT_NAME)
@@ -45,15 +46,15 @@ class DeleteAppengineLoadBalancerDescriptionValidatorSpec extends Specification 
       .applicationName(APPLICATION_NAME)
       .credentials(mockCredentials)
       .build()
-    credentialsRepo.save(ACCOUNT_NAME, namedAccountCredentials)
+    credentialsRepo.save(namedAccountCredentials)
 
-    validator.accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepo)
+    validator.credentialsRepository = credentialsRepo
   }
 
   void "pass validation with proper description inputs"() {
     setup:
       def description = new DeleteAppengineLoadBalancerDescription(accountName: ACCOUNT_NAME, loadBalancerName: LOAD_BALANCER_NAME)
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
 
     when:
       validator.validate([], description, errors)
@@ -65,7 +66,7 @@ class DeleteAppengineLoadBalancerDescriptionValidatorSpec extends Specification 
   void "description with loadBalancerName == \"default\" fails validation"() {
     setup:
       def description = new DeleteAppengineLoadBalancerDescription(accountName: ACCOUNT_NAME, loadBalancerName: "default")
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
 
     when:
       validator.validate([], description, errors)
@@ -78,7 +79,7 @@ class DeleteAppengineLoadBalancerDescriptionValidatorSpec extends Specification 
   void "null input fails validation"() {
     setup:
       def description = new DeleteAppengineLoadBalancerDescription()
-      def errors = Mock(Errors)
+      def errors = Mock(ValidationErrors)
 
     when:
       validator.validate([], description, errors)

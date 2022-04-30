@@ -17,13 +17,14 @@ package com.netflix.spinnaker.cats.sql.cache
 
 import com.google.common.hash.Hashing
 import com.netflix.spinnaker.config.SqlConstraints
+import com.netflix.spinnaker.kork.annotations.VisibleForTesting
 
 /**
  * Provides utility methods for clouddriver's SQL naming conventions.
  */
 class SqlNames(
   private val tableNamespace: String? = null,
-  private val sqlConstraints: SqlConstraints = SqlConstraints()
+  private val sqlConstraints: SqlConstraints
 ) {
 
   /**
@@ -47,7 +48,8 @@ class SqlNames(
    * It always keeps prefix with tableNamespace but can shorten name and suffix in that order.
    * @return computed table name
    */
-  private fun checkTableName(prefix: String, name: String, suffix: String): String {
+  @VisibleForTesting
+  internal fun checkTableName(prefix: String, name: String, suffix: String): String {
     var base = prefix
     if (tableNamespace != null) {
       base = "${prefix + tableNamespace}_"
@@ -73,8 +75,37 @@ class SqlNames(
     throw IllegalArgumentException("property sql.table-namespace $tableNamespace is too long")
   }
 
+  /**
+   * Truncates the agent string if too long to fit in @SqlConstraints.maxAgentLength
+   * @return agent string to store
+   */
+  @VisibleForTesting
+  internal fun checkAgentName(agent: String?): String? {
+    if (agent == null) {
+      return null
+    }
+    if (agent.length <= sqlConstraints.maxAgentLength) {
+      return agent
+    }
+
+    val hash = Hashing.murmur3_128().hashBytes((agent).toByteArray()).toString()
+    val colIdx = agent.indexOf(':')
+
+    // We want to store at least <type>:<some hash bytes>
+    if (colIdx > sqlConstraints.maxAgentLength - 2) {
+      throw IllegalArgumentException("Type ${agent.substring(0, colIdx)} is too long, record cannot be stored")
+    }
+
+    // How much we can keep of the agent string, we need to preserve the colon
+    val available = Math.max(sqlConstraints.maxAgentLength - hash.length - 1, colIdx)
+    // How much of the hash will fit if we want to preserve the colon
+    val hashLength = Math.min(hash.length, sqlConstraints.maxAgentLength - colIdx - 1)
+    return agent.substring(0..available) + hash.substring(0, hashLength)
+  }
+
   companion object {
     private val schemaVersion = SqlSchemaVersion.current()
-    private val typeSanitization = """[^A-Za-z0-9_]""".toRegex()
+    private val typeSanitization =
+      """[^A-Za-z0-9_]""".toRegex()
   }
 }

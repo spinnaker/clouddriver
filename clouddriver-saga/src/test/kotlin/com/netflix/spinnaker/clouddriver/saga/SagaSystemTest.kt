@@ -17,6 +17,7 @@ package com.netflix.spinnaker.clouddriver.saga
 
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.clouddriver.event.config.EventSourceAutoConfiguration
 import com.netflix.spinnaker.clouddriver.saga.config.SagaAutoConfiguration
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import dev.minutest.junit.JUnit5Minutests
@@ -35,9 +36,12 @@ class SagaSystemTest : JUnit5Minutests {
   fun tests() = rootContext<ApplicationContextRunner> {
     fixture {
       ApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(
-          SagaAutoConfiguration::class.java
-        ))
+        .withConfiguration(
+          AutoConfigurations.of(
+            SagaAutoConfiguration::class.java,
+            EventSourceAutoConfiguration::class.java
+          )
+        )
     }
 
     test("supports no config") {

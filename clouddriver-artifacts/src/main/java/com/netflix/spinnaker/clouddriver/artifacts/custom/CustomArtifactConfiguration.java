@@ -17,8 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.custom;
 
-import java.util.Collections;
-import java.util.List;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
+import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -27,11 +28,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
-public class CustomArtifactConfiguration {
+class CustomArtifactConfiguration {
+
   @Bean
-  List<? extends CustomArtifactCredentials> customArtifactCredentials() {
-    CustomArtifactAccount account = new CustomArtifactAccount();
-    CustomArtifactCredentials credentials = new CustomArtifactCredentials(account);
-    return Collections.singletonList(credentials);
+  public CredentialsRepository<CustomArtifactCredentials> customArtifactCredentialsRepository() {
+    CredentialsRepository<CustomArtifactCredentials> repository =
+        new MapBackedCredentialsRepository<>(
+            CustomArtifactCredentials.CREDENTIALS_TYPE, new NoopCredentialsLifecycleHandler<>());
+    repository.save(new CustomArtifactCredentials(new CustomArtifactAccount()));
+    return repository;
   }
 }

@@ -22,10 +22,10 @@ import com.netflix.spinnaker.clouddriver.data.task.SagaId
 import com.netflix.spinnaker.clouddriver.data.task.Status
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskState
-import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.lang.String.format
 import java.sql.ResultSet
+import org.slf4j.LoggerFactory
 
 class TaskMapper(
   private val sqlTaskRepository: SqlTaskRepository,
@@ -45,16 +45,17 @@ class TaskMapper(
 
     while (rs.next()) {
       when {
-        rs.getString("owner_id") != null -> SqlTask(
-          rs.getString("task_id"),
-          rs.getString("owner_id"),
-          rs.getString("request_id"),
-          rs.getLong("created_at"),
-          sagaIds(rs.getString("saga_ids")),
-          sqlTaskRepository
-        ).let {
-          tasks[it.id] = it
-        }
+        rs.getString("owner_id") != null ->
+          SqlTask(
+            rs.getString("task_id"),
+            rs.getString("owner_id"),
+            rs.getString("request_id"),
+            rs.getLong("created_at"),
+            sagaIds(rs.getString("saga_ids")),
+            sqlTaskRepository
+          ).let {
+            tasks[it.id] = it
+          }
         rs.getString("body") != null -> {
           try {
             if (!results.containsKey(rs.getString("task_id"))) {
@@ -74,11 +75,13 @@ class TaskMapper(
           if (!history.containsKey(rs.getString("task_id"))) {
             history[rs.getString("task_id")] = mutableListOf()
           }
-          history[rs.getString("task_id")]!!.add(DefaultTaskStatus.create(
-            rs.getString("phase"),
-            rs.getString("status"),
-            TaskState.valueOf(rs.getString("state"))
-          ))
+          history[rs.getString("task_id")]!!.add(
+            DefaultTaskStatus.create(
+              rs.getString("phase"),
+              rs.getString("status"),
+              TaskState.valueOf(rs.getString("state"))
+            )
+          )
         }
       }
     }

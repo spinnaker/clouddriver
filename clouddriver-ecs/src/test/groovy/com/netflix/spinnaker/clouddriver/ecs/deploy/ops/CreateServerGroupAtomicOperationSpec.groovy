@@ -29,14 +29,20 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAssumeRoleAmazonCredentials
+import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription
+import com.netflix.spinnaker.clouddriver.ecs.names.EcsDefaultNamer
+import com.netflix.spinnaker.clouddriver.ecs.names.EcsServerGroupName
+import com.netflix.spinnaker.clouddriver.ecs.names.EcsResource
+import com.netflix.spinnaker.clouddriver.ecs.names.EcsTagNamer
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamPolicyReader
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamTrustRelationship
 import com.netflix.spinnaker.clouddriver.ecs.services.EcsCloudMetricService
 import com.netflix.spinnaker.clouddriver.ecs.services.SecurityGroupSelector
 import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
 
 import static com.netflix.spinnaker.clouddriver.ecs.deploy.ops.CreateServerGroupAtomicOperation.DOCKER_LABEL_KEY_SERVERGROUP
@@ -87,7 +93,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     amazonClientProvider.getAmazonElasticLoadBalancingV2(_, _, _) >> loadBalancingV2
     amazonClientProvider.getAmazonApplicationAutoScaling(_, _, _) >> autoScalingClient
     containerInformationService.getClusterName(_, _, _) >> 'cluster-name'
-    accountCredentialsProvider.getCredentials(_) >> creds
+    credentialsRepository.getOne(_) >> creds
   }
 
   def 'should create a service'() {
@@ -122,16 +128,24 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.amazonClientProvider = amazonClientProvider
     operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
     operation.iamPolicyReader = iamPolicyReader
-    operation.accountCredentialsProvider = accountCredentialsProvider
+    operation.credentialsRepository = credentialsRepository
     operation.containerInformationService = containerInformationService
 
     when:
     def result = operation.operate([])
 
     then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult().withSettings(
+      new Setting(name: SettingName.TaskLongArnFormat, value: "enabled"),
+      new Setting(name: SettingName.ServiceLongArnFormat, value: "enabled")
+    )
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
     iamClient.getRole(_) >> new GetRoleResult().withRole(role)
@@ -147,7 +161,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(0).containerPort == 1337
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -157,7 +171,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.networkConfiguration == null
       request.healthCheckGracePeriodSeconds == null
       request.enableECSManagedTags == true
-      request.propagateTags == 'SERVICE'
+      request.propagateTags == PropagateTags.SERVICE.toString()
       request.tags.size() == 2
       request.tags.get(0).key == 'label1'
       request.tags.get(0).value == 'value1'
@@ -165,6 +179,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.tags.get(1).value == 'tomato'
       request.launchType == null
       request.platformVersion == null
+      request.enableExecuteCommand == false
     }) >> new CreateServiceResult().withService(service)
 
     result.getServerGroupNames().size() == 1
@@ -178,7 +193,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
@@ -230,7 +245,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       subnetType: 'public',
       securityGroupNames: ['helloworld'],
       associatePublicIpAddress: true,
-      serviceDiscoveryAssociations: [serviceRegistry]
+      serviceDiscoveryAssociations: [serviceRegistry],
+      enableExecuteCommand: true
     )
 
     def operation = new CreateServerGroupAtomicOperation(description)
@@ -238,12 +254,12 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.amazonClientProvider = amazonClientProvider
     operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
     operation.iamPolicyReader = iamPolicyReader
-    operation.accountCredentialsProvider = accountCredentialsProvider
+    operation.credentialsRepository = credentialsRepository
     operation.containerInformationService = containerInformationService
     operation.subnetSelector = subnetSelector
     operation.securityGroupSelector = securityGroupSelector
 
-    subnetSelector.resolveSubnetsIds(_, _, _) >> ['subnet-12345']
+    subnetSelector.resolveSubnetsIdsForMultipleSubnetTypes(_, _, _, _) >> ['subnet-12345']
     subnetSelector.getSubnetVpcIds(_, _, _) >> ['vpc-123']
     securityGroupSelector.resolveSecurityGroupNames(_, _, _, _) >> ['sg-12345']
 
@@ -251,9 +267,15 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def result = operation.operate([])
 
     then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult()
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
-      new Service(serviceName: "${serviceName}-v007", createdAt: new Date()))
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+      request.include == ["TAGS"]
+    }) >> new DescribeServicesResult().withServices(
+      new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
 
@@ -288,6 +310,211 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.tags == []
       request.launchType == 'FARGATE'
       request.platformVersion == '1.0.0'
+      request.enableExecuteCommand == true
+    } as CreateServiceRequest) >> new CreateServiceResult().withService(service)
+
+    result.getServerGroupNames().size() == 1
+    result.getServerGroupNameByRegion().size() == 1
+    result.getServerGroupNames().contains("us-west-1:" + serviceName + "-v008")
+    result.getServerGroupNameByRegion().containsKey('us-west-1')
+    result.getServerGroupNameByRegion().get('us-west-1').contains(serviceName + "-v008")
+  }
+
+  def 'should create a service using VPC and FARGATE Capacity Provider Strategy'() {
+    given:
+    def serviceRegistry = new CreateServerGroupDescription.ServiceDiscoveryAssociation(
+      registry: new CreateServerGroupDescription.ServiceRegistry(arn: 'srv-registry-arn'),
+      containerPort: 9090
+    )
+    def capacityProviderStrategy = new CapacityProviderStrategyItem(
+      capacityProvider: 'FARGATE',
+      weight: 1
+    )
+    def description = new CreateServerGroupDescription(
+      credentials: TestCredential.named('Test', [:]),
+      application: applicationName,
+      stack: stack,
+      freeFormDetails: detail,
+      ecsClusterName: 'test-cluster',
+      iamRole: 'test-role',
+      containerPort: 1337,
+      targetGroup: 'target-group-arn',
+      portProtocol: 'tcp',
+      computeUnits: 9001,
+      reservedMemory: 9002,
+      dockerImageAddress: 'docker-image-url',
+      capacity: new ServerGroup.Capacity(1, 1, 1),
+      availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
+      placementStrategySequence: [],
+      capacityProviderStrategy: [capacityProviderStrategy],
+      platformVersion: '1.0.0',
+      networkMode: 'awsvpc',
+      subnetType: 'public',
+      securityGroupNames: ['helloworld'],
+      associatePublicIpAddress: true,
+      serviceDiscoveryAssociations: [serviceRegistry]
+    )
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    operation.amazonClientProvider = amazonClientProvider
+    operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
+    operation.iamPolicyReader = iamPolicyReader
+    operation.credentialsRepository = credentialsRepository
+    operation.containerInformationService = containerInformationService
+    operation.subnetSelector = subnetSelector
+    operation.securityGroupSelector = securityGroupSelector
+
+    subnetSelector.resolveSubnetsIdsForMultipleSubnetTypes(_, _, _, _) >> ['subnet-12345']
+    subnetSelector.getSubnetVpcIds(_, _, _) >> ['vpc-123']
+    securityGroupSelector.resolveSecurityGroupNames(_, _, _, _) >> ['sg-12345']
+
+    when:
+    def result = operation.operate([])
+
+    then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult()
+    ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
+      new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
+
+    ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
+
+    iamClient.getRole(_) >> new GetRoleResult().withRole(role)
+    iamPolicyReader.getTrustedEntities(_) >> trustRelationships
+    loadBalancingV2.describeTargetGroups(_) >> new DescribeTargetGroupsResult().withTargetGroups(targetGroup)
+
+    ecs.createService({ CreateServiceRequest request ->
+      request.cluster == 'test-cluster'
+      request.serviceName == 'myapp-kcats-liated-v008'
+      request.taskDefinition == 'task-def-arn'
+      request.loadBalancers.size() == 1
+      request.loadBalancers.get(0).targetGroupArn == 'target-group-arn'
+      request.loadBalancers.get(0).containerName == 'v008'
+      request.loadBalancers.get(0).containerPort == 1337
+      request.serviceRegistries.size() == 1
+      request.serviceRegistries.get(0) == new ServiceRegistry(
+        registryArn: 'srv-registry-arn',
+        containerPort: 9090,
+        containerName: 'v008'
+      )
+      request.desiredCount == 1
+      request.role == null
+      request.placementStrategy == []
+      request.placementConstraints == []
+      request.networkConfiguration.awsvpcConfiguration.subnets == ['subnet-12345']
+      request.networkConfiguration.awsvpcConfiguration.securityGroups == ['sg-12345']
+      request.networkConfiguration.awsvpcConfiguration.assignPublicIp == 'ENABLED'
+      request.healthCheckGracePeriodSeconds == null
+      request.enableECSManagedTags == null
+      request.propagateTags == null
+      request.tags == []
+      request.capacityProviderStrategy == [capacityProviderStrategy]
+      request.platformVersion == '1.0.0'
+    } as CreateServiceRequest) >> new CreateServiceResult().withService(service)
+
+    result.getServerGroupNames().size() == 1
+    result.getServerGroupNameByRegion().size() == 1
+    result.getServerGroupNames().contains("us-west-1:" + serviceName + "-v008")
+    result.getServerGroupNameByRegion().containsKey('us-west-1')
+    result.getServerGroupNameByRegion().get('us-west-1').contains(serviceName + "-v008")
+  }
+
+  def 'should create a service using multiple subnet types'() {
+    given:
+    def serviceRegistry = new CreateServerGroupDescription.ServiceDiscoveryAssociation(
+      registry: new CreateServerGroupDescription.ServiceRegistry(arn: 'srv-registry-arn'),
+      containerPort: 9090
+    )
+    def description = new CreateServerGroupDescription(
+      credentials: TestCredential.named('Test', [:]),
+      application: applicationName,
+      stack: stack,
+      freeFormDetails: detail,
+      ecsClusterName: 'test-cluster',
+      iamRole: 'test-role',
+      containerPort: 1337,
+      targetGroup: 'target-group-arn',
+      portProtocol: 'tcp',
+      computeUnits: 9001,
+      reservedMemory: 9002,
+      dockerImageAddress: 'docker-image-url',
+      capacity: new ServerGroup.Capacity(1, 1, 1),
+      availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
+      placementStrategySequence: [],
+      launchType: 'FARGATE',
+      platformVersion: '1.0.0',
+      networkMode: 'awsvpc',
+      subnetTypes: ['public-az1', 'public-az2'],
+      securityGroupNames: ['helloworld'],
+      associatePublicIpAddress: true,
+      serviceDiscoveryAssociations: [serviceRegistry]
+    )
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    operation.amazonClientProvider = amazonClientProvider
+    operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
+    operation.iamPolicyReader = iamPolicyReader
+    operation.credentialsRepository = credentialsRepository
+    operation.containerInformationService = containerInformationService
+    operation.subnetSelector = subnetSelector
+    operation.securityGroupSelector = securityGroupSelector
+
+    subnetSelector.resolveSubnetsIdsForMultipleSubnetTypes(_, _, _, _) >> ['subnet-12345', 'subnet-23456']
+    subnetSelector.getSubnetVpcIds(_, _, _) >> ['vpc-123']
+    securityGroupSelector.resolveSecurityGroupNames(_, _, _, _) >> ['sg-12345']
+
+    when:
+    def result = operation.operate([])
+
+    then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult()
+    ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
+      new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
+
+    ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
+
+    iamClient.getRole(_) >> new GetRoleResult().withRole(role)
+    iamPolicyReader.getTrustedEntities(_) >> trustRelationships
+    loadBalancingV2.describeTargetGroups(_) >> new DescribeTargetGroupsResult().withTargetGroups(targetGroup)
+
+    ecs.createService({ CreateServiceRequest request ->
+      request.cluster == 'test-cluster'
+      request.serviceName == 'myapp-kcats-liated-v008'
+      request.taskDefinition == 'task-def-arn'
+      request.loadBalancers.size() == 1
+      request.loadBalancers.get(0).targetGroupArn == 'target-group-arn'
+      request.loadBalancers.get(0).containerName == 'v008'
+      request.loadBalancers.get(0).containerPort == 1337
+      request.serviceRegistries.size() == 1
+      request.serviceRegistries.get(0) == new ServiceRegistry(
+        registryArn: 'srv-registry-arn',
+        containerPort: 9090,
+        containerName: 'v008'
+      )
+      request.desiredCount == 1
+      request.role == null
+      request.placementStrategy == []
+      request.placementConstraints == []
+      request.networkConfiguration.awsvpcConfiguration.subnets == ['subnet-12345', 'subnet-23456']
+      request.networkConfiguration.awsvpcConfiguration.securityGroups == ['sg-12345']
+      request.networkConfiguration.awsvpcConfiguration.assignPublicIp == 'ENABLED'
+      request.healthCheckGracePeriodSeconds == null
+      request.enableECSManagedTags == null
+      request.propagateTags == null
+      request.tags == []
+      request.launchType == 'FARGATE'
+      request.platformVersion == '1.0.0'
     } as CreateServiceRequest) >> new CreateServiceResult().withService(service)
 
     result.getServerGroupNames().size() == 1
@@ -310,9 +537,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     when:
     def request = operation.makeServiceRequest('task-def-arn',
-      'arn:aws:iam::test:test-role',
-      'mygreatapp-stack1-details2-v0011',
-      1)
+            new EcsServerGroupName('mygreatapp-stack1-details2-v011'),
+            1, new EcsDefaultNamer(), false)
 
     then:
     request.getLoadBalancers() == []
@@ -331,11 +557,11 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     def labels = request.getContainerDefinitions().get(0).getDockerLabels()
-    labels.get(DOCKER_LABEL_KEY_SERVERGROUP) == 'mygreatapp-stack1-details2-v0011'
+    labels.get(DOCKER_LABEL_KEY_SERVERGROUP) == 'mygreatapp-stack1-details2-v011'
     labels.get(CreateServerGroupAtomicOperation.DOCKER_LABEL_KEY_STACK) == 'stack1'
     labels.get(CreateServerGroupAtomicOperation.DOCKER_LABEL_KEY_DETAIL) == 'details2'
   }
@@ -352,7 +578,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     def labels = request.getContainerDefinitions().get(0).getDockerLabels()
@@ -375,14 +601,13 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     def labels = request.getContainerDefinitions().get(0).getDockerLabels()
-    labels.get(DOCKER_LABEL_KEY_SERVERGROUP) == 'mygreatapp-stack1-details2-v0011'
+    labels.get(DOCKER_LABEL_KEY_SERVERGROUP) == 'mygreatapp-stack1-details2-v011'
     labels.get(DOCKER_LABEL_KEY_SERVERGROUP) != 'some-value-we-dont-want-to-see'
   }
-
 
   def 'should allow selecting the logDriver'() {
     given:
@@ -391,7 +616,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     request.getContainerDefinitions().get(0).getLogConfiguration().getLogDriver() == 'some-log-driver'
@@ -404,7 +629,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     request.getContainerDefinitions().get(0).getLogConfiguration().getOptions() == null
@@ -420,7 +645,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     request.getContainerDefinitions().get(0).getLogConfiguration().getOptions() == logOptions
@@ -433,7 +658,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     request.getContainerDefinitions().get(0).getPortMappings().isEmpty()
@@ -447,7 +672,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     request.getContainerDefinitions().get(0).getRepositoryCredentials().getCredentialsParameter() == 'my-secret'
@@ -460,7 +685,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     request.getContainerDefinitions().get(0).getRepositoryCredentials() == null
@@ -472,10 +697,10 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'kcats'
     description.getFreeFormDetails() >> 'liated'
-    description.ecsClusterName = 'test-cluster'
-    description.iamRole = 'None (No IAM role)'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
     description.getContainerPort() >> 1337
-    description.targetGroup = 'target-group-arn'
+    description.getTargetGroup() >> 'target-group-arn'
     description.getPortProtocol() >> 'tcp'
     description.getComputeUnits() >> 9001
     description.getReservedMemory() >> 9001
@@ -487,7 +712,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    RegisterTaskDefinitionRequest result = operation.makeTaskDefinitionRequest("test-role", "v1-kcats-liated-v001")
+    RegisterTaskDefinitionRequest result = operation.makeTaskDefinitionRequest("test-role", new EcsServerGroupName('v1-kcats-liated-v001'))
 
     then:
     result.getTaskRoleArn() == null
@@ -542,8 +767,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'ecs'
     description.getFreeFormDetails() >> 'test'
-    description.ecsClusterName = 'test-cluster'
-    description.iamRole = 'None (No IAM role)'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
     description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
     description.getContainerToImageMap() >> [
       web: "docker-image-url/one",
@@ -559,7 +784,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     when:
     RegisterTaskDefinitionRequest result =
-      operation.makeTaskDefinitionRequestFromArtifact("test-role", "v1-ecs-test-v001")
+      operation.makeTaskDefinitionRequestFromArtifact("test-role", new EcsServerGroupName("v1-ecs-test-v001"))
 
     then:
     result.getTaskRoleArn() == null
@@ -591,7 +816,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     })
   }
 
-  def 'should set spinnaker role on FARGATE RegisterTaskDefinitionRequest if none in artifact'() {
+  def 'should set spinnaker role on LaunchType FARGATE RegisterTaskDefinitionRequest if none in artifact'() {
     given:
     def resolvedArtifact = Artifact.builder()
       .name("taskdef.json")
@@ -610,8 +835,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'ecs'
     description.getFreeFormDetails() >> 'test'
-    description.ecsClusterName = 'test-cluster'
-    description.iamRole = 'None (No IAM role)'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
     description.getLaunchType() >> 'FARGATE'
     description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
     description.getContainerToImageMap() >> [
@@ -627,7 +852,61 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     when:
     RegisterTaskDefinitionRequest result =
-      operation.makeTaskDefinitionRequestFromArtifact("test-role", "v1-ecs-test-v001")
+      operation.makeTaskDefinitionRequestFromArtifact("test-role", new EcsServerGroupName('v1-ecs-test-v001'))
+
+    then:
+    result.getTaskRoleArn() == null
+    result.getFamily() == "v1-ecs-test"
+    result.getExecutionRoleArn() == "test-role"
+
+    result.getContainerDefinitions().size() == 1
+    def containerDefinition = result.getContainerDefinitions().first()
+    containerDefinition.name == "web"
+    containerDefinition.image == "docker-image-url"
+    containerDefinition.memoryReservation == 512
+  }
+
+  def 'should set spinnaker role on CapacityProvider FARGATE RegisterTaskDefinitionRequest if none in artifact'() {
+    given:
+    def resolvedArtifact = Artifact.builder()
+      .name("taskdef.json")
+      .reference("fake.github.com/repos/org/repo/taskdef.json")
+      .artifactAccount("my-github-acct")
+      .type("github/file")
+      .build()
+    def containerDef =
+      new ContainerDefinition()
+        .withName("web")
+        .withImage("PLACEHOLDER")
+        .withMemoryReservation(512)
+    def capacityProviderStrategy = new CapacityProviderStrategyItem(
+      capacityProvider: 'FARGATE',
+      weight: 1
+    )
+    def registerTaskDefRequest =
+      new RegisterTaskDefinitionRequest().withContainerDefinitions([containerDef])
+    def description = Mock(CreateServerGroupDescription)
+    description.getApplication() >> 'v1'
+    description.getStack() >> 'ecs'
+    description.getFreeFormDetails() >> 'test'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
+    description.getCapacityProviderStrategy() >> [capacityProviderStrategy]
+    description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
+    description.getContainerToImageMap() >> [
+      web: "docker-image-url"
+    ]
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+    operation.artifactDownloader = artifactDownloader
+    operation.mapper = objectMapper
+
+    artifactDownloader.download(_) >> new ByteArrayInputStream()
+    objectMapper.readValue(_,_) >> registerTaskDefRequest
+
+    when:
+    RegisterTaskDefinitionRequest result =
+      operation.makeTaskDefinitionRequestFromArtifact("test-role", new EcsServerGroupName('v1-ecs-test-v001'))
 
     then:
     result.getTaskRoleArn() == null
@@ -657,7 +936,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'ecs'
     description.getFreeFormDetails() >> 'test'
-    description.ecsClusterName = 'test-cluster'
+    description.getEcsClusterName() >> 'test-cluster'
     description.getLaunchType() >> 'FARGATE'
     description.getNetworkMode() >> 'awsvpc'
     description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
@@ -670,7 +949,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     objectMapper.readValue(_,_) >> registerTaskDefRequest
 
     when:
-    operation.makeTaskDefinitionRequestFromArtifact("test-role", "v1-ecs-test-v001")
+    operation.makeTaskDefinitionRequestFromArtifact("test-role", new EcsServerGroupName('v1-ecs-test-v001'))
 
     then:
     IllegalArgumentException exception = thrown()
@@ -688,7 +967,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    RegisterTaskDefinitionRequest result = operation.makeTaskDefinitionRequest("test-role", "v1-kcats-liated-v001")
+    RegisterTaskDefinitionRequest result = operation.makeTaskDefinitionRequest("test-role", new EcsServerGroupName('v1-kcats-liated-v001'))
 
     then:
     result.getContainerDefinitions().size() == 1
@@ -708,12 +987,13 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
   def 'should use same port for host and container in host mode'() {
     given:
     def description = Mock(CreateServerGroupDescription)
+    description.getTargetGroup() >> 'target-group-arn'
     description.getContainerPort() >> 10000
     description.getNetworkMode() >> 'host'
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'mygreatapp-stack1-details2-v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', new EcsServerGroupName('mygreatapp-stack1-details2-v011'))
 
     then:
     def portMapping = request.getContainerDefinitions().get(0).getPortMappings().get(0)
@@ -761,16 +1041,24 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.amazonClientProvider = amazonClientProvider
     operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
     operation.iamPolicyReader = iamPolicyReader
-    operation.accountCredentialsProvider = accountCredentialsProvider
+    operation.credentialsRepository = credentialsRepository
     operation.containerInformationService = containerInformationService
 
     when:
     def result = operation.operate([])
 
     then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult().withSettings(
+      new Setting(name: SettingName.TaskLongArnFormat, value: "enabled"),
+      new Setting(name: SettingName.ServiceLongArnFormat, value: "enabled")
+    )
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
     iamClient.getRole(_) >> new GetRoleResult().withRole(role)
@@ -786,7 +1074,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(0).containerPort == 1337
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -817,7 +1105,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
@@ -880,16 +1168,24 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.amazonClientProvider = amazonClientProvider
     operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
     operation.iamPolicyReader = iamPolicyReader
-    operation.accountCredentialsProvider = accountCredentialsProvider
+    operation.credentialsRepository = credentialsRepository
     operation.containerInformationService = containerInformationService
 
     when:
     def result = operation.operate([])
 
     then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult().withSettings(
+      new Setting(name: SettingName.TaskLongArnFormat, value: "enabled"),
+      new Setting(name: SettingName.ServiceLongArnFormat, value: "enabled")
+    )
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
     iamClient.getRole(_) >> new GetRoleResult().withRole(role)
@@ -908,7 +1204,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(1).containerPort == 80
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -939,7 +1235,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
@@ -1000,19 +1296,32 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.amazonClientProvider = amazonClientProvider
     operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
     operation.iamPolicyReader = iamPolicyReader
-    operation.accountCredentialsProvider = accountCredentialsProvider
+    operation.credentialsRepository = credentialsRepository
     operation.containerInformationService = containerInformationService
 
     when:
     def result = operation.operate([])
 
     then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult().withSettings(
+      new Setting(name: SettingName.TaskLongArnFormat, value: "enabled"),
+      new Setting(name: SettingName.ServiceLongArnFormat, value: "enabled")
+    )
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
-    ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
-    iamClient.getRole(_) >> new GetRoleResult().withRole(role)
+    1 * ecs.registerTaskDefinition(_) >> { arguments ->
+      RegisterTaskDefinitionRequest request = arguments.get(0)
+      assert request.getTaskRoleArn() == "arn:aws:iam::test:path/test-role"
+      new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
+    }
+
+    iamClient.getRole(_) >> new GetRoleResult().withRole(role.withArn("arn:aws:iam::test:path/test-role"))
     iamPolicyReader.getTrustedEntities(_) >> trustRelationships
     loadBalancingV2.describeTargetGroups(_) >> new DescribeTargetGroupsResult().withTargetGroups(targetGroup)
     ecs.createService({ CreateServiceRequest request ->
@@ -1025,7 +1334,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(0).containerPort == 80
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -1056,7 +1365,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
@@ -1123,16 +1432,24 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.amazonClientProvider = amazonClientProvider
     operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
     operation.iamPolicyReader = iamPolicyReader
-    operation.accountCredentialsProvider = accountCredentialsProvider
+    operation.credentialsRepository = credentialsRepository
     operation.containerInformationService = containerInformationService
 
     when:
     def result = operation.operate([])
 
     then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult().withSettings(
+      new Setting(name: SettingName.TaskLongArnFormat, value: "enabled"),
+      new Setting(name: SettingName.ServiceLongArnFormat, value: "enabled")
+    )
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
     iamClient.getRole(_) >> new GetRoleResult().withRole(role)
@@ -1151,7 +1468,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(1).containerPort == 80
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -1182,7 +1499,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
@@ -1204,5 +1521,431 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       "service/test-cluster/${serviceName}-v007",
       "test-cluster"
     )
+  }
+
+  def 'should create no tags by default'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    description.getApplication() >> 'mygreatapp'
+    description.getStack() >> 'stack1'
+    description.getFreeFormDetails() >> 'details2'
+    description.getTags() >> null
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeServiceRequest("taskDefArn", new EcsServerGroupName('mygreatapp-stack1-details2-v011'), 1,  new EcsDefaultNamer(), false)
+
+    then:
+    assert request.enableECSManagedTags == null
+    assert request.propagateTags == null
+    def tags = request.getTags()
+    assert tags.isEmpty()
+  }
+
+  def 'should create moniker tags if enabled and no other tags'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    description.getApplication() >> 'mygreatapp'
+    description.getStack() >> 'stack1'
+    description.getFreeFormDetails() >> 'details2'
+    description.getTags() >> null
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeServiceRequest("taskDefArn", new EcsServerGroupName('mygreatapp-stack1-details2-v011'), 1, new EcsTagNamer(), true)
+
+    then:
+    assert request.enableECSManagedTags == true
+    assert request.propagateTags == PropagateTags.SERVICE.toString()
+    def tags = request.getTags()
+    assert tags.size() == 5
+    tags.contains(new Tag(key: EcsTagNamer.APPLICATION, value: 'mygreatapp'))
+    tags.contains(new Tag(key: EcsTagNamer.CLUSTER, value: 'mygreatapp-stack1-details2'))
+    tags.contains(new Tag(key: EcsTagNamer.STACK, value: 'stack1'))
+    tags.contains(new Tag(key: EcsTagNamer.DETAIL, value: 'details2'))
+    tags.contains(new Tag(key: EcsTagNamer.SEQUENCE, value: '11'))
+  }
+
+  def 'should create custom tags if moniker not enabled'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    description.getApplication() >> 'mygreatapp'
+    description.getStack() >> 'stack1'
+    description.getFreeFormDetails() >> 'details2'
+    description.getTags() >> ['label1': 'value1', 'fruit':'tomato']
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeServiceRequest("taskDefArn", new EcsServerGroupName('mygreatapp-stack1-details2-v011'), 1,  new EcsDefaultNamer(), true)
+
+    then:
+    assert request.enableECSManagedTags == true
+    assert request.propagateTags == 'SERVICE'
+    def tags = request.getTags()
+    assert tags.size() == 2
+    tags.contains(new Tag(key: 'label1', value: 'value1'))
+    tags.contains(new Tag(key: 'fruit', value: 'tomato'))
+  }
+
+  def 'should create custom tags and moniker tags if moniker enabled'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    description.getApplication() >> 'mygreatapp'
+    description.getStack() >> 'stack1'
+    description.getFreeFormDetails() >> 'details2'
+    description.getTags() >> ['label1': 'value1', 'fruit':'tomato']
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeServiceRequest("taskDefArn", new EcsServerGroupName('mygreatapp-stack1-details2-v011'), 1, new EcsTagNamer(), true)
+
+    then:
+    assert request.enableECSManagedTags == true
+    assert request.propagateTags == 'SERVICE'
+    def tags = request.getTags()
+    assert tags.size() == 7
+    tags.contains(new Tag(key: 'label1', value: 'value1'))
+    tags.contains(new Tag(key: 'fruit', value: 'tomato'))
+    tags.contains(new Tag(key: EcsTagNamer.APPLICATION, value: 'mygreatapp'))
+    tags.contains(new Tag(key: EcsTagNamer.CLUSTER, value: 'mygreatapp-stack1-details2'))
+    tags.contains(new Tag(key: EcsTagNamer.STACK, value: 'stack1'))
+    tags.contains(new Tag(key: EcsTagNamer.DETAIL, value: 'details2'))
+    tags.contains(new Tag(key: EcsTagNamer.SEQUENCE, value: '11'))
+  }
+
+  def 'should fail to create service with custom tags and moniker tags if tags disabled'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    description.getApplication() >> 'mygreatapp'
+    description.getStack() >> 'stack1'
+    description.getFreeFormDetails() >> 'details2'
+    description.getTags() >> ['label1': 'value1', 'fruit':'tomato']
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    operation.makeServiceRequest("taskDefArn", new EcsServerGroupName('mygreatapp-stack1-details2-v011'), 1, new EcsTagNamer(), false)
+
+    then:
+    IllegalArgumentException ex = thrown()
+    ex.message == "ECS account settings for account null do not allow tagging as `serviceLongArnFormat` and `taskLongArnFormat` are not enabled."
+  }
+
+  def 'should fail to create service with custom tags and no moniker tags if tags disabled'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    description.getApplication() >> 'mygreatapp'
+    description.getStack() >> 'stack1'
+    description.getFreeFormDetails() >> 'details2'
+    description.getTags() >> ['label1': 'value1', 'fruit':'tomato']
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    operation.makeServiceRequest("taskDefArn", new EcsServerGroupName('mygreatapp-stack1-details2-v011'), 1, new EcsDefaultNamer(), false)
+
+    then:
+    IllegalArgumentException ex = thrown()
+    ex.message == "ECS account settings for account null do not allow tagging as `serviceLongArnFormat` and `taskLongArnFormat` are not enabled."
+  }
+
+  def 'should not create tags with duplicate keys'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    description.getApplication() >> 'mygreatapp'
+    description.getTags() >> ['label1': 'value2', 'label1': 'value1']
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeServiceRequest("taskDefArn", new EcsServerGroupName('mygreatapp-v011'), 1, new EcsDefaultNamer(), true)
+
+    then:
+    assert request.enableECSManagedTags == true
+    assert request.propagateTags == 'SERVICE'
+    def tags = request.getTags()
+    assert tags.size() == 1
+    tags.contains(new Tag(key: 'label1', value: 'value1'))
+  }
+
+  def 'should fail to create service with tags if task ARN format is not updated '() {
+    given:
+    def description = new CreateServerGroupDescription(
+      credentials: TestCredential.named('Test', [:]),
+      application: applicationName,
+      stack: stack,
+      freeFormDetails: detail,
+      ecsClusterName: 'test-cluster',
+      tags: ['label1': 'value1', 'fruit': 'tomato'],
+      dockerImageAddress: 'docker-image-url',
+      capacity: new ServerGroup.Capacity(1, 1, 1),
+      availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
+    )
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    operation.amazonClientProvider = amazonClientProvider
+    operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
+    operation.iamPolicyReader = iamPolicyReader
+    operation.credentialsRepository = credentialsRepository
+    operation.containerInformationService = containerInformationService
+
+    when:
+    def result = operation.operate([])
+
+    then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult().withSettings(
+      new Setting(name: SettingName.ServiceLongArnFormat, value: "enabled")
+    )
+    ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
+      new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
+    ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
+
+    IllegalArgumentException ex = thrown()
+    ex.message == "ECS account settings for account Test do not allow tagging as `serviceLongArnFormat` and `taskLongArnFormat` are not enabled."
+  }
+
+  def 'should fail to create service with tags if service ARN format is not updated '() {
+    given:
+    def description = new CreateServerGroupDescription(
+      credentials: TestCredential.named('Test', [:]),
+      application: applicationName,
+      stack: stack,
+      freeFormDetails: detail,
+      ecsClusterName: 'test-cluster',
+      tags: ['label1': 'value1', 'fruit': 'tomato'],
+      dockerImageAddress: 'docker-image-url',
+      capacity: new ServerGroup.Capacity(1, 1, 1),
+      availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
+    )
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    operation.amazonClientProvider = amazonClientProvider
+    operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
+    operation.iamPolicyReader = iamPolicyReader
+    operation.credentialsRepository = credentialsRepository
+    operation.containerInformationService = containerInformationService
+
+    when:
+    def result = operation.operate([])
+
+    then:
+    ecs.listAccountSettings(_) >> new ListAccountSettingsResult().withSettings(
+      new Setting(name: SettingName.TaskLongArnFormat, value: "enabled")
+    )
+    ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
+      new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
+    ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
+
+    IllegalArgumentException ex = thrown()
+    ex.message == "ECS account settings for account Test do not allow tagging as `serviceLongArnFormat` and `taskLongArnFormat` are not enabled."
+  }
+
+  def 'should return valid task execution role arn for non-china and non-gov-cloud partition'() {
+    given:
+    def credentials = Mock(NetflixAssumeRoleAmazonCredentials) {
+      getName() >> { "test" }
+      getRegions() >> { [new AmazonCredentials.AWSRegion('us-west-1', ['us-west-1a', 'us-west-1b'])] }
+      getAssumeRole() >> { 'role/test-role' }
+      getAccountId() >> { 'test' }
+    }
+    def resolvedArtifact = createResolvedArtifact()
+    def containerDef = createContainerDef()
+    def registerTaskDefRequest = createRegisterTaskDefRequest(containerDef)
+    def description = createDescription(resolvedArtifact);
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+    operation.artifactDownloader = artifactDownloader
+    operation.mapper = objectMapper
+
+    artifactDownloader.download(_) >> new ByteArrayInputStream()
+    objectMapper.readValue(_,_) >> registerTaskDefRequest
+
+    when:
+    String ecsServiceRole = operation.inferAssumedRoleArn(credentials);
+    RegisterTaskDefinitionRequest result =
+      operation.makeTaskDefinitionRequestFromArtifact(ecsServiceRole, new EcsServerGroupName('v1-ecs-test-v001'))
+
+    then:
+    result.getTaskRoleArn() == null
+    result.getFamily() == "v1-ecs-test"
+    result.getExecutionRoleArn() == "arn:aws:iam::test:role/test-role"
+  }
+
+  def 'should return valid task execution role arn for china partition'() {
+    given:
+    def credentials = Mock(NetflixAssumeRoleAmazonCredentials) {
+      getName() >> { "test" }
+      getRegions() >> { [new AmazonCredentials.AWSRegion('cn-north-1', ['cn-north-1a', 'cn-north-1b'])] }
+      getAssumeRole() >> { 'arn:aws-cn:iam:123123123123:role/test-role' }
+      getAccountId() >> { 'test' }
+    }
+    def resolvedArtifact = createResolvedArtifact()
+    def containerDef = createContainerDef()
+    def registerTaskDefRequest = createRegisterTaskDefRequest(containerDef)
+    def description = createDescription(resolvedArtifact);
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+    operation.artifactDownloader = artifactDownloader
+    operation.mapper = objectMapper
+
+    artifactDownloader.download(_) >> new ByteArrayInputStream()
+    objectMapper.readValue(_,_) >> registerTaskDefRequest
+
+    when:
+    String ecsServiceRole = operation.inferAssumedRoleArn(credentials);
+    RegisterTaskDefinitionRequest result =
+      operation.makeTaskDefinitionRequestFromArtifact(ecsServiceRole, new EcsServerGroupName('v1-ecs-test-v001'))
+
+    then:
+    result.getTaskRoleArn() == null
+    result.getFamily() == "v1-ecs-test"
+    result.getExecutionRoleArn() == "arn:aws-cn:iam:123123123123:role/test-role"
+  }
+
+  def 'should return valid task execution role arn for gov-cloud partition'() {
+    given:
+    def credentials = Mock(NetflixAssumeRoleAmazonCredentials) {
+      getName() >> { "test" }
+      getRegions() >> { [new AmazonCredentials.AWSRegion('us-west-1', ['us-west-1a', 'us-west-1b'])] }
+      getAssumeRole() >> { 'arn:aws-us-gov:iam:123123123123:role/test-role' }
+      getAccountId() >> { 'test' }
+    }
+    def resolvedArtifact = createResolvedArtifact()
+    def containerDef = createContainerDef()
+    def registerTaskDefRequest = createRegisterTaskDefRequest(containerDef)
+    def description = createDescription(resolvedArtifact);
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+    operation.artifactDownloader = artifactDownloader
+    operation.mapper = objectMapper
+
+    artifactDownloader.download(_) >> new ByteArrayInputStream()
+    objectMapper.readValue(_,_) >> registerTaskDefRequest
+
+    when:
+    String ecsServiceRole = operation.inferAssumedRoleArn(credentials);
+    RegisterTaskDefinitionRequest result =
+      operation.makeTaskDefinitionRequestFromArtifact(ecsServiceRole, new EcsServerGroupName('v1-ecs-test-v001'))
+
+    then:
+    result.getTaskRoleArn() == null
+    result.getFamily() == "v1-ecs-test"
+    result.getExecutionRoleArn() == "arn:aws-us-gov:iam:123123123123:role/test-role"
+  }
+
+  def 'should return valid task def from spelProcessedArtifact'() {
+    given:
+    def credentials = Mock(NetflixAssumeRoleAmazonCredentials) {
+      getName() >> { "test" }
+      getRegions() >> { [new AmazonCredentials.AWSRegion('us-west-1', ['us-west-1a', 'us-west-1b'])] }
+      getAssumeRole() >> { 'arn:aws-us-gov:iam:123123123123:role/test-role' }
+      getAccountId() >> { 'test' }
+    }
+    def containerDef = createContainerDef()
+    def registerTaskDefRequest = createRegisterTaskDefRequest(containerDef)
+    def description = createDescription(null);
+    description.isEvaluateTaskDefinitionArtifactExpressions() >> true
+    Map<Object, Object> spelArtifactMap = new HashMap<>()
+    spelArtifactMap.put("family", "PLACEHOLDER")
+    description.getSpelProcessedTaskDefinitionArtifact() >> spelArtifactMap
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+    operation.mapper = objectMapper
+
+    objectMapper.convertValue(_,_) >> registerTaskDefRequest
+
+    when:
+    String ecsServiceRole = operation.inferAssumedRoleArn(credentials);
+    RegisterTaskDefinitionRequest result =
+      operation.makeTaskDefinitionRequestFromArtifact(ecsServiceRole, new EcsServerGroupName('v1-ecs-test-v001'))
+
+    then:
+    result.getTaskRoleArn() == null
+    result.getFamily() == "v1-ecs-test"
+    result.getExecutionRoleArn() == "arn:aws-us-gov:iam:123123123123:role/test-role"
+  }
+
+  def 'should fail for invalid task def from spelProcessedArtifact'() {
+    given:
+    def credentials = Mock(NetflixAssumeRoleAmazonCredentials) {
+      getName() >> { "test" }
+      getRegions() >> { [new AmazonCredentials.AWSRegion('us-west-1', ['us-west-1a', 'us-west-1b'])] }
+      getAssumeRole() >> { 'arn:aws-us-gov:iam:123123123123:role/test-role' }
+      getAccountId() >> { 'test' }
+    }
+
+    def description = createDescription(null);
+    description.isEvaluateTaskDefinitionArtifactExpressions() >> true
+    description.getSpelProcessedTaskDefinitionArtifact() >> null
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    String ecsServiceRole = operation.inferAssumedRoleArn(credentials);
+    RegisterTaskDefinitionRequest result =
+      operation.makeTaskDefinitionRequestFromArtifact(ecsServiceRole, new EcsServerGroupName('v1-ecs-test-v001'))
+
+    then:
+    IllegalArgumentException exception = thrown()
+    exception.message ==
+      "Task definition artifact can not be null"
+  }
+
+  def createResolvedArtifact (){
+    return  Artifact.builder()
+      .name("taskdef.json")
+      .reference("fake.github.com/repos/org/repo/taskdef.json")
+      .artifactAccount("my-github-acct")
+      .type("github/file")
+      .build()
+  }
+
+  def createContainerDef(){
+    return new ContainerDefinition()
+      .withName("web")
+      .withImage("PLACEHOLDER")
+      .withMemoryReservation(512)
+  }
+
+  def createRegisterTaskDefRequest(ContainerDefinition containerDef){
+    return new RegisterTaskDefinitionRequest().withContainerDefinitions([containerDef])
+  }
+
+  def createDescription(Artifact resolvedArtifact){
+    def description = Mock(CreateServerGroupDescription)
+    description.getApplication() >> 'v1'
+    description.getStack() >> 'ecs'
+    description.getFreeFormDetails() >> 'test'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
+    description.getLaunchType() >> 'FARGATE'
+    description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
+    description.getContainerToImageMap() >> [
+      web: "docker-image-url"
+    ]
+    return description
   }
 }

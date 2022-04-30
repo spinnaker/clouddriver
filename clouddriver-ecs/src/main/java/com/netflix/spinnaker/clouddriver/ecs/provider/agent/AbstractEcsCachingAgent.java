@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
@@ -25,6 +26,7 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.google.common.base.CaseFormat;
+import com.netflix.spinnaker.cats.agent.AccountAware;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
@@ -45,7 +47,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
+abstract class AbstractEcsCachingAgent<T> implements CachingAgent, AccountAware {
   private final Logger log = LoggerFactory.getLogger(getClass());
 
   final AmazonClientProvider amazonClientProvider;
@@ -211,11 +213,15 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   protected boolean keyAccountRegionFilter(String authoritativeKeyName, String key) {
     Map<String, String> keyParts = Keys.parse(key);
     return keyParts != null
-        && keyParts.get("account").equals(accountName)
-        &&
-        // IAM role keys are not region specific, so it will be true. The region will be checked of
-        // other keys.
-        (authoritativeKeyName.equals(IAM_ROLE.ns) || keyParts.get("region").equals(region));
+        && ((accountName.equals(keyParts.get("account"))
+                &&
+                // IAM role keys are not region specific, so it will be true. The region will be
+                // checked of other keys.
+                (authoritativeKeyName.equals(IAM_ROLE.ns) || keyParts.get("region").equals(region)))
+            // Application keys are not account or region specific so this will be true. The region
+            // and
+            // account will be checked for other keys.
+            || (authoritativeKeyName.equals(ECS_APPLICATIONS.ns)));
   }
 
   /**
@@ -227,5 +233,14 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   protected Map<String, Collection<String>> addExtraEvictions(
       Map<String, Collection<String>> evictions) {
     return evictions;
+  }
+  /**
+   * Returns the account name with which this agent is associated.
+   *
+   * @return The name of the account this agent handles.
+   */
+  @Override
+  public String getAccountName() {
+    return accountName;
   }
 }

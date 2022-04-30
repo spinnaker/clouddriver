@@ -1,27 +1,18 @@
 package com.netflix.spinnaker.cats.sql
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spinnaker.cats.cache.Cache
+import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.cache.WriteableCacheSpec
 import com.netflix.spinnaker.cats.sql.cache.SqlCache
-import com.netflix.spinnaker.cats.sql.cache.SqlCacheMetrics
-import com.netflix.spinnaker.config.SqlConstraints
-import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
-import com.netflix.spinnaker.kork.sql.config.RetryProperties
-import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
 import com.zaxxer.hikari.HikariDataSource
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Unroll
 
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneId
-
-class SqlCacheSpec extends WriteableCacheSpec {
+abstract class SqlCacheSpec extends WriteableCacheSpec {
 
   @Shared
   DSLContext context
@@ -54,7 +45,7 @@ class SqlCacheSpec extends WriteableCacheSpec {
     ((SqlCache) cache).merge('foo', data)
 
     then:
-    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 1, 0, 0, 1, 1, 0)
+    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 1, 0, 0, 1, 1, 0, 0)
 
     when:
     ((SqlCache) cache).merge('foo', data)
@@ -63,7 +54,37 @@ class SqlCacheSpec extends WriteableCacheSpec {
     // SqlCacheMetrics currently sets items to # of items stored. The redis impl
     // sets this to # of items passed to merge, regardless of how many are actually stored
     // after deduplication. TODO: Having both metrics would be nice.
-    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 0, 0, 0, 1, 0, 0)
+    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 0, 0, 0, 1, 0, 0, 0)
+  }
+
+  def 'mergeAll with two items that have the same id preserves the existing item'() {
+      given: 'one item in the cache'
+      String id = 'bar'
+      def itemOneAttributes = [att1: 'val1']
+      CacheData itemOne = createData(id, itemOneAttributes)
+      def itemTwoAttributes = [att2: 'val2']
+      CacheData itemTwo = createData(id, itemTwoAttributes)
+      String type = 'foo'
+      cache.mergeAll(type, [ itemOne ])
+      assert itemOneAttributes.equals(cache.get(type, id).attributes)
+
+      when: 'adding both items'
+      cache.mergeAll(type, [ itemOne, itemTwo ])
+
+      then: 'itemOne is in the cache'
+      itemOneAttributes.equals(cache.get(type, id).attributes)
+
+      and: 'the metrics report a duplicate'
+      1 * ((SqlCache) cache).cacheMetrics.merge('test', type, 2, 0, 0, 0, 1, 0, 0, 1)
+
+      when: 'storing the items again'
+      cache.mergeAll(type, [ itemOne, itemTwo ])
+
+      then: 'itemOne is in the cache'
+      itemOneAttributes.equals(cache.get(type, id).attributes)
+
+      and: 'the metrics report a duplicate'
+      1 * ((SqlCache) cache).cacheMetrics.merge('test', type, 2, 0, 0, 0, 1, 0, 0, 1)
   }
 
   def 'all items are stored and retrieved when larger than sql chunk sizes'() {
@@ -86,60 +107,14 @@ class SqlCacheSpec extends WriteableCacheSpec {
     def where = ((SqlCache) cache).getRelWhere(relPrefixes, queryPrefix)
 
     then:
-    where == expected
+    where.toString() == expected
 
     where:
-    filter                                                 || queryPrefix      || expected
-    RelationshipCacheFilter.none()                         || "meowdy=partner" || "meowdy=partner"
-    null                                                   || "meowdy=partner" || "meowdy=partner"
-    RelationshipCacheFilter.include("instances", "images") || null             || "(rel_type LIKE 'instances%' OR rel_type LIKE 'images%')"
-    RelationshipCacheFilter.include("images")              || "meowdy=partner" || "meowdy=partner AND (rel_type LIKE 'images%')"
-    null                                                   || null             || "1=1"
+    filter                                                 || queryPrefix                       || expected
+    RelationshipCacheFilter.none()                         || DSL.field("meowdy").eq("partner") || "meowdy = 'partner'"
+    null                                                   || DSL.field("meowdy").eq("partner") || "meowdy = 'partner'"
+    RelationshipCacheFilter.include("instances", "images") || null                              || "(\n  rel_type like 'instances%'\n  or rel_type like 'images%'\n)"
+    RelationshipCacheFilter.include("images")              || DSL.field("meowdy").eq("partner") || "(\n  meowdy = 'partner'\n  and rel_type like 'images%'\n)"
+    null                                                   || null                              || "1 = 1"
   }
-
-  @Unroll
-  def 'max length of table name is checked'() {
-    when:
-    def realName = ((SqlCache) cache).checkTableName("cats_v1_", name, suffix)
-
-    then:
-    realName == expected
-
-    where:
-    name              || expected                                                             || suffix
-    "foo"             || "cats_v1_test_foo"                                                   || ""
-    "abcdefghij" * 10 || "cats_v1_test_abcdefghijabcdefghijabcdefghijabcdeaa7d0fee7e891a66"   || ""
-    "abcdefghij" * 10 || "cats_v1_test_abcdefghijabcdefghijabcdefghija9246690b33571ecc_rel"   || "_rel"
-    "abcdefghij" * 10 || "cats_v1_test_abcdefghijabcdefghijabcdefghijabcdefe546a736182e553"   || "suffix"*10
-
-  }
-
-  @Override
-  Cache getSubject() {
-    def mapper = new ObjectMapper()
-    def clock = new Clock.FixedClock(Instant.EPOCH, ZoneId.of("UTC"))
-    def sqlRetryProperties = new SqlRetryProperties(new RetryProperties(1, 10), new RetryProperties(1, 10))
-
-    def dynamicConfigService = Mock(DynamicConfigService) {
-      getConfig(_ as Class, _ as String, _) >> 2
-    }
-
-    SqlTestUtil.TestDatabase testDatabase = SqlTestUtil.initTcMysqlDatabase()
-    context = testDatabase.context
-    dataSource = testDatabase.dataSource
-
-    return new SqlCache(
-      "test",
-      context,
-      mapper,
-      null,
-      clock,
-      sqlRetryProperties,
-      "test",
-      Mock(SqlCacheMetrics),
-      dynamicConfigService,
-      new SqlConstraints()
-    )
-  }
-
 }

@@ -6,7 +6,7 @@ server:
     enabled: true
 
 redis:
-  connection: redis://localhost:6379
+  connection: ${services.redis.baseUrl:redis://localhost:6379}
   scheduler: default
   parallelism: -1
 
@@ -54,6 +54,15 @@ default:
 
 aws:
   enabled: ${AWS_ENABLED:false}
+#  features:
+#    launch-templates:
+#      enabled: true
+#      allowed-applications: app1:account1:region1,app2:account1:region1
+#      all-applications: false
+#      allowed-accounts-regions: account1:region1
+#      allowed-accounts: account1,account2
+#      excluded-applications: ""
+#      excluded-accounts: account3,account4
   # proxy:
   #  proxyHost: 10.0.0.54
   #  proxyPort: 8888
@@ -63,7 +72,7 @@ aws:
   #  proxyWorkstation: foo
   #  protocol: HTTP
   defaults:
-    iamRole: FooRole
+    iamRole: BaseIAMRole
     unknownInstanceTypeBlockDevice:
       deviceName: /dev/sdb
       size: 40
@@ -328,6 +337,7 @@ spring:
     #   regions: #override default regions
     #     - name: us-east-1
     #     - name: ap-northeast-1
+    #   externalId: a1b2c3d4
 
 ---
 
@@ -342,3 +352,24 @@ spring:
 #  port: 22
 #  proxyRegion: us-west-1
 #  proxyCluster: my-credentials-cluster
+
+---
+# This profile is used in HA deployments for a clouddriver that handles read-only requests from
+# other services
+spring:
+  profiles: ro
+
+redis:
+  connection: ${services.redisRo.baseUrl:${services.redis.baseUrl}}
+
+caching:
+  writeEnabled: false
+
+---
+# This profile is used in HA deployments for a clouddriver that handles mutating requests from
+# other services, but does not run caching agents
+spring:
+  profiles: rw
+
+caching:
+  writeEnabled: false

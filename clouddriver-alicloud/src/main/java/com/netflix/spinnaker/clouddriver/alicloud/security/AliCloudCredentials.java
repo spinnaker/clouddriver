@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import java.util.List;
 
-public class AliCloudCredentials implements AccountCredentials<AccountCredentials> {
+public class AliCloudCredentials extends AbstractAccountCredentials<AccountCredentials> {
 
   private static final String CLOUD_PROVIDER = "alicloud";
 
@@ -30,8 +30,6 @@ public class AliCloudCredentials implements AccountCredentials<AccountCredential
   private String accessSecretKey;
 
   private List<String> regions;
-
-  private String providerVersion;
 
   private List<String> requiredGroupMembership;
 
@@ -53,10 +51,6 @@ public class AliCloudCredentials implements AccountCredentials<AccountCredential
 
   public void setAccessSecretKey(String accessSecretKey) {
     this.accessSecretKey = accessSecretKey;
-  }
-
-  public void setProviderVersion(String providerVersion) {
-    this.providerVersion = providerVersion;
   }
 
   @Override

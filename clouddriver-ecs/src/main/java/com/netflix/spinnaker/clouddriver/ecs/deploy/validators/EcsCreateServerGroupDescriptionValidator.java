@@ -19,15 +19,16 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.validators;
 import com.amazonaws.services.ecs.model.PlacementStrategy;
 import com.amazonaws.services.ecs.model.PlacementStrategyType;
 import com.google.common.collect.Sets;
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors;
 import com.netflix.spinnaker.clouddriver.ecs.EcsOperation;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
+import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
-import org.springframework.validation.Errors;
 
 @EcsOperation(AtomicOperations.CREATE_SERVER_GROUP)
 @Component("ecsCreateServerGroupDescriptionValidator")
@@ -50,16 +51,32 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
   }
 
   @Override
-  public void validate(List priorDescriptions, Object description, Errors errors) {
+  public void validate(List priorDescriptions, Object description, ValidationErrors errors) {
     CreateServerGroupDescription createServerGroupDescription =
         (CreateServerGroupDescription) description;
 
     validateCredentials(createServerGroupDescription, errors, "credentials");
     validateCapacity(errors, createServerGroupDescription.getCapacity());
 
+    if (createServerGroupDescription.getSubnetTypes() != null
+        && createServerGroupDescription.getSubnetTypes().size() > 0) {
+      if (StringUtils.isNotBlank(createServerGroupDescription.getSubnetType())) {
+        errors.rejectValue(
+            "subnetTypes",
+            errorKey + "." + "subnetTypes" + "." + "invalid",
+            "SubnetType (string) cannot be specified when SubnetTypes (list) is specified. Please use SubnetTypes (list)");
+      }
+    }
+
     if (createServerGroupDescription.getAvailabilityZones() != null) {
       if (createServerGroupDescription.getAvailabilityZones().size() != 1) {
         rejectValue(errors, "availabilityZones", "must.have.only.one");
+      }
+
+      List<String> zones =
+          createServerGroupDescription.getAvailabilityZones().values().iterator().next();
+      if (zones == null || zones.isEmpty()) {
+        rejectValue(errors, "availabilityZones.zones", "not.nullable");
       }
     } else {
       rejectValue(errors, "availabilityZones", "not.nullable");
@@ -95,15 +112,48 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
       rejectValue(errors, "placementStrategySequence", "not.nullable");
     }
 
-    if (createServerGroupDescription.getApplication() == null) {
-      rejectValue(errors, "application", "not.nullable");
+    Moniker moniker = createServerGroupDescription.getMoniker();
+    if (moniker == null) {
+      if (createServerGroupDescription.getApplication() == null) {
+        rejectValue(errors, "application", "not.nullable");
+      }
+    } else {
+      if (moniker.getApp() == null) {
+        rejectValue(errors, "moniker.app", "not.nullable");
+      }
+
+      if (StringUtils.isNotBlank(createServerGroupDescription.getApplication())
+          && !StringUtils.equals(createServerGroupDescription.getApplication(), moniker.getApp())) {
+        rejectValue(errors, "moniker.app", "invalid");
+      }
+
+      if (StringUtils.isNotBlank(createServerGroupDescription.getFreeFormDetails())
+          && !StringUtils.equals(
+              createServerGroupDescription.getFreeFormDetails(), moniker.getDetail())) {
+        rejectValue(errors, "moniker.detail", "invalid");
+      }
+
+      if (StringUtils.isNotBlank(createServerGroupDescription.getStack())
+          && !StringUtils.equals(createServerGroupDescription.getStack(), moniker.getStack())) {
+        rejectValue(errors, "moniker.stack", "invalid");
+      }
     }
 
     if (createServerGroupDescription.getEcsClusterName() == null) {
       rejectValue(errors, "ecsClusterName", "not.nullable");
     }
 
+    if (createServerGroupDescription.getServiceDiscoveryAssociations() != null) {
+      for (CreateServerGroupDescription.ServiceDiscoveryAssociation association :
+          createServerGroupDescription.getServiceDiscoveryAssociations()) {
+        if (association.getRegistry() == null) {
+          rejectValue(errors, "serviceDiscoveryAssociations", "item.invalid");
+        }
+      }
+    }
+
     boolean hasTargetGroup = StringUtils.isNotBlank(createServerGroupDescription.getTargetGroup());
+    validateComputeOptions(createServerGroupDescription, errors);
 
     if (!createServerGroupDescription.isUseTaskDefinitionArtifact()) {
       if (createServerGroupDescription.getDockerImageAddress() == null) {
@@ -159,8 +209,27 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
     }
   }
 
+  private void validateComputeOptions(
+      CreateServerGroupDescription createServerGroupDescription, ValidationErrors errors) {
+    if (createServerGroupDescription.getCapacityProviderStrategy() != null
+        && !createServerGroupDescription.getCapacityProviderStrategy().isEmpty()) {
+      if (!StringUtils.isBlank(createServerGroupDescription.getLaunchType())) {
+        errors.rejectValue(
+            "launchType",
+            errorKey + "." + "launchType" + "." + "invalid",
+            "LaunchType cannot be specified when CapacityProviderStrategy are specified.");
+      }
+    } else if (createServerGroupDescription.getCapacityProviderStrategy() == null
+        && StringUtils.isBlank(createServerGroupDescription.getLaunchType())) {
+      errors.rejectValue(
+          "launchType",
+          errorKey + "." + "launchType" + "." + "invalid",
+          "LaunchType or CapacityProviderStrategy must be specified.");
+    }
+  }
+
   private void validateTargetGroupMappings(
-      CreateServerGroupDescription createServerGroupDescription, Errors errors) {
+      CreateServerGroupDescription createServerGroupDescription, ValidationErrors errors) {
     if (createServerGroupDescription.getTargetGroupMappings() != null
         && !createServerGroupDescription.getTargetGroupMappings().isEmpty()) {
 

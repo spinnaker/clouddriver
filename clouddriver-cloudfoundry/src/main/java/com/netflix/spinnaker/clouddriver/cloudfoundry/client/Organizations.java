@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client;
 
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.collectPages;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.safelyCall;
 
 import com.google.common.cache.CacheBuilder;
@@ -23,11 +24,11 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.OrganizationService;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
-import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -48,8 +49,8 @@ public class Organizations {
                       .map(
                           org ->
                               CloudFoundryOrganization.builder()
-                                  .id(org.getMetadata().getGuid())
-                                  .name(org.getEntity().getName())
+                                  .id(org.getGuid())
+                                  .name(org.getName())
                                   .build())
                       .orElseThrow(ResourceNotFoundException::new);
                 }
@@ -67,58 +68,19 @@ public class Organizations {
 
   public Optional<CloudFoundryOrganization> findByName(String orgName)
       throws CloudFoundryApiException {
-    return safelyCall(() -> api.all(null, Collections.singletonList("name:" + orgName)))
-        .flatMap(
-            page ->
-                page.getResources().stream()
-                    .findAny()
-                    .map(
-                        org ->
-                            CloudFoundryOrganization.builder()
-                                .id(org.getMetadata().getGuid())
-                                .name(org.getEntity().getName())
-                                .build()));
+    return collectPages("organizations", page -> api.all(page, orgName)).stream()
+        .findAny()
+        .map(
+            org ->
+                CloudFoundryOrganization.builder().id(org.getGuid()).name(org.getName()).build());
   }
 
-  public Optional<CloudFoundrySpace> findSpaceByRegion(String region) {
-    CloudFoundrySpace space = CloudFoundrySpace.fromRegion(region);
-
-    // fully populates the space guid which is what Cloud Foundry's API expects as an input, not the
-    // name.
-    Optional<CloudFoundryOrganization> organization = findByName(space.getOrganization().getName());
-
-    Optional<CloudFoundrySpace> spaceOptional =
-        organization.map(org -> findSpaceByName(org, space.getName()));
-
-    spaceOptional.ifPresent(
-        spaceCase -> {
-          if (!(space.getName().equals(spaceCase.getName())
-              && space.getOrganization().getName().equals(spaceCase.getOrganization().getName()))) {
-            throw new CloudFoundryApiException("Org or Space name not in correct case");
-          }
-        });
-
-    return spaceOptional;
-  }
-
-  @Nullable
-  private CloudFoundrySpace findSpaceByName(
-      CloudFoundryOrganization organization, String spaceName) {
-    return safelyCall(
-            () ->
-                api.getSpaceByName(
-                    organization.getId(), null, Collections.singletonList("name:" + spaceName)))
-        .flatMap(
-            page ->
-                page.getResources().stream()
-                    .findAny()
-                    .map(
-                        resource ->
-                            CloudFoundrySpace.builder()
-                                .id(resource.getMetadata().getGuid())
-                                .name(resource.getEntity().getName())
-                                .organization(organization)
-                                .build()))
-        .orElse(null);
+  public List<CloudFoundryOrganization> findAllByNames(List<String> names) {
+    if (names == null || names.isEmpty())
+      throw new IllegalArgumentException("Organization names must not be empty or null");
+    return collectPages("organizations", page -> api.all(page, String.join(",", names))).stream()
+        .map(
+            org -> CloudFoundryOrganization.builder().id(org.getGuid()).name(org.getName()).build())
+        .collect(Collectors.toList());
   }
 }

@@ -16,32 +16,39 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts;
 
-import static java.util.Collections.singletonList;
-
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.InputStream;
-import java.util.List;
+import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @AllArgsConstructor
 @Getter
 public class CloudFoundryArtifactCredentials implements ArtifactCredentials {
+  public static final String ARTIFACTS_TYPE = "artifacts/cloudfoundry";
   public static final String TYPE = "cloudfoundry/app";
 
   private final String name = "cloudfoundry";
   private final CloudFoundryClient client;
 
   @Override
-  public List<String> getTypes() {
-    return singletonList(TYPE);
+  @Nonnull
+  public ImmutableList<String> getTypes() {
+    return ImmutableList.of(TYPE);
   }
 
   @Override
-  public InputStream download(Artifact artifact) {
+  @Nonnull
+  public InputStream download(@Nonnull Artifact artifact) {
     String packageId = client.getApplications().findCurrentPackageIdByAppId(artifact.getUuid());
     return client.getApplications().downloadPackageBits(packageId);
+  }
+
+  @Override
+  public String getType() {
+    return ARTIFACTS_TYPE;
   }
 }

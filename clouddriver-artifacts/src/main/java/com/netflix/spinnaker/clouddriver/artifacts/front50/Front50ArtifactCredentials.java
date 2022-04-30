@@ -18,9 +18,13 @@ package com.netflix.spinnaker.clouddriver.artifacts.front50;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import com.netflix.spinnaker.security.AuthenticatedRequest;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,15 +36,16 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
+@NonnullByDefault
 @Slf4j
-public class Front50ArtifactCredentials implements ArtifactCredentials {
-  public static final String ACCOUNT_NAME = "front50ArtifactCredentials";
+final class Front50ArtifactCredentials implements ArtifactCredentials {
+  public static final String CREDENTIALS_TYPE = "artifacts-front50";
+  private static final String ACCOUNT_NAME = "front50ArtifactCredentials";
   private static final String URL_PREFIX = "spinnaker://";
 
   @Getter private final String name = ACCOUNT_NAME;
-  @Getter private final List<String> types = Collections.singletonList("front50/pipelineTemplate");
+  @Getter private final ImmutableList<String> types = ImmutableList.of("front50/pipelineTemplate");
 
   @JsonIgnore private final Front50Service front50Service;
   @JsonIgnore private final ObjectMapper objectMapper;
@@ -52,8 +57,8 @@ public class Front50ArtifactCredentials implements ArtifactCredentials {
 
   @Override
   public InputStream download(Artifact artifact) throws IOException {
-    String reference = artifact.getReference();
-    if (StringUtils.isEmpty(reference) || !reference.startsWith(URL_PREFIX)) {
+    String reference = Strings.nullToEmpty(artifact.getReference());
+    if (!reference.startsWith(URL_PREFIX)) {
       throw new IllegalArgumentException(
           String.format(
               "'front50/pipelineTemplate' artifacts must be specified with a "
@@ -62,17 +67,25 @@ public class Front50ArtifactCredentials implements ArtifactCredentials {
     }
 
     Map pipelineTemplate;
-    reference = reference.substring(URL_PREFIX.length());
-    if (reference.contains("@sha256:")) {
-      SplitResult result = splitReferenceOnToken(reference, "@sha256:");
+    String artifactId = reference.substring(URL_PREFIX.length());
+    if (artifactId.contains("@sha256:")) {
+      SplitResult result = splitReferenceOnToken(artifactId, "@sha256:");
       pipelineTemplate =
-          front50Service.getV2PipelineTemplate(result.pipelineTemplateId, "", result.version);
-    } else if (reference.contains(":")) {
-      SplitResult result = splitReferenceOnToken(reference, ":");
+          AuthenticatedRequest.allowAnonymous(
+              () ->
+                  front50Service.getV2PipelineTemplate(
+                      result.pipelineTemplateId, "", result.version));
+    } else if (artifactId.contains(":")) {
+      SplitResult result = splitReferenceOnToken(artifactId, ":");
       pipelineTemplate =
-          front50Service.getV2PipelineTemplate(result.pipelineTemplateId, result.version, "");
+          AuthenticatedRequest.allowAnonymous(
+              () ->
+                  front50Service.getV2PipelineTemplate(
+                      result.pipelineTemplateId, result.version, ""));
     } else {
-      pipelineTemplate = front50Service.getV2PipelineTemplate(reference, "", "");
+      pipelineTemplate =
+          AuthenticatedRequest.allowAnonymous(
+              () -> front50Service.getV2PipelineTemplate(artifactId, "", ""));
     }
 
     return new ByteArrayInputStream(objectMapper.writeValueAsBytes(pipelineTemplate));
@@ -92,6 +105,11 @@ public class Front50ArtifactCredentials implements ArtifactCredentials {
       throw new IllegalArgumentException("Malformed Front50 artifact reference: " + reference);
     }
     return new SplitResult(refParts[0], refParts[1]);
+  }
+
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
   }
 
   @Data

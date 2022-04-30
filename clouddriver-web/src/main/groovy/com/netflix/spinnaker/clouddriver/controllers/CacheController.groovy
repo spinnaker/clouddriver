@@ -18,8 +18,9 @@ package com.netflix.spinnaker.clouddriver.controllers
 
 import com.netflix.spinnaker.cats.cache.AgentIntrospection
 import com.netflix.spinnaker.cats.cache.CacheIntrospectionStore
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
+import com.netflix.spinnaker.clouddriver.cache.OnDemandCacheStatus
 import com.netflix.spinnaker.clouddriver.cache.OnDemandCacheUpdater
+import com.netflix.spinnaker.clouddriver.cache.OnDemandType
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
@@ -37,14 +38,14 @@ class CacheController {
   ResponseEntity handleOnDemand(@PathVariable String cloudProvider,
                                 @PathVariable String type,
                                 @RequestBody Map<String, ? extends Object> data) {
-    OnDemandAgent.OnDemandType onDemandType = getOnDemandType(type);
+    OnDemandType onDemandType = getOnDemandType(type);
 
     def onDemandCacheResult = onDemandCacheUpdaters.find {
       it.handles(onDemandType, cloudProvider)
     }?.handle(onDemandType, cloudProvider, data)
 
     def cacheStatus = onDemandCacheResult?.status
-    def httpStatus = (cacheStatus == OnDemandCacheUpdater.OnDemandCacheStatus.PENDING) ? HttpStatus.ACCEPTED : HttpStatus.OK
+    def httpStatus = (cacheStatus == OnDemandCacheStatus.PENDING) ? HttpStatus.ACCEPTED : HttpStatus.OK
 
     return new ResponseEntity(
       [
@@ -66,7 +67,7 @@ class CacheController {
   Collection<Map> pendingOnDemands(@PathVariable String cloudProvider,
                                    @PathVariable String type,
                                    @RequestParam(value = "id", required = false) String id) {
-    OnDemandAgent.OnDemandType onDemandType = getOnDemandType(type)
+    OnDemandType onDemandType = getOnDemandType(type)
     onDemandCacheUpdaters.findAll {
       it.handles(onDemandType, cloudProvider)
     }?.collect {
@@ -78,9 +79,9 @@ class CacheController {
     }.flatten()
   }
 
-  static OnDemandAgent.OnDemandType getOnDemandType(String type) {
+  static OnDemandType getOnDemandType(String type) {
     try {
-      return OnDemandAgent.OnDemandType.fromString(type)
+      return OnDemandType.fromString(type)
     } catch (IllegalArgumentException e) {
       throw new NotFoundException(e.message)
     }
