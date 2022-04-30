@@ -33,11 +33,6 @@ import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.sql.routing.withPool
 import java.sql.SQLException
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import java.util.regex.Pattern.CASE_INSENSITIVE
 import org.jooq.DSLContext
@@ -45,6 +40,7 @@ import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.table
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import java.util.concurrent.*
 
 /**
  * IMPORTANT: Using SQL for locking isn't a good idea. By enabling this scheduler, you'll be adding a fair amount of
@@ -76,6 +72,7 @@ class SqlClusteredAgentScheduler(
 
   private val agents: MutableMap<String, AgentExecutionAction> = ConcurrentHashMap()
   private val activeAgents: MutableMap<String, NextAttempt> = ConcurrentHashMap()
+  private val activeAgentsFutures: MutableMap<String, Future<*>> = ConcurrentHashMap()
   private val enabledAgents: Pattern
 
   private val referenceTable = "cats_agent_locks"
@@ -129,7 +126,7 @@ class SqlClusteredAgentScheduler(
     acquiredAgents.forEach { agentType, nextAttempt ->
       val exec = agents[agentType]
       if (exec != null) {
-        agentExecutionPool.submit(AgentJob(nextAttempt, exec, this::agentCompleted))
+        activeAgentsFutures[agentType] = agentExecutionPool.submit(AgentJob(nextAttempt, exec, this::agentCompleted))
       }
     }
   }
@@ -153,6 +150,7 @@ class SqlClusteredAgentScheduler(
   }
 
   private fun findCandidateAgentLocks(): Map<String, AgentExecutionAction> {
+    cleanupZombieAgents()
     val skip = HashMap(activeAgents).entries
     val maxConcurrentAgents = dynamicConfigService.getConfig(Int::class.java, "sql.agent.max-concurrent-agents", 100)
     val availableAgents = maxConcurrentAgents - skip.size
@@ -233,6 +231,25 @@ class SqlClusteredAgentScheduler(
     return trimmedCandidates
   }
 
+  private fun cleanupZombieAgents() {
+    val zombieAgentThreshold = dynamicConfigService.getConfig(Long::class.java, "sql.agent.zombie-threshold-ms", 3600000)
+    activeAgents
+      .filter { it.value.currentTime < System.currentTimeMillis() - zombieAgentThreshold }
+      .forEach {
+        log.warn("Found zombie agent {}, removing it", it.key)
+        activeAgents.remove(it.key, it.value)
+        // Cancel zombie futures interrupting their AgentExecutionAction threads
+        val f = activeAgentsFutures.remove(it.key)
+        if (f == null) {
+          log.warn("Agent execution without future for cancelling it: {}", it.key)
+        } else {
+          if (!f.cancel(true) && !f.isCancelled) {
+            log.error("Unable to cancel execution for agent {} after {}ms (Future.cancel returned false). This may leak resources!", it.key, zombieAgentThreshold)
+          }
+        }
+      }
+  }
+
   private fun tryAcquireSingle(agentType: String, now: Long, timeout: Long): Boolean {
     try {
       withPool(POOL_NAME) {
@@ -289,6 +306,7 @@ class SqlClusteredAgentScheduler(
       releaseLock(agentType, nextExecutionTime)
     } finally {
       activeAgents.remove(agentType)
+      activeAgentsFutures.remove(agentType)
     }
   }
 

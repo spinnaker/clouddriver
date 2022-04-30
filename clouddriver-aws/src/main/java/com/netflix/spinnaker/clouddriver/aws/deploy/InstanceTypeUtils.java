@@ -17,25 +17,25 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy;
 
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.model.DescribeInstanceTypesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstanceTypesResult;
+import com.amazonaws.services.ec2.model.InstanceTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice;
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /** Utility class for AWS EC2 instance types. */
 public class InstanceTypeUtils {
-
-  // https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/virtualization_types.html
-  private static final String PARAVIRTUAL = "paravirtual";
-  private static final Set<String> PARAVIRTUAL_FAMILIES =
-      ImmutableSet.of("c1", "c3", "hi1", "hs1", "m1", "m2", "m3", "t1");
-
   // http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSOptimized.html
   private static final Set<String> DEFAULT_EBS_OPTIMIZED_FAMILIES =
       ImmutableSet.of(
@@ -46,28 +46,52 @@ public class InstanceTypeUtils {
       ImmutableSet.of("t2", "t3", "t3a", "t4g");
 
   /**
-   * Validate compatibility of instance type and AMI.
+   * Validate compatibility of instance types and AMI.
    *
    * <p>AWS supports two types of virtualization: paravirtual (PV) and hardware virtual machine
    * (HVM). All current generation instance types support HVM AMIs only. The previous generation
    * instance families that support PV are listed in {@link #PARAVIRTUAL_FAMILIES}.
    *
-   * @param virtualizationType from the AMI
-   * @param instanceType
+   * <p>For the case of single / multiple instance types, all of them have to match the architecture
+   * supported by the AMI.
+   *
+   * @param ec2 Amazon ec2 client
+   * @param ami resolvedAMI
+   * @param instanceTypes set of one or more instance types requested
    */
-  public static void validateCompatibility(String virtualizationType, String instanceType) {
-    final String family = getInstanceFamily(instanceType);
+  public static void validateCompatibilityWithAmi(
+      AmazonEC2 ec2, ResolvedAmiResult ami, Set<String> instanceTypes) {
+    final String amiVirtualizationType = ami.getVirtualizationType();
+    final String amiArchitecture = ami.getArchitecture();
+    final List<InstanceTypeInfo> instanceTypeInfos = getInstanceTypesInfo(ec2, instanceTypes);
 
-    // if virtualizationType is PV, check for compatiblity. Otherwise, assume compatiblity is true.
-    if (PARAVIRTUAL.equals(virtualizationType) && !PARAVIRTUAL_FAMILIES.contains(family)) {
-      throw new IllegalArgumentException(
-          "Instance type "
-              + instanceType
-              + " does not support "
-              + "virtualization type "
-              + virtualizationType
-              + ". Please select a different image or instance type.");
-    }
+    instanceTypeInfos.forEach(
+        instanceTypeInfo -> {
+          if (!instanceTypeInfo
+              .getSupportedVirtualizationTypes()
+              .contains(ami.getVirtualizationType())) {
+            throw new IllegalArgumentException(
+                "Instance type "
+                    + instanceTypeInfo.getInstanceType()
+                    + " does not support "
+                    + "virtualization type "
+                    + amiVirtualizationType
+                    + ". Please select a different image or instance type.");
+          }
+
+          if (!instanceTypeInfo
+              .getProcessorInfo()
+              .getSupportedArchitectures()
+              .contains(amiArchitecture)) {
+            throw new IllegalArgumentException(
+                "Instance type "
+                    + instanceTypeInfo.getInstanceType()
+                    + " does not support "
+                    + "architecture type "
+                    + amiArchitecture
+                    + ". Please select a different image or instance type.");
+          }
+        });
   }
 
   public static boolean getDefaultEbsOptimizedFlag(String instanceType) {
@@ -78,12 +102,41 @@ public class InstanceTypeUtils {
     return BURSTABLE_PERFORMANCE_FAMILIES.contains(getInstanceFamily(instanceType));
   }
 
+  public static boolean isBurstingSupportedByAllTypes(Set<String> instanceTypes) {
+    // return true iff all instance types support bursting
+    for (String type : instanceTypes) {
+      if (!isBurstingSupported(type)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private static String getInstanceFamily(String instanceType) {
     if (instanceType != null && instanceType.contains(".")) {
       return instanceType.split("\\.")[0];
     }
 
     return "";
+  }
+
+  private static List<InstanceTypeInfo> getInstanceTypesInfo(
+      AmazonEC2 ec2, Set<String> instanceTypesReq) {
+    final List<InstanceTypeInfo> allInstanceTypesInfo = new ArrayList<>();
+    final DescribeInstanceTypesRequest request = new DescribeInstanceTypesRequest();
+    while (true) {
+      final DescribeInstanceTypesResult result = ec2.describeInstanceTypes(request);
+      allInstanceTypesInfo.addAll(result.getInstanceTypes());
+      if (result.getNextToken() != null) {
+        request.withNextToken(result.getNextToken());
+      } else {
+        break;
+      }
+    }
+
+    return allInstanceTypesInfo.stream()
+        .filter(info -> instanceTypesReq.contains(info.getInstanceType()))
+        .collect(Collectors.toList());
   }
 
   /** Class to handle AWS EC2 block device configuration. */

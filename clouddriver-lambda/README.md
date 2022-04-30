@@ -171,11 +171,9 @@ curl -X POST \
     "role": "arn:aws:iam::<acctno.>:role/service-role/test",
     "runtime": "python3.6",
     "timeout": "60",
-    "tags": [{
+    "tags": {
         "key":"value"
     }
-
-    ]
 }'
 ```
 
@@ -216,11 +214,9 @@ curl -X POST \
     "role": "arn:aws:iam::<acctno>:role/service-role/test",
     "runtime": "python3.6",
     "timeout": "68",
-    "tags": [{
+    "tags": {
         "key":"value"
     }
-
-    ]
 }'
 ```
 Note: I've changed the timeout from 60 to 68. Naviagate to the aws console to see
@@ -276,7 +272,6 @@ In this case, resourceUri generated for my post request is
 http://localhost:7002/task/4c316ba9-7db8-4675-82d9-5adf118c541c for orchestration details
 ```
 
-<<<<<<< HEAD
 ### Purpose
 
 Invoke a lambda function.

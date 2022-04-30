@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.HttpCloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
@@ -36,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
@@ -61,29 +63,26 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
   private final String apiHost;
   private final String userName;
   private final String password;
+  private final boolean skipSslValidation;
+  private final boolean onlySpinnakerManaged;
 
   @Nullable private final String environment;
+  @Nullable private final Integer resultsPerPage;
 
   private final String accountType = "cloudfoundry";
-
   private final String cloudProvider = "cloudfoundry";
 
   @Deprecated private final List<String> requiredGroupMembership = Collections.emptyList();
-  private final boolean skipSslValidation;
-
-  @Nullable private final Integer resultsPerPage;
 
   private final Supplier<List<CloudFoundrySpace>> spaceSupplier =
       Memoizer.memoizeWithExpiration(this::spaceSupplier, SPACE_EXPIRY_SECONDS, TimeUnit.SECONDS);
 
-  private CacheRepository cacheRepository;
-
-  private Permissions permissions;
-
+  private final CacheRepository cacheRepository;
+  private final Permissions permissions;
   private final ForkJoinPool forkJoinPool;
-
   private final List<CloudFoundrySpace> filteredSpaces;
 
+  @Getter(AccessLevel.NONE)
   private final CloudFoundryClient cloudFoundryClient;
 
   public CloudFoundryCredentials(
@@ -95,12 +94,15 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
       String password,
       String environment,
       boolean skipSslValidation,
+      boolean onlySpinnakerManaged,
       Integer resultsPerPage,
       CacheRepository cacheRepository,
       Permissions permissions,
       ForkJoinPool forkJoinPool,
       Map<String, Set<String>> spaceFilter,
-      OkHttpClient okHttpClient) {
+      OkHttpClient okHttpClient,
+      CloudFoundryConfigurationProperties.ClientConfig clientConfig,
+      CloudFoundryConfigurationProperties.LocalCacheConfig localCacheConfig) {
     this.name = name;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
@@ -109,6 +111,7 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
     this.password = password;
     this.environment = Optional.ofNullable(environment).orElse("dev");
     this.skipSslValidation = skipSslValidation;
+    this.onlySpinnakerManaged = onlySpinnakerManaged;
     this.resultsPerPage = Optional.ofNullable(resultsPerPage).orElse(100);
     this.cacheRepository = cacheRepository;
     this.permissions = permissions == null ? Permissions.EMPTY : permissions;
@@ -123,9 +126,12 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
             password,
             true,
             skipSslValidation,
+            onlySpinnakerManaged,
             resultsPerPage,
             forkJoinPool,
-            okHttpClient.newBuilder());
+            okHttpClient.newBuilder(),
+            clientConfig,
+            localCacheConfig);
     this.filteredSpaces = createFilteredSpaces(spaceFilter);
   }
 
@@ -143,7 +149,7 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
             s -> {
               if (!filteredSpaces.isEmpty()) {
                 List<String> filteredRegions =
-                    filteredSpaces.stream().map(fs -> fs.getRegion()).collect(toList());
+                    filteredSpaces.stream().map(CloudFoundrySpace::getRegion).collect(toList());
                 return filteredRegions.contains(s.getRegion());
               }
               return true;
@@ -201,7 +207,7 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
 
   protected List<CloudFoundrySpace> createFilteredSpaces(Map<String, Set<String>> spaceFilter) {
     List<CloudFoundrySpace> spaces = new ArrayList<>();
-    if (spaceFilter.isEmpty() || spaceFilter == null) {
+    if (spaceFilter.isEmpty()) {
       return emptyList();
     }
 
@@ -225,11 +231,11 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
         this.getClient()
             .getSpaces()
             .findAllBySpaceNamesAndOrgNames(
-                spaceFilter.values().stream().flatMap(l -> l.stream()).collect(Collectors.toList()),
+                spaceFilter.values().stream()
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toList()),
                 List.copyOf(spaceFilter.keySet()));
-    allSpaces.stream()
-        .filter(s -> filteredRegions.contains(s.getRegion()))
-        .forEach(s -> spaces.add(s));
+    allSpaces.stream().filter(s -> filteredRegions.contains(s.getRegion())).forEach(spaces::add);
 
     if (spaces.isEmpty())
       throw new IllegalArgumentException(

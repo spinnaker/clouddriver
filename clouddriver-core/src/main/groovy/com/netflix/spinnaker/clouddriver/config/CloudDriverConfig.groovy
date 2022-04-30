@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.config
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module
+import com.fasterxml.jackson.datatype.joda.JodaModule
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.databind.Module
@@ -87,6 +88,7 @@ import com.netflix.spinnaker.clouddriver.search.executor.SearchExecutorConfig
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
+import com.netflix.spinnaker.clouddriver.security.AccountDefinitionSecretManager
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.config.SecurityConfig
@@ -147,6 +149,7 @@ class CloudDriverConfig {
         modules.addAll(List.of(
           new Jdk8Module(),
           new JavaTimeModule(),
+          new JodaModule(),
           new KotlinModule(),
           new ClouddriverApiModule()))
         jacksonObjectMapperBuilder.serializationInclusion(JsonInclude.Include.NON_NULL)
@@ -379,11 +382,13 @@ class CloudDriverConfig {
   @Bean
   DescriptionAuthorizerService descriptionAuthorizerService(Registry registry,
                                                             Optional<FiatPermissionEvaluator> fiatPermissionEvaluator,
-                                                            SecurityConfig.OperationsSecurityConfigurationProperties opsSecurityConfigProps) {
+                                                            SecurityConfig.OperationsSecurityConfigurationProperties opsSecurityConfigProps,
+                                                            AccountDefinitionSecretManager secretManager) {
     return new DescriptionAuthorizerService(
-      registry,
-      fiatPermissionEvaluator,
-      opsSecurityConfigProps
+            registry,
+            fiatPermissionEvaluator,
+            opsSecurityConfigProps,
+            secretManager
     )
   }
 

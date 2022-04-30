@@ -17,6 +17,10 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy
 
+import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.ec2.model.DescribeInstanceTypesResult
+import com.amazonaws.services.ec2.model.InstanceTypeInfo
+import com.amazonaws.services.ec2.model.ProcessorInfo
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
@@ -95,6 +99,7 @@ class InstanceTypeUtilsSpec extends Specification {
     ]
   }
 
+  @Unroll
   def 'support for bursting is reported correctly for instance type'() {
     when:
     def result = InstanceTypeUtils.isBurstingSupported(instanceType)
@@ -110,50 +115,95 @@ class InstanceTypeUtilsSpec extends Specification {
     't4g.nano'      | true
     'c3.large'      | false
     'invalid'       | false
+    null            | false
+    ''              | false
   }
 
-  def 'compatible ami virtualization #virtualization and instance family does not throw exception'() {
+  @Unroll
+  def 'support for bursting is reported correctly for multiple instance types'() {
     when:
-    InstanceTypeUtils.validateCompatibility(virtualization, instanceType)
+    def result = InstanceTypeUtils.isBurstingSupportedByAllTypes(instanceTypes as Set)
 
     then:
-    notThrown(IllegalArgumentException)
+    result == expectedResult
 
     where:
-    virtualization   | instanceType
-    'paravirtual'    | 'c3.large'
-    'paravirtual'    | 't1.micro'
-    'hvm'            | 't1.micro'
-    'hvm'            | 't3.small'
+    instanceTypes             | expectedResult
+    ['t2.large', 't3.large']  | true
+    ['t3.small', 'm5.small']  | false
+    ['c3.large']              | false
+    ['t3.small', null]        | false
+    ['t3.small', '']          | false
   }
 
-  def 'compatibility is assumed to be true if virtualization type is not paravirtual'() {
+  @Unroll
+  def 'compatibility among ami virtualization #virtualization, ami architecture #architecture and instance type is determined correctly'() {
+    given:
+    AmazonEC2 ec2 = Mock(AmazonEC2)
+
     when:
-    InstanceTypeUtils.validateCompatibility(virtualization, instanceType)
+    InstanceTypeUtils.validateCompatibilityWithAmi(
+      ec2,
+      new ResolvedAmiResult(amiId: 'ami-1', region: 'us-east-1', virtualizationType: amiVirtualization, architecture: amiArchitecture),
+      instanceTypes.toSet())
 
     then:
-    notThrown(IllegalArgumentException)
+    1 * ec2.describeInstanceTypes(_) >> new DescribeInstanceTypesResult(instanceTypes: [
+      new InstanceTypeInfo(
+        instanceType: "test1.large",
+        processorInfo: new ProcessorInfo(supportedArchitectures: ["i386","x86_64"], sustainedClockSpeedInGhz: 2.8),
+        supportedVirtualizationTypes: ["hvm","paravirtual"],
+      ),
+      new InstanceTypeInfo(
+        instanceType: "test2.large",
+        processorInfo: new ProcessorInfo(supportedArchitectures: ["arm64", "x86_64"], sustainedClockSpeedInGhz: 2.8),
+        supportedVirtualizationTypes: ["hvm"],
+      )])
+
+    and:
+    noExceptionThrown()
 
     where:
-    virtualization | instanceType
-    'hvm'          | 'c5.large'
-    'hvm'          | 't3a.small'
-    'hvm'          | 't1.micro'
+    amiVirtualization   | amiArchitecture | instanceTypes
+    'hvm'               |     'x86_64'    | ['test1.large', 'test2.large']
+    'paravirtual'       |     'i386'      | ['test1.large']
+    'hvm'               |     'arm64'     | ['test2.large']
   }
 
+  @Unroll
   def 'incompatible ami virtualization #virtualization and instance family throws exception'() {
+    given:
+    def ec2 = Mock(AmazonEC2)
+
     when:
-    InstanceTypeUtils.validateCompatibility(virtualization, instanceType)
+    InstanceTypeUtils.validateCompatibilityWithAmi(
+      ec2,
+      new ResolvedAmiResult(amiId: 'ami-1', region: 'us-east-1', virtualizationType: amiVirtualization, architecture: amiArchitecture),
+      instanceTypes.toSet())
 
     then:
+    1 * ec2.describeInstanceTypes(_) >> new DescribeInstanceTypesResult(instanceTypes: [
+      new InstanceTypeInfo(
+        instanceType: "test1.large",
+        processorInfo: new ProcessorInfo(supportedArchitectures: ["i386","x86_64"], sustainedClockSpeedInGhz: 2.8),
+        supportedVirtualizationTypes: ["hvm","paravirtual"],
+      ),
+      new InstanceTypeInfo(
+        instanceType: "test2.large",
+        processorInfo: new ProcessorInfo(supportedArchitectures: ["arm64", "x86_64"], sustainedClockSpeedInGhz: 2.8),
+        supportedVirtualizationTypes: ["hvm"],
+      )])
+
+    and:
     thrown(IllegalArgumentException)
 
     where:
-    virtualization | instanceType
-    'paravirtual'  | 't2.large'
-    'paravirtual'  | 't3.small'
+    amiVirtualization   | amiArchitecture | instanceTypes
+    'paravirtual'       |     'x86_64'    | ['test1.large', 'test2.large']
+    'hvm'               |     'i386'      | ['test2.large']
   }
 
+  @Unroll
   def 'default ebs optimized is reported correctly for instance type'() {
     expect:
     InstanceTypeUtils.getDefaultEbsOptimizedFlag(instanceType) == expectedResult

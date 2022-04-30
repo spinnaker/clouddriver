@@ -23,6 +23,7 @@ import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.aws.AwsConfigurationProperties
 import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig
+import com.netflix.spinnaker.clouddriver.aws.deploy.asg.LaunchTemplateRollOutConfig
 import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.BasicAmazonDeployHandler
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup.SecurityGroupLookupFactory
 import com.netflix.spinnaker.clouddriver.aws.deploy.scalingpolicy.DefaultScalingPolicyCopier
@@ -34,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.NullOpUserDataProvi
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProviderAggregator
 import com.netflix.spinnaker.clouddriver.aws.event.AfterResizeEventHandler
 import com.netflix.spinnaker.clouddriver.aws.event.DefaultAfterResizeEventHandler
+import com.netflix.spinnaker.clouddriver.aws.health.AmazonHealthIndicator
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonServerGroup
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsCleanupProvider
@@ -156,6 +158,21 @@ class AwsConfiguration {
     );
   }
 
+  @Bean
+  AwsConfigurationProperties awsConfigurationProperties() {
+    return new AwsConfigurationProperties()
+  }
+
+  @Bean
+  AmazonHealthIndicator amazonHealthIndicator(
+    Registry registry,
+    CredentialsRepository<NetflixAmazonCredentials> credentialsRepository,
+    AmazonClientProvider amazonClientProvider,
+    AwsConfigurationProperties awsConfigurationProperties
+  ) {
+    return new AmazonHealthIndicator(registry, credentialsRepository, amazonClientProvider, awsConfigurationProperties)
+  }
+
   public static class DeployDefaults {
     public static enum ReconcileMode {
       NONE,
@@ -204,7 +221,7 @@ class AwsConfiguration {
     DeployDefaults deployDefaults,
     ScalingPolicyCopier scalingPolicyCopier,
     BlockDeviceConfig blockDeviceConfig,
-    DynamicConfigService dynamicConfigService,
+    LaunchTemplateRollOutConfig launchTemplateRollOutConfig,
     AmazonServerGroupProvider amazonServerGroupProvider
   ) {
     new BasicAmazonDeployHandler(
@@ -214,8 +231,14 @@ class AwsConfiguration {
       deployDefaults,
       scalingPolicyCopier,
       blockDeviceConfig,
-      dynamicConfigService
+      launchTemplateRollOutConfig
     )
+  }
+
+  @Bean
+  LaunchTemplateRollOutConfig launchTemplateRollOutConfig(
+    DynamicConfigService dynamicConfigService) {
+    new LaunchTemplateRollOutConfig(dynamicConfigService)
   }
 
   @Bean
@@ -246,7 +269,7 @@ class AwsConfiguration {
   @Bean
   @ConditionalOnMissingBean(AfterResizeEventHandler)
   DefaultAfterResizeEventHandler defaultAfterResizeEventHandler() {
-    return new DefaultAfterResizeEventHandler();
+    return new DefaultAfterResizeEventHandler()
   }
 
   class AmazonServerGroupProvider {

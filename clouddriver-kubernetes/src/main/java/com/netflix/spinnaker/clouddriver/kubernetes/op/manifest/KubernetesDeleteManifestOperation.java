@@ -26,9 +26,16 @@ import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import io.kubernetes.client.openapi.models.V1DeleteOptions;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KubernetesDeleteManifestOperation implements AtomicOperation<OperationResult> {
+  private static final Logger log =
+      LoggerFactory.getLogger(KubernetesDeleteManifestOperation.class);
   private final KubernetesDeleteManifestDescription description;
   private final KubernetesCredentials credentials;
   private static final String OP_NAME = "DELETE_KUBERNETES_MANIFEST";
@@ -53,6 +60,48 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Operat
       coordinates = ImmutableList.of(description.getPointCoordinates());
     }
 
+    // If "orphanDependents" is strictly defined by the stage then the cascade flag of kubectl
+    // delete will honor the setting.
+    //
+    // If orphanDependents isn't set, then look at the value of the delete
+    // option.  The "Cascading" delete checkbox in the UI sets it to true/false,
+    // but support other values (e.g. foreground/background/orphan) if set
+    // directly in the pipeline json.
+    V1DeleteOptions deleteOptions = new V1DeleteOptions();
+    Map<String, String> options =
+        description.getOptions() == null ? new HashMap<>() : description.getOptions();
+    if (options.containsKey("orphanDependents")) {
+      deleteOptions.setPropagationPolicy(
+          options.get("orphanDependents").equalsIgnoreCase("true") ? "orphan" : "background");
+    } else if (options.containsKey("cascading")) {
+      // For compatibility with pipelines that specify cascading as true/false,
+      // map to the appropriate propagation policy.  Clouddriver currently uses
+      // kubectl 1.20.6, where --cascade=true/false works, but generates a
+      // warning.
+      //
+      // See
+      // https://github.com/kubernetes/kubernetes/blob/v1.20.6/staging/src/k8s.io/kubectl/pkg/cmd/delete/delete_flags.go#L243-L249
+      //
+      // --cascade=false --> orphan
+      // --cascade=true --> background
+      String propagationPolicy = null;
+      if (options.get("cascading").equalsIgnoreCase("false")) {
+        propagationPolicy = "orphan";
+      } else if (options.get("cascading").equalsIgnoreCase("true")) {
+        propagationPolicy = "background";
+      } else {
+        propagationPolicy = options.get("cascading");
+      }
+      deleteOptions.setPropagationPolicy(propagationPolicy);
+    }
+
+    if (options.containsKey("gracePeriodSeconds")) {
+      try {
+        deleteOptions.setGracePeriodSeconds(Long.parseLong(options.get("gracePeriodSeconds")));
+      } catch (NumberFormatException nfe) {
+        log.warn("Unable to parse gracePeriodSeconds; {}", nfe.getMessage());
+      }
+    }
     OperationResult result = new OperationResult();
     coordinates.forEach(
         c -> {
@@ -67,7 +116,9 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Operat
                   c.getNamespace(),
                   c.getName(),
                   description.getLabelSelectors(),
-                  description.getOptions()));
+                  deleteOptions));
+          getTask()
+              .updateStatus(OP_NAME, " delete operation completed successfully for " + c.getName());
         });
 
     return result;

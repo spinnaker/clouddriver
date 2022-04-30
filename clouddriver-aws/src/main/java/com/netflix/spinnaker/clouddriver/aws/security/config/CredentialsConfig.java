@@ -18,12 +18,11 @@ package com.netflix.spinnaker.clouddriver.aws.security.config;
 
 import static lombok.EqualsAndHashCode.Include;
 
-import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
-import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
+import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * A mutable credentials configurations structure suitable for transformation into concrete
@@ -138,230 +137,31 @@ public class CredentialsConfig {
     }
   }
 
-  @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-  public static class Account implements CredentialsDefinition {
-    @Include private String name;
-    @Include private String environment;
-    @Include private String accountType;
-    @Include private String accountId;
-    @Include private String defaultKeyPair;
-    @Include private Boolean enabled;
-    @Include private List<Region> regions;
-    @Include private List<String> defaultSecurityGroups;
-    private List<String> requiredGroupMembership;
-    @Include private Permissions.Builder permissions;
-    @Include private String edda;
-    @Include private Boolean eddaEnabled;
-    @Include private Boolean lambdaEnabled;
-    @Include private String discovery;
-    @Include private Boolean discoveryEnabled;
-    @Include private String front50;
-    @Include private Boolean front50Enabled;
-    @Include private String bastionHost;
-    @Include private Boolean bastionEnabled;
-    @Include private String assumeRole;
-    @Include private String sessionName;
-    @Include private String externalId;
-    @Include private List<LifecycleHook> lifecycleHooks;
-    @Include private boolean allowPrivateThirdPartyImages;
+  /** LoadAccounts class contains configuration related to loading aws accounts at start up. */
+  @Data
+  public static class LoadAccounts {
+    /**
+     * flag to enable loading aws accounts using multiple threads. This is turned off by default.
+     */
+    private boolean multiThreadingEnabled = false;
 
-    public String getName() {
-      return name;
-    }
+    /**
+     * Only applicable when multiThreadingEnabled: true. This specifies the number of threads that
+     * should be used to load the aws accounts.
+     *
+     * <p>Adjust this number appropriately based on:
+     *
+     * <p>- number of aws many accounts
+     *
+     * <p>- number of clouddriver pods (so that aws api calls are not rate-limited)
+     */
+    private int numberOfThreads = 15;
 
-    public void setName(String name) {
-      this.name = name;
-    }
-
-    public String getEnvironment() {
-      return environment;
-    }
-
-    public void setEnvironment(String environment) {
-      this.environment = environment;
-    }
-
-    public String getAccountType() {
-      return accountType;
-    }
-
-    public void setAccountType(String accountType) {
-      this.accountType = accountType;
-    }
-
-    public String getAccountId() {
-      return accountId;
-    }
-
-    public void setAccountId(String accountId) {
-      this.accountId = accountId;
-    }
-
-    public String getDefaultKeyPair() {
-      return defaultKeyPair;
-    }
-
-    public void setDefaultKeyPair(String defaultKeyPair) {
-      this.defaultKeyPair = defaultKeyPair;
-    }
-
-    public Boolean getEnabled() {
-      return enabled;
-    }
-
-    public void setEnabled(Boolean enabled) {
-      this.enabled = enabled;
-    }
-
-    public List<Region> getRegions() {
-      return regions;
-    }
-
-    public void setRegions(List<Region> regions) {
-      if (regions != null) {
-        regions.sort(Comparator.comparing(Region::getName));
-      }
-      this.regions = regions;
-    }
-
-    public List<String> getDefaultSecurityGroups() {
-      return defaultSecurityGroups;
-    }
-
-    public void setDefaultSecurityGroups(List<String> defaultSecurityGroups) {
-      if (defaultSecurityGroups != null) {
-        Collections.sort(defaultSecurityGroups);
-      }
-      this.defaultSecurityGroups = defaultSecurityGroups;
-    }
-
-    public List<String> getRequiredGroupMembership() {
-      return requiredGroupMembership;
-    }
-
-    public void setRequiredGroupMembership(List<String> requiredGroupMembership) {
-      this.requiredGroupMembership = requiredGroupMembership;
-    }
-
-    public Permissions.Builder getPermissions() {
-      return permissions;
-    }
-
-    public void setPermissions(Permissions.Builder permissions) {
-      this.permissions = permissions;
-    }
-
-    public String getEdda() {
-      return edda;
-    }
-
-    public void setEdda(String edda) {
-      this.edda = edda;
-    }
-
-    public Boolean getEddaEnabled() {
-      return eddaEnabled;
-    }
-
-    public void setEddaEnabled(Boolean eddaEnabled) {
-      this.eddaEnabled = eddaEnabled;
-    }
-
-    public String getDiscovery() {
-      return discovery;
-    }
-
-    public void setDiscovery(String discovery) {
-      this.discovery = discovery;
-    }
-
-    public Boolean getDiscoveryEnabled() {
-      return discoveryEnabled;
-    }
-
-    public void setDiscoveryEnabled(Boolean discoveryEnabled) {
-      this.discoveryEnabled = discoveryEnabled;
-    }
-
-    public String getFront50() {
-      return front50;
-    }
-
-    public void setFront50(String front50) {
-      this.front50 = front50;
-    }
-
-    public Boolean getFront50Enabled() {
-      return front50Enabled;
-    }
-
-    public void setFront50Enabled(Boolean front50Enabled) {
-      this.front50Enabled = front50Enabled;
-    }
-
-    public String getBastionHost() {
-      return bastionHost;
-    }
-
-    public void setBastionHost(String bastionHost) {
-      this.bastionHost = bastionHost;
-    }
-
-    public Boolean getBastionEnabled() {
-      return bastionEnabled;
-    }
-
-    public void setBastionEnabled(Boolean bastionEnabled) {
-      this.bastionEnabled = bastionEnabled;
-    }
-
-    public String getAssumeRole() {
-      return assumeRole;
-    }
-
-    public void setAssumeRole(String assumeRole) {
-      this.assumeRole = assumeRole;
-    }
-
-    public String getSessionName() {
-      return sessionName;
-    }
-
-    public void setSessionName(String sessionName) {
-      this.sessionName = sessionName;
-    }
-
-    public String getExternalId() {
-      return externalId;
-    }
-
-    public void setExternalId(String externalId) {
-      this.externalId = externalId;
-    }
-
-    public List<LifecycleHook> getLifecycleHooks() {
-      return lifecycleHooks;
-    }
-
-    public void setLifecycleHooks(List<LifecycleHook> lifecycleHooks) {
-      this.lifecycleHooks = lifecycleHooks;
-    }
-
-    public Boolean getAllowPrivateThirdPartyImages() {
-      return allowPrivateThirdPartyImages;
-    }
-
-    public void setAllowPrivateThirdPartyImages(Boolean allowPrivateThirdPartyImages) {
-      this.allowPrivateThirdPartyImages = allowPrivateThirdPartyImages;
-    }
-
-    public Boolean getLambdaEnabled() {
-      return lambdaEnabled;
-    }
-
-    public void setLambdaEnabled(Boolean lambdaEnabled) {
-      this.lambdaEnabled = lambdaEnabled;
-    }
+    /**
+     * Only applicable when multiThreadingEnabled: true. This specifies the max amount of time for
+     * loading an aws account, after which a timeout exception will occur.
+     */
+    private int timeoutInSeconds = 180;
   }
 
   private String accessKeyId;
@@ -378,8 +178,6 @@ public class CredentialsConfig {
   private String defaultSessionName;
   private String defaultLifecycleHookRoleARNTemplate;
   private String defaultLifecycleHookNotificationTargetARNTemplate;
-
-  private List<Account> accounts;
 
   public String getDefaultKeyPairTemplate() {
     return defaultKeyPairTemplate;
@@ -453,14 +251,6 @@ public class CredentialsConfig {
     this.defaultSessionName = defaultSessionName;
   }
 
-  public List<Account> getAccounts() {
-    return accounts;
-  }
-
-  public void setAccounts(List<Account> accounts) {
-    this.accounts = accounts;
-  }
-
   public List<LifecycleHook> getDefaultLifecycleHooks() {
     return defaultLifecycleHooks;
   }
@@ -502,4 +292,6 @@ public class CredentialsConfig {
   public void setSecretAccessKey(String secretAccessKey) {
     this.secretAccessKey = secretAccessKey;
   }
+
+  @Getter @Setter private LoadAccounts loadAccounts = new LoadAccounts();
 }

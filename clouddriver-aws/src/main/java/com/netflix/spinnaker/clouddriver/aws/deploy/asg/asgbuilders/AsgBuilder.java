@@ -147,6 +147,14 @@ public abstract class AsgBuilder {
       request.withAvailabilityZones(cfg.getAvailabilityZones());
     }
 
+    // configure capacity rebalance
+    if (cfg.getCapacityRebalance() != null) {
+      task.updateStatus(
+          taskPhase,
+          "Setting capacity rebalance to " + cfg.getCapacityRebalance() + " for " + name);
+      request.withCapacityRebalance(cfg.getCapacityRebalance());
+    }
+
     return request;
   }
 
@@ -294,6 +302,10 @@ public abstract class AsgBuilder {
             .put(
                 "launch template",
                 Objects.equals(existingAsg.getLaunchTemplate(), request.getLaunchTemplate()))
+            .put(
+                "mixed instances policy",
+                Objects.equals(
+                    existingAsg.getMixedInstancesPolicy(), request.getMixedInstancesPolicy()))
             .put(
                 "availability zones",
                 Objects.equals(

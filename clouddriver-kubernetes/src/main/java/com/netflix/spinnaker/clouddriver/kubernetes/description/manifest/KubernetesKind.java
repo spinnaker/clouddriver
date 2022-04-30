@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NonnullByDefault
@@ -50,6 +51,10 @@ public class KubernetesKind {
       createWithAlias("customResourceDefinition", "crd", KubernetesApiGroup.EXTENSIONS);
   public static final KubernetesKind CRON_JOB =
       createWithAlias("cronJob", null, KubernetesApiGroup.BATCH);
+  public static final KubernetesKind CSI_DRIVERS =
+      createWithAlias("csiDriver", null, KubernetesApiGroup.STORAGE_K8S_IO);
+  public static final KubernetesKind CSI_NODES =
+      createWithAlias("csiNode", null, KubernetesApiGroup.STORAGE_K8S_IO);
   public static final KubernetesKind DAEMON_SET =
       createWithAlias("daemonSet", "ds", KubernetesApiGroup.APPS);
   public static final KubernetesKind DEPLOYMENT =
@@ -107,7 +112,7 @@ public class KubernetesKind {
 
   private final String name;
   @EqualsAndHashCode.Include private final String lcName;
-  private final KubernetesApiGroup apiGroup;
+  @Getter private final KubernetesApiGroup apiGroup;
   @EqualsAndHashCode.Include @Nullable private final KubernetesApiGroup customApiGroup;
 
   private KubernetesKind(String name, @Nullable KubernetesApiGroup apiGroup) {

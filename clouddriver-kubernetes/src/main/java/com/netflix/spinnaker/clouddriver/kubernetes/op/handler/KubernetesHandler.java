@@ -29,6 +29,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureC
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -39,11 +41,15 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.*;
 import javax.annotation.Nonnull;
 import lombok.Getter;
+import org.springframework.beans.factory.annotation.Value;
 
 public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatch {
   protected static final ObjectMapper objectMapper = new ObjectMapper();
 
   private final ArtifactReplacer artifactReplacer;
+
+  @Value("${kubernetes.artifact-binding.docker-image:match-name-and-tag}")
+  protected String dockerImageBinding;
 
   protected KubernetesHandler() {
     this.artifactReplacer = new ArtifactReplacer(artifactReplacers());
@@ -77,7 +83,8 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
 
   public ReplaceResult replaceArtifacts(
       KubernetesManifest manifest, List<Artifact> artifacts, @Nonnull String account) {
-    return artifactReplacer.replaceAll(manifest, artifacts, manifest.getNamespace(), account);
+    return artifactReplacer.replaceAll(
+        this.dockerImageBinding, manifest, artifacts, manifest.getNamespace(), account);
   }
 
   public ReplaceResult replaceArtifacts(
@@ -85,7 +92,8 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
       List<Artifact> artifacts,
       @Nonnull String namespace,
       @Nonnull String account) {
-    return artifactReplacer.replaceAll(manifest, artifacts, namespace, account);
+    return artifactReplacer.replaceAll(
+        this.dockerImageBinding, manifest, artifacts, namespace, account);
   }
 
   protected abstract KubernetesCachingAgentFactory cachingAgentFactory();
@@ -100,10 +108,19 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
       Registry registry,
       int agentIndex,
       int agentCount,
-      Long agentInterval) {
+      Long agentInterval,
+      KubernetesConfigurationProperties configurationProperties,
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
     return cachingAgentFactory()
         .buildCachingAgent(
-            namedAccountCredentials, objectMapper, registry, agentIndex, agentCount, agentInterval);
+            namedAccountCredentials,
+            objectMapper,
+            registry,
+            agentIndex,
+            agentCount,
+            agentInterval,
+            configurationProperties,
+            kubernetesSpinnakerKindMap);
   }
 
   // used for stripping sensitive values

@@ -35,11 +35,12 @@ import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.RawResourcesEndpointConfig;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.AccountResourcePropertyRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPatchOptions;
@@ -51,6 +52,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesNamerRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesCustomResourceHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor.KubectlException;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor.KubectlNotFoundException;
@@ -83,6 +86,7 @@ public class KubernetesCredentials {
   private final Registry registry;
   private final Clock clock;
   private final KubectlJobExecutor jobExecutor;
+  private final GlobalResourcePropertyRegistry globalResourcePropertyRegistry;
 
   @Include @Getter @Nonnull private final String accountName;
 
@@ -132,20 +136,21 @@ public class KubernetesCredentials {
   private final PermissionValidator permissionValidator;
   private final Supplier<ImmutableMap<KubernetesKind, KubernetesKindProperties>> crdSupplier =
       Suppliers.memoizeWithExpiration(this::crdSupplier, CRD_EXPIRY_SECONDS, TimeUnit.SECONDS);
-  private final Supplier<ImmutableList<String>> liveNamespaceSupplier =
+  private final Memoizer<ImmutableList<String>> liveNamespaceSupplier =
       Memoizer.memoizeWithExpiration(
           this::namespaceSupplier, NAMESPACE_EXPIRY_SECONDS, TimeUnit.SECONDS);
   @Getter private final Namer<KubernetesManifest> namer;
 
-  private KubernetesCredentials(
+  public KubernetesCredentials(
       Registry registry,
       KubectlJobExecutor jobExecutor,
-      KubernetesConfigurationProperties.ManagedAccount managedAccount,
+      ManagedAccount managedAccount,
       AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory,
       KubernetesKindRegistry.Factory kindRegistryFactory,
       KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
       String kubeconfigFile,
-      Namer<KubernetesManifest> manifestNamer) {
+      Namer<KubernetesManifest> manifestNamer,
+      GlobalResourcePropertyRegistry globalResourcePropertyRegistry) {
     this.registry = registry;
     this.clock = registry.clock();
     this.jobExecutor = jobExecutor;
@@ -200,6 +205,7 @@ public class KubernetesCredentials {
     this.namer = manifestNamer;
     this.cacheAllApplicationRelationships = managedAccount.isCacheAllApplicationRelationships();
     this.rawResourcesEndpointConfig = managedAccount.getRawResourcesEndpointConfig();
+    this.globalResourcePropertyRegistry = globalResourcePropertyRegistry;
   }
 
   /**
@@ -219,6 +225,12 @@ public class KubernetesCredentials {
     @Override
     public T get() {
       return cache.get(CACHE_KEY);
+    }
+
+    /** Return the value from the cache or null if there is no cached value */
+    @Nullable
+    public T getIfPresent() {
+      return cache.getIfPresent(CACHE_KEY);
     }
 
     public static <U> Memoizer<U> memoizeWithExpiration(
@@ -248,7 +260,7 @@ public class KubernetesCredentials {
     }
   }
 
-  private boolean isValidKind(@Nonnull KubernetesKind kind) {
+  public boolean isValidKind(@Nonnull KubernetesKind kind) {
     return getKindStatus(kind) == KubernetesKindStatus.VALID;
   }
 
@@ -313,14 +325,23 @@ public class KubernetesCredentials {
       return ImmutableMap.of();
     }
     try {
-      return list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
-          .map(
-              manifest ->
-                  KubernetesCacheDataConverter.getResource(
-                      manifest, V1beta1CustomResourceDefinition.class))
-          .map(KubernetesKindProperties::fromCustomResourceDefinition)
-          .collect(
-              toImmutableMap(KubernetesKindProperties::getKubernetesKind, Function.identity()));
+      ImmutableMap<KubernetesKind, KubernetesKindProperties> crds =
+          list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
+              .map(
+                  manifest ->
+                      KubernetesCacheDataConverter.getResource(
+                          manifest, V1beta1CustomResourceDefinition.class))
+              .map(KubernetesKindProperties::fromCustomResourceDefinition)
+              .collect(
+                  toImmutableMap(KubernetesKindProperties::getKubernetesKind, Function.identity()));
+
+      List<KubernetesHandler> crdHandlers =
+          crds.keySet().stream()
+              .map(KubernetesCustomResourceHandler::new)
+              .collect(toImmutableList());
+      this.globalResourcePropertyRegistry.updateCrdProperties(crdHandlers);
+
+      return crds;
     } catch (KubectlException e) {
       // not logging here -- it will generate a lot of noise in cases where crds aren't
       // available/registered in the first place
@@ -342,20 +363,52 @@ public class KubernetesCredentials {
     }
   }
 
-  public List<String> getDeclaredNamespaces() {
-    List<String> result;
+  @Nonnull
+  public ImmutableList<String> filterNamespaces(@Nonnull ImmutableList<String> namespaces) {
+    ImmutableList<String> result = namespaces;
+    if (!omitNamespaces.isEmpty()) {
+      result =
+          result.stream()
+              .filter(n -> !omitNamespaces.contains(n))
+              .collect(ImmutableList.toImmutableList());
+    }
+
+    return result;
+  }
+
+  /** Get declared namespaces without making a call to the kubernetes cluster */
+  @Nonnull
+  public ImmutableList<String> getDeclaredNamespacesFromCache() {
+    ImmutableList<String> result;
+    if (!namespaces.isEmpty()) {
+      result = namespaces;
+    } else {
+      result = liveNamespaceSupplier.getIfPresent();
+      if (result == null) {
+        // There's nothing in the cache, so return an empty list
+        log.warn("No cached namespaces for account {}", accountName);
+        result = ImmutableList.of();
+      }
+    }
+
+    return filterNamespaces(result);
+  }
+
+  /**
+   * Get declared namespaces, making a call to the kubernetes cluster if there's no cached value, or
+   * the cache is stale. Note that this is a best-effort call. If there's an error communicating to
+   * the kubernetes cluster, this routine may return an empty list.
+   */
+  @Nonnull
+  public ImmutableList<String> getDeclaredNamespaces() {
+    ImmutableList<String> result;
     if (!namespaces.isEmpty()) {
       result = namespaces;
     } else {
       result = liveNamespaceSupplier.get();
     }
 
-    if (!omitNamespaces.isEmpty()) {
-      result =
-          result.stream().filter(n -> !omitNamespaces.contains(n)).collect(Collectors.toList());
-    }
-
-    return result;
+    return filterNamespaces(result);
   }
 
   public boolean isMetricsEnabled() {
@@ -739,9 +792,9 @@ public class KubernetesCredentials {
     private final AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory;
     private final KubernetesKindRegistry.Factory kindRegistryFactory;
     private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+    private final GlobalResourcePropertyRegistry globalResourcePropertyRegistry;
 
-    public KubernetesCredentials build(
-        KubernetesConfigurationProperties.ManagedAccount managedAccount) {
+    public KubernetesCredentials build(ManagedAccount managedAccount) {
       Namer<KubernetesManifest> manifestNamer =
           kubernetesNamerRegistry.get(managedAccount.getNamingStrategy());
       return new KubernetesCredentials(
@@ -752,12 +805,12 @@ public class KubernetesCredentials {
           kindRegistryFactory,
           kubernetesSpinnakerKindMap,
           getKubeconfigFile(configFileService, managedAccount),
-          manifestNamer);
+          manifestNamer,
+          globalResourcePropertyRegistry);
     }
 
     private String getKubeconfigFile(
-        ConfigFileService configFileService,
-        KubernetesConfigurationProperties.ManagedAccount managedAccount) {
+        ConfigFileService configFileService, ManagedAccount managedAccount) {
       if (StringUtils.isNotEmpty(managedAccount.getKubeconfigFile())) {
         return configFileService.getLocalPath(managedAccount.getKubeconfigFile());
       }

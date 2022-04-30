@@ -52,6 +52,7 @@ dependencies {
   implementation project(":clouddriver-api")
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-core")
+  implementation project(":clouddriver-configserver")
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-security")
 
@@ -78,13 +79,14 @@ dependencies {
   implementation "io.spinnaker.kork:kork-exceptions"
   implementation "io.spinnaker.kork:kork-moniker"
   implementation "io.spinnaker.kork:kork-secrets"
-  implementation "io.kubernetes:client-java:7.0.0"
+  implementation "io.kubernetes:client-java:$kubernetesClientVersion"
   implementation "org.apache.commons:commons-lang3"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation "org.springframework.security:spring-security-config"
   implementation "org.springframework.cloud:spring-cloud-context"
   implementation "org.springframework.cloud:spring-cloud-config-server"
+  implementation "io.github.resilience4j:resilience4j-retry"
 
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
@@ -113,12 +115,17 @@ dependencies {
   integrationImplementation "org.yaml:snakeyaml"
 }
 
+testlogger {
+  // don't show passed unit tests, it's difficult to know which ones failed among hundreds of tests
+  showPassed false
+  showPassedStandardStreams false
+}
+
 task integrationTest(type: Test) {
   description = 'Runs kubernetes provider integration tests.'
   group = 'verification'
 
-  environment "KUBECTL_PATH", "$project.rootDir/clouddriver-kubernetes/src/integration/resources/kubectl-wrapper.sh"
-  environment "KUBECONFIGS_HOME", "$project.rootDir/clouddriver-kubernetes/build/kubeconfigs"
+  environment "IT_BUILD_HOME", "$project.buildDir/it"
   useJUnitPlatform()
 
   testClassesDirs = sourceSets.integration.output.classesDirs

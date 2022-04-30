@@ -30,7 +30,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.job.KubernetesRunJobOperationDescription;
@@ -112,14 +112,13 @@ final class KubernetesRunJobOperationTest {
     KubernetesRunJobOperationDescription runJobDescription =
         new KubernetesRunJobOperationDescription()
             .setManifest(
-                ManifestFetcher.getManifest(KubernetesRunJobOperationTest.class, manifest));
+                ManifestFetcher.getManifest(KubernetesRunJobOperationTest.class, manifest).get(0));
     runJobDescription.setCredentials(getNamedAccountCredentials());
     return runJobDescription;
   }
 
   private static KubernetesNamedAccountCredentials getNamedAccountCredentials() {
-    KubernetesConfigurationProperties.ManagedAccount managedAccount =
-        new KubernetesConfigurationProperties.ManagedAccount();
+    ManagedAccount managedAccount = new ManagedAccount();
     managedAccount.setName("my-account");
 
     NamerRegistry.lookup()

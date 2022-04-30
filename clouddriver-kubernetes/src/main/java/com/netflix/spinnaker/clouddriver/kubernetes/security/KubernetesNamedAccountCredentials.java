@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.security;
 
 import static lombok.EqualsAndHashCode.Include;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties.ManagedAccount;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
 import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
@@ -89,8 +89,12 @@ public class KubernetesNamedAccountCredentials
     return requiredGroupMembership;
   }
 
+  /**
+   * Get the namespaces without making a call to the kubernetes cluster. If the cache is empty,
+   * return an empty list.
+   */
   public List<String> getNamespaces() {
-    return credentials.getDeclaredNamespaces();
+    return credentials.getDeclaredNamespacesFromCache();
   }
 
   public Map<String, String> getSpinnakerKindMap() {

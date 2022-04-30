@@ -55,7 +55,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
 
   private final CloudFoundryClient cloudFoundryClient = new MockCloudFoundryClient();
 
-  private DefaultTask testTask = new DefaultTask("testTask");
+  private final DefaultTask testTask = new DefaultTask("testTask");
 
   {
     TaskRepository.threadLocalTask.set(testTask);
@@ -65,7 +65,9 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
   void convertToMbHandling() {
     assertThat(convertToMb("memory", "123")).isEqualTo(123);
     assertThat(convertToMb("memory", "1G")).isEqualTo(1024);
+    assertThat(convertToMb("memory", "1GB")).isEqualTo(1024);
     assertThat(convertToMb("memory", "1M")).isEqualTo(1);
+    assertThat(convertToMb("memory", "1MB")).isEqualTo(1);
 
     assertThatThrownBy(() -> convertToMb("memory", "abc"))
         .isInstanceOf(IllegalArgumentException.class);
@@ -84,12 +86,13 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
             new PassThroughOperationPoller(), description);
     final Applications apps = getApplications(clusterProvider, ProcessStats.State.RUNNING);
     final ServiceInstances serviceInstances = getServiceInstances();
+    final Processes processes = getProcesses();
 
     // When
     final DeploymentResult result = operation.operate(Lists.emptyList());
 
     // Then
-    verifyInOrder(apps, serviceInstances, () -> atLeastOnce());
+    verifyInOrder(apps, serviceInstances, processes, Mockito::atLeastOnce);
 
     assertThat(testTask.getStatus().isFailed()).isFalse();
     assertThat(result.getServerGroupNames())
@@ -107,12 +110,13 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
             new PassThroughOperationPoller(), description);
     final Applications apps = getApplications(clusterProvider, ProcessStats.State.RUNNING);
     final ServiceInstances serviceInstances = getServiceInstances();
+    final Processes processes = getProcesses();
 
     // When
     final DeploymentResult result = operation.operate(Lists.emptyList());
 
     // Then
-    verifyInOrderDockerDeploy(apps, serviceInstances, () -> atLeastOnce());
+    verifyInOrderDockerDeploy(apps, serviceInstances, processes, Mockito::atLeastOnce);
 
     assertThat(testTask.getStatus().isFailed()).isFalse();
     assertThat(result.getServerGroupNames())
@@ -161,12 +165,13 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
             new PassThroughOperationPoller(), description);
     final Applications apps = getApplications(clusterProvider, ProcessStats.State.RUNNING);
     final ServiceInstances serviceInstances = getServiceInstances();
+    final Processes processes = getProcesses();
 
     // When
     final DeploymentResult result = operation.operate(Lists.emptyList());
 
     // Then
-    verifyInOrder(apps, serviceInstances, () -> never());
+    verifyInOrder(apps, serviceInstances, processes, Mockito::never);
 
     assertThat(testTask.getStatus().isFailed()).isFalse();
     assertThat(result.getServerGroupNames())
@@ -176,31 +181,36 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
   private void verifyInOrder(
       final Applications apps,
       ServiceInstances serviceInstances,
+      Processes processes,
       Supplier<VerificationMode> calls) {
-    InOrder inOrder = Mockito.inOrder(apps, serviceInstances);
+    InOrder inOrder = Mockito.inOrder(apps, serviceInstances, processes);
     inOrder.verify(apps).createApplication(any(), any(), any(), any());
     inOrder
         .verify(apps)
         .createPackage(eq(new CreatePackage("serverGroupId", CreatePackage.Type.BITS, null)));
     inOrder.verify(apps).uploadPackageBits(any(), any());
-    inOrder.verify(cloudFoundryClient.getServiceInstances()).createServiceBinding(any());
+    inOrder.verify(serviceInstances).createServiceBinding(any());
     inOrder.verify(apps).createBuild(any());
-    inOrder.verify(apps).scaleApplication("serverGroupId", 7, 1024, 2048);
-    inOrder.verify(apps).updateProcess("serverGroupId", null, "http", "/health");
+    inOrder.verify(apps).buildCompleted(any());
+    inOrder.verify(apps).findDropletGuidFromBuildId(any());
+    inOrder.verify(apps).setCurrentDroplet(any(), any());
+    inOrder.verify(processes).updateProcess("serverGroupId", null, "http", "/health", 180, null);
+    inOrder.verify(processes).scaleProcess(any(), any(), any(), any());
     inOrder.verify(apps, calls.get()).startApplication("serverGroupId");
   }
 
   private void verifyInOrderDockerDeploy(
       final Applications apps,
       ServiceInstances serviceInstances,
+      Processes processes,
       Supplier<VerificationMode> calls) {
-    InOrder inOrder = Mockito.inOrder(apps, serviceInstances);
+    InOrder inOrder = Mockito.inOrder(apps, processes, serviceInstances);
     inOrder.verify(apps).createApplication(any(), any(), any(), any());
     inOrder.verify(apps).createPackage(any());
     inOrder.verify(cloudFoundryClient.getServiceInstances()).createServiceBinding(any());
     inOrder.verify(apps).createBuild(any());
-    inOrder.verify(apps).scaleApplication("serverGroupId", 7, 1024, 2048);
-    inOrder.verify(apps).updateProcess("serverGroupId", null, "http", "/health");
+    inOrder.verify(processes).updateProcess("serverGroupId", null, "http", "/health", 180, null);
+    inOrder.verify(processes).scaleProcess("serverGroupId", 7, 1024, 2048);
     inOrder.verify(apps, calls.get()).startApplication("serverGroupId");
   }
 
@@ -209,6 +219,10 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
     when(serviceInstances.findAllServicesBySpaceAndNames(any(), any()))
         .thenReturn(createServiceInstanceResource());
     return serviceInstances;
+  }
+
+  private Processes getProcesses() {
+    return cloudFoundryClient.getProcesses();
   }
 
   private List<Resource<? extends AbstractServiceInstance>> createServiceInstanceResource() {
@@ -230,7 +244,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
                 .id("serverGroupId")
                 .space(CloudFoundrySpace.builder().id("spaceId").build())
                 .build());
-    when(apps.getProcessState(any())).thenReturn(state);
+    when(apps.getAppState(any())).thenReturn(state);
     when(apps.createPackage(any()))
         .thenAnswer(
             (Answer<String>)
@@ -238,6 +252,10 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
                   Object[] args = invocation.getArguments();
                   return args[0].toString() + "_package";
                 });
+    when(apps.createBuild(any())).thenReturn("some-build");
+    when(apps.buildCompleted(any())).thenReturn(true);
+    when(apps.findDropletGuidFromBuildId(any())).thenReturn("droplet-guid");
+    doNothing().when(apps).setCurrentDroplet(any(), any());
     return apps;
   }
 
@@ -264,7 +282,8 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
                     .setHealthCheckHttpEndpoint("/health")
                     .setBuildpacks(io.vavr.collection.List.of("buildpack1", "buildpack2").asJava())
                     .setServices(List.of("service1"))
-                    .setEnv(HashMap.of("token", "ASDF").toJavaMap()));
+                    .setEnv(HashMap.of("token", "ASDF").toJavaMap())
+                    .setTimeout(180));
     description.setClient(cloudFoundryClient);
     description.setRegion("region1");
     description.setStartApplication(b);
@@ -294,7 +313,8 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
                     .setHealthCheckHttpEndpoint("/health")
                     .setBuildpacks(Collections.emptyList())
                     .setServices(List.of("service1"))
-                    .setEnv(HashMap.of("token", "ASDF").toJavaMap()));
+                    .setEnv(HashMap.of("token", "ASDF").toJavaMap())
+                    .setTimeout(180));
     description.setClient(cloudFoundryClient);
     description.setRegion("region1");
     description.setStartApplication(b);

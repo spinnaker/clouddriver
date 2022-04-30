@@ -17,17 +17,37 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.asg
 
+import com.amazonaws.services.autoscaling.model.BlockDeviceMapping
+import com.amazonaws.services.autoscaling.model.Ebs
+import com.amazonaws.services.autoscaling.model.LaunchTemplateOverrides
+import com.amazonaws.services.ec2.model.LaunchTemplateBlockDeviceMapping
+import com.amazonaws.services.ec2.model.LaunchTemplateEbsBlockDevice
+import com.netflix.spinnaker.clouddriver.aws.deploy.description.BasicAmazonDeployDescription
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.clouddriver.aws.services.SecurityGroupService
-import org.joda.time.LocalDateTime
 import spock.lang.Specification
+import spock.lang.Unroll
+
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 
 class AsgConfigHelperSpec extends Specification {
   def securityGroupServiceMock = Mock(SecurityGroupService)
   def deployDefaults = new AwsConfiguration.DeployDefaults()
-  def asgConfig = new AutoScalingWorker.AsgConfiguration(
-      application: "fooTest",
-      stack: "stack")
+  def asgConfig = AutoScalingWorker.AsgConfiguration.builder()
+      .application("fooTest")
+      .stack("stack").build()
+
+  void setup() {
+    // test code shouldn't assume it will run in less than one second, so let's control the clock
+    AsgConfigHelper.clock = Clock.fixed(Instant.now(), ZoneId.systemDefault())
+  }
+
+  void cleanup() {
+    AsgConfigHelper.clock = Clock.systemDefaultZone()
+  }
 
   void "should return name correctly"() {
     when:
@@ -39,8 +59,8 @@ class AsgConfigHelperSpec extends Specification {
     where:
     baseName | suffix   || expectedName
     "base"   | "suffix" || "base-suffix"
-    "base"   | null     || "base-${new LocalDateTime().toString("MMddYYYYHHmm")}"
-    "base"   | ""       || "base-${new LocalDateTime().toString("MMddYYYYHHmm")}"
+    "base"   | null     || "base-${AsgConfigHelper.createDefaultSuffix()}"
+    "base"   | ""       || "base-${AsgConfigHelper.createDefaultSuffix()}"
   }
 
   void "should lookup security groups when provided by name"() {
@@ -202,5 +222,127 @@ class AsgConfigHelperSpec extends Specification {
     ['sg-45678']                 | ['sg-45678']         |  1          ||  ['sg-45678']
     ['bar']                      | ['sg-45678']         |  1          ||  ['sg-45678']
     ["sg-12345"]                 | ['sg-45678']         |  1          ||  ['sg-45678']
+  }
+
+  @Unroll
+  void "should convert launch configuration's block device mappings to AmazonBlockDevices"() {
+    expect:
+    AsgConfigHelper.transformBlockDeviceMapping([sourceDevice]) == [targetDevice]
+
+    where:
+    sourceDevice                                                                                                          || targetDevice
+    new BlockDeviceMapping().withDeviceName("Device1").withVirtualName("virtualName")                                     || new AmazonBlockDevice("Device1", "virtualName", null, null, null, null, null, null)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withIops(500))                                   || new AmazonBlockDevice("Device1", null, null, null, null, 500, null, null)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withDeleteOnTermination(true))                   || new AmazonBlockDevice("Device1", null, null, null, true, null, null, null)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withVolumeSize(1024))                            || new AmazonBlockDevice("Device1", null, 1024, null, null, null, null, null)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withVolumeType("volumeType"))                    || new AmazonBlockDevice("Device1", null, null, "volumeType", null, null, null, null)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snapshotId"))                    || new AmazonBlockDevice("Device1", null, null, null, null, null, "snapshotId", null)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs())                                                 || new AmazonBlockDevice("Device1", null, null, null, null, null, null, null)
+
+    // if snapshot is not provided, we should set encryption correctly
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withEncrypted(null))                             || new AmazonBlockDevice("Device1", null, null, null, null, null, null, null)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withEncrypted(true))                             || new AmazonBlockDevice("Device1", null, null, null, null, null, null, true)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withEncrypted(false))                            || new AmazonBlockDevice("Device1", null, null, null, null, null, null, false)
+
+    // if snapshot is provided, then we should use the snapshot's encryption value
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snap-123").withEncrypted(null))  || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snap-123").withEncrypted(true))  || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
+    new BlockDeviceMapping().withDeviceName("Device1").withEbs(new Ebs().withSnapshotId("snap-123").withEncrypted(false)) || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
+  }
+
+  @Unroll
+  void "should convert launch template block device mappings to AmazonBlockDevices"() {
+    expect:
+    AsgConfigHelper.transformLaunchTemplateBlockDeviceMapping([sourceDevice]) == [targetDevice]
+
+    where:
+    sourceDevice                                                                                                                                                 || targetDevice
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withVirtualName("virtualName")                                                              || new AmazonBlockDevice("Device1", "virtualName", null, null, null, null, null, null)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withIops(500))                                   || new AmazonBlockDevice("Device1", null, null, null, null, 500, null, null)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withDeleteOnTermination(true))                   || new AmazonBlockDevice("Device1", null, null, null, true, null, null, null)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withVolumeSize(1024))                            || new AmazonBlockDevice("Device1", null, 1024, null, null, null, null, null)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withVolumeType("volumeType"))                    || new AmazonBlockDevice("Device1", null, null, "volumeType", null, null, null, null)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withSnapshotId("snapshotId"))                    || new AmazonBlockDevice("Device1", null, null, null, null, null, "snapshotId", null)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice())                                                 || new AmazonBlockDevice("Device1", null, null, null, null, null, null, null)
+
+    // if snapshot is not provided, we should set encryption correctly
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withEncrypted(null))                             || new AmazonBlockDevice("Device1", null, null, null, null, null, null, null)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withEncrypted(true))                             || new AmazonBlockDevice("Device1", null, null, null, null, null, null, true)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withEncrypted(false))                            || new AmazonBlockDevice("Device1", null, null, null, null, null, null, false)
+
+    // if snapshot is provided, then we should use the snapshot's encryption value
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withSnapshotId("snap-123").withEncrypted(null))  || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withSnapshotId("snap-123").withEncrypted(true))  || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
+    new LaunchTemplateBlockDeviceMapping().withDeviceName("Device1").withEbs(new LaunchTemplateEbsBlockDevice().withSnapshotId("snap-123").withEncrypted(false)) || new AmazonBlockDevice("Device1", null, null, null, null, null, "snap-123", null)
+  }
+
+  @Unroll
+  void "should transform description overrides to launch template overrides and vice versa with correct priority"() {
+
+    // description overrides to launch template overrides
+    expect:
+    AsgConfigHelper.getLaunchTemplateOverrides(descOverrides) == expectedLtOverrides
+
+    // launch template overrides to description overrides
+    and:
+    AsgConfigHelper.getDescriptionOverrides(expectedLtOverrides) == descOverridesAgain
+
+    where:
+    descOverrides << [
+      // 1
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1", priority: 1),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c4.large", weightedCapacity: "1", priority: 2)],
+      // 2
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1", priority: 2),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.xlarge", weightedCapacity: "2", priority: 1)],
+      // 3
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1", priority: 1),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c4.large", weightedCapacity: "1", priority: 1)], // same priority
+      // 4
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1"),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.xlarge", weightedCapacity: "2")], // no priority
+      // 5
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.2xlarge", weightedCapacity: "4"),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1", priority: 1),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.xlarge", weightedCapacity: "2", priority: 2)], // mixed, some overrides have priority
+    ]
+
+    expectedLtOverrides << [
+      // 1
+      [new LaunchTemplateOverrides().withInstanceType("c5.large").withWeightedCapacity("1"),
+       new LaunchTemplateOverrides().withInstanceType("c4.large").withWeightedCapacity("1")],
+      // 2
+      [new LaunchTemplateOverrides().withInstanceType("c5.xlarge").withWeightedCapacity("2"),
+       new LaunchTemplateOverrides().withInstanceType("c5.large").withWeightedCapacity("1")],
+      // 3
+      [new LaunchTemplateOverrides().withInstanceType("c5.large").withWeightedCapacity("1"),
+       new LaunchTemplateOverrides().withInstanceType("c4.large").withWeightedCapacity("1")],
+      // 4
+      [new LaunchTemplateOverrides().withInstanceType("c5.large").withWeightedCapacity("1"),
+       new LaunchTemplateOverrides().withInstanceType("c5.xlarge").withWeightedCapacity("2")],
+      // 5
+      [new LaunchTemplateOverrides().withInstanceType("c5.large").withWeightedCapacity("1"),
+       new LaunchTemplateOverrides().withInstanceType("c5.xlarge").withWeightedCapacity("2"),
+       new LaunchTemplateOverrides().withInstanceType("c5.2xlarge").withWeightedCapacity("4")],  // no priority = last priority
+    ]
+
+    descOverridesAgain << [
+      // 1
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1", priority: 1),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c4.large", weightedCapacity: "1", priority: 2)],
+      // 2
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.xlarge", weightedCapacity: "2", priority: 1),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1", priority: 2)],
+      // 3
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1", priority: 1),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c4.large", weightedCapacity: "1", priority: 2)], // same priority became sequential
+      // 4
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1", priority: 1),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.xlarge", weightedCapacity: "2", priority: 2)], // no priority originally, now sequential
+      // 5
+      [new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.large", weightedCapacity: "1", priority: 1),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.xlarge", weightedCapacity: "2", priority: 2),
+       new BasicAmazonDeployDescription.LaunchTemplateOverridesForInstanceType(instanceType: "c5.2xlarge", weightedCapacity: "4", priority: 3)],
+    ]
   }
 }

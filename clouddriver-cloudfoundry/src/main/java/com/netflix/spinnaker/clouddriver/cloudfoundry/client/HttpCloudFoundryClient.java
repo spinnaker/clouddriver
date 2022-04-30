@@ -26,6 +26,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.retry.RetryIntercep
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.tokens.AccessTokenAuthenticator;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.tokens.AccessTokenInterceptor;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.tokens.AccessTokenProvider;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -34,6 +35,7 @@ import java.util.concurrent.ForkJoinPool;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import org.slf4j.Logger;
@@ -52,16 +54,17 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
   private final String user;
   private final String password;
   private Logger logger = LoggerFactory.getLogger(HttpCloudFoundryClient.class);
-  private AuthenticationService uaaService;
-  private Spaces spaces;
-  private Organizations organizations;
-  private Domains domains;
-  private Routes routes;
-  private Applications applications;
-  private ServiceInstances serviceInstances;
-  private ServiceKeys serviceKeys;
-  private Tasks tasks;
-  private Logs logs;
+  @Getter private AuthenticationService uaaService;
+  @Getter private Spaces spaces;
+  @Getter private Organizations organizations;
+  @Getter private Domains domains;
+  @Getter private Routes routes;
+  @Getter private Applications applications;
+  @Getter private ServiceInstances serviceInstances;
+  @Getter private ServiceKeys serviceKeys;
+  @Getter private Tasks tasks;
+  @Getter private Logs logs;
+  @Getter private Processes processes;
 
   public HttpCloudFoundryClient(
       String account,
@@ -72,9 +75,12 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
       String password,
       boolean useHttps,
       boolean skipSslValidation,
+      boolean onlySpinnakerManaged,
       Integer resultsPerPage,
       ForkJoinPool forkJoinPool,
-      OkHttpClient.Builder okHttpClientBuilder) {
+      OkHttpClient.Builder okHttpClientBuilder,
+      CloudFoundryConfigurationProperties.ClientConfig clientConfig,
+      CloudFoundryConfigurationProperties.LocalCacheConfig localCacheConfig) {
 
     this.apiHost = apiHost;
     this.user = user;
@@ -106,7 +112,7 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
             .newBuilder()
             .authenticator(new AccessTokenAuthenticator(accessTokenProvider))
             .addInterceptor(new AccessTokenInterceptor(accessTokenProvider))
-            .addInterceptor(new RetryInterceptor())
+            .addInterceptor(new RetryInterceptor(clientConfig.getMaxRetries()))
             .build();
 
     // Shared retrofit targeting cf api with preconfigured okhttpclient and jackson converter
@@ -119,6 +125,8 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
 
     this.organizations = new Organizations(retrofit.create(OrganizationService.class));
     this.spaces = new Spaces(retrofit.create(SpaceService.class), organizations);
+    this.processes = new Processes(retrofit.create(ProcessesService.class));
+
     this.applications =
         new Applications(
             account,
@@ -126,8 +134,11 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
             metricsUri,
             retrofit.create(ApplicationService.class),
             spaces,
+            processes,
             resultsPerPage,
-            forkJoinPool);
+            onlySpinnakerManaged,
+            forkJoinPool,
+            localCacheConfig);
     this.domains = new Domains(retrofit.create(DomainService.class), organizations);
     this.serviceInstances =
         new ServiceInstances(
@@ -142,7 +153,8 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
             domains,
             spaces,
             resultsPerPage,
-            forkJoinPool);
+            forkJoinPool,
+            localCacheConfig);
     this.serviceKeys = new ServiceKeys(retrofit.create(ServiceKeyService.class), spaces);
     this.tasks = new Tasks(retrofit.create(TaskService.class));
 
@@ -191,50 +203,5 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
       builder.sslSocketFactory(sslContext.getSocketFactory(), trustManager);
     }
     return builder.build();
-  }
-
-  @Override
-  public Spaces getSpaces() {
-    return spaces;
-  }
-
-  @Override
-  public Organizations getOrganizations() {
-    return organizations;
-  }
-
-  @Override
-  public Domains getDomains() {
-    return domains;
-  }
-
-  @Override
-  public Routes getRoutes() {
-    return routes;
-  }
-
-  @Override
-  public Applications getApplications() {
-    return applications;
-  }
-
-  @Override
-  public ServiceInstances getServiceInstances() {
-    return serviceInstances;
-  }
-
-  @Override
-  public ServiceKeys getServiceKeys() {
-    return serviceKeys;
-  }
-
-  @Override
-  public Tasks getTasks() {
-    return tasks;
-  }
-
-  @Override
-  public Logs getLogs() {
-    return logs;
   }
 }

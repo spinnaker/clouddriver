@@ -56,14 +56,15 @@ class AsgWithLaunchConfigurationBuilderSpec extends Specification {
   def asgConfig, asgName, launchConfigName
 
   def setup() {
-    asgConfig = new AsgConfiguration(
-      credentials: credential,
-      application: "myasg",
-      region: "us-east-1",
-      minInstances: 1,
-      maxInstances: 3,
-      instanceType: "t1.test"
-    )
+    asgConfig = AsgConfiguration.builder()
+      .credentials(credential)
+      .application("myasg")
+      .region("us-east-1")
+      .minInstances(1)
+      .maxInstances(3)
+      .desiredInstances(2)
+      .instanceType("t1.test")
+      .build()
     asgName = "myasg-v000"
     launchConfigName = "$asgName-20210119"
   }
@@ -87,7 +88,7 @@ class AsgWithLaunchConfigurationBuilderSpec extends Specification {
       .kernelId(cfg.getKernelId())
       .ramdiskId(cfg.getRamdiskId())
       .ebsOptimized(cfg.getEbsOptimized() != null ? cfg.getEbsOptimized() : false)
-      .spotPrice(cfg.getSpotMaxPrice())
+      .spotMaxPrice(cfg.getSpotMaxPrice())
       .instanceMonitoring(cfg.getInstanceMonitoring() != null ? cfg.getInstanceMonitoring() : false)
       .blockDevices(cfg.getBlockDevices())
       .securityGroups(cfg.getSecurityGroups())
@@ -108,7 +109,6 @@ class AsgWithLaunchConfigurationBuilderSpec extends Specification {
     asgConfig.availabilityZones = ["us-east-1a"]
     asgConfig.subnetType = "internal"
     asgConfig.legacyUdf = false
-    asgConfig.desiredInstances = 2
     asgConfig.spotMaxPrice = 0.5
     asgConfig.classicLoadBalancers = ["one", "two"]
     asgConfig.targetGroupArns = ["tg1", "tg2"]
@@ -324,16 +324,10 @@ class AsgWithLaunchConfigurationBuilderSpec extends Specification {
     asgConfig.availabilityZones = ["us-east-1a"]
     asgConfig.subnetType = "internal"
     asgConfig.legacyUdf = false
-    asgConfig.desiredInstances = 2
     asgConfig.spotMaxPrice = 0.5
     asgConfig.classicLoadBalancers = ["one", "two"]
     asgConfig.targetGroupArns = ["tg1", "tg2"]
-    asgConfig.cooldown = 5
-    asgConfig.healthCheckGracePeriod = 5
-    asgConfig.healthCheckType = "ec2"
-    asgConfig.terminationPolicies = ["Default", "OldestInstance"]
     asgConfig.userDataOverride = userDataOverride
-    asgConfig.ebsOptimized = true
     asgConfig.securityGroups = ["mysg"]
     def settings = getLcSettings(asgName, asgConfig)
 
@@ -412,7 +406,6 @@ class AsgWithLaunchConfigurationBuilderSpec extends Specification {
     asgConfig.subnetIds = sbReq
     asgConfig.availabilityZones = azReq
     asgConfig.legacyUdf = false
-    asgConfig.desiredInstances = 2
     asgConfig.spotMaxPrice = 0.5
     asgConfig.classicLoadBalancers = ["two", "one"]
     asgConfig.targetGroupArns = ["tg2", "tg1"]
@@ -493,7 +486,6 @@ class AsgWithLaunchConfigurationBuilderSpec extends Specification {
     asgConfig.subnetIds = sb == null ? null : ["sb2","sb1"]
     asgConfig.availabilityZones = azReq
     asgConfig.legacyUdf = false
-    asgConfig.desiredInstances = 2
     asgConfig.spotMaxPrice = 0.5
     asgConfig.classicLoadBalancers = ["two", "one"]
     asgConfig.targetGroupArns = ["tg2", "tg1"]
@@ -585,5 +577,23 @@ class AsgWithLaunchConfigurationBuilderSpec extends Specification {
     1 * autoScaling.createAutoScalingGroup(_)
     1 * autoScaling.suspendProcesses(_)
     1 * autoScaling.updateAutoScalingGroup(*_)
+  }
+
+  @Unroll
+  void "should enable capacity rebalance, if specified"() {
+    given:
+    def asgWithLcBuilder = new AsgWithLaunchConfigurationBuilder(lcBuilder, autoScaling, amazonEC2, asgLifecycleHookWorker)
+    asgConfig.capacityRebalance = capacityRebalance
+    def settings = getLcSettings(asgName, asgConfig)
+
+    when:
+    def request = asgWithLcBuilder.buildRequest(task, taskPhase, asgName, asgConfig)
+
+    then:
+    1 * lcBuilder.buildLaunchConfiguration("myasg", null, settings, null, null) >> launchConfigName
+    request.capacityRebalance == capacityRebalance
+
+    where:
+    capacityRebalance << [true, false, null]
   }
 }

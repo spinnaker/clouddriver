@@ -43,7 +43,6 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
   Collection<String> enabledMetrics
   Integer healthCheckGracePeriod
   String healthCheckType
-  String spotPrice
   Set<String> suspendedProcesses = []
   Collection<String> terminationPolicies
   String kernelId
@@ -53,37 +52,6 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
   String base64UserData
   Boolean legacyUdf
   UserDataOverride userDataOverride = new UserDataOverride()
-
-  /**
-   * When set to true, the created server group will use a launch template instead of a launch configuration.
-   */
-  Boolean setLaunchTemplate = true
-
-  /**
-   * When set to true, the created server group will be configured with IMDSv2.
-   * This is a Launch Template only feature
-   * * https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
-   */
-  Boolean requireIMDSv2 = false
-
-  /**
-   * Associate an IPv6 address
-   * This is a Launch Template only feature
-   */
-  Boolean associateIPv6Address
-
-  /**
-   * Applicable only for burstable performance instance types like t2/t3.
-   * * set to null when not applicable / by default.
-   *
-   * The burstable performance instances in the created server group will have:
-   * * unlimited CPU credits, when set to true
-   * * standard CPU credits, when set to false
-   * https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode.html
-   *
-   * This is a Launch Template only feature.
-   */
-  Boolean unlimitedCpuCredits
 
   Collection<OperationEvent> events = []
 
@@ -133,6 +101,55 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
   Map<String, String> blockDeviceTags
 
   /**
+   * Amazon EC2 Auto Scaling attempts to proactively replace Spot Instances in the group
+   * that have received a rebalance recommendation, BEFORE it is interrupted by AWS EC2.
+   * Note: Enabling this feature could exceed the server group's max capacity for a brief period of time, leading to higher costs.
+   *
+   * https://docs.aws.amazon.com/autoscaling/ec2/userguide/capacity-rebalance.html
+   * https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/rebalance-recommendations.html
+   */
+  Boolean capacityRebalance
+
+  // Launch Template features:start
+  /**
+   * When set to true, the created server group will use a launch template instead of a launch configuration.
+   */
+  Boolean setLaunchTemplate = true
+
+  /**
+   * When set to true, the created server group will be configured with IMDSv2.
+   * This is a Launch Template only feature
+   * * https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
+   */
+  Boolean requireIMDSv2 = false
+
+  /**
+   * Associate an IPv6 address
+   * This is a Launch Template only feature
+   */
+  Boolean associateIPv6Address
+
+  /**
+   * Applicable only for burstable performance instance types like t2/t3.
+   * * set to null when not applicable / by default.
+   *
+   * The burstable performance instances in the created server group will have:
+   * * unlimited CPU credits, when set to true
+   * * standard CPU credits, when set to false
+   * https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode.html
+   *
+   * This is a Launch Template only feature.
+   */
+  Boolean unlimitedCpuCredits
+
+  /**
+   * When set to true, the created server group will be configured with Nitro Enclaves enabled
+   * This is a Launch Template only feature
+   * * https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave.html
+   */
+  Boolean enableEnclave
+
+  /**
    * Launch template placement details, see {@link com.amazonaws.services.ec2.model.LaunchTemplatePlacementRequest}.
    */
   LaunchTemplatePlacement placement
@@ -141,6 +158,109 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
    * Launch template license specifications, see {@link com.amazonaws.services.ec2.model.LaunchTemplateLicenseConfigurationRequest}.
    */
   List<LaunchTemplateLicenseSpecification> licenseSpecifications
+
+  /**
+   * Indicates how to allocate instance types to fulfill On-Demand capacity.
+   * https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-purchase-options.html#asg-allocation-strategies
+   * default: prioritized, use LaunchTemplateOverridesForInstanceType#priority to define the launch priority of each instance type.
+   */
+  String onDemandAllocationStrategy
+
+  /** The minimum amount of the Auto Scaling group's capacity that must be fulfilled by On-Demand Instances.
+   * If weights are specified for the instance types in the overrides,
+   * set the value of OnDemandBaseCapacity in terms of the number of capacity units, and not number of instances.
+   * default: 0
+   */
+  Integer onDemandBaseCapacity
+
+  /**
+   * The percentages of On-Demand Instances and Spot Instances for additional capacity beyond OnDemandBaseCapacity
+   * default: 100, i.e. only On-Demand instances
+   */
+  Integer onDemandPercentageAboveBaseCapacity
+
+  /**
+   * Indicates how to allocate instances across Spot Instance pools.
+   * https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-purchase-options.html#asg-allocation-strategies
+   * For strategies like '*prioritized', use LaunchTemplateOverridesForInstanceType#priority to define the launch priority of each instance type.
+   * default: lowest-price
+   */
+  String spotAllocationStrategy
+
+  /**
+   * The number of Spot Instance pools across which to allocate Spot Instances. The Spot pools are determined from the different instance types in the overrides.
+   * default: 2, only applicable with 'lowest-price' spotAllocationStrategy
+   * limits: 1 to 20
+   */
+  Integer spotInstancePools
+
+  /**
+   * The maximum price per unit hour that the user is willing to pay for a Spot Instance.
+   * default: On-Demand price for the configuration
+   */
+  String spotPrice
+
+  /**
+   * A list of parameters to override corresponding parameters in the launch template.
+   * limits:
+   * * instances that can be associated with an ASG: 40
+   * * distinct launch templates that can be associated with an ASG: 20
+   */
+  List<LaunchTemplateOverridesForInstanceType> launchTemplateOverridesForInstanceType
+
+  static Set<String> getLaunchTemplateOnlyFieldNames() {
+    return ["requireIMDSv2", "associateIPv6Address", "unlimitedCpuCredits",
+            "placement", "licenseSpecifications", "onDemandAllocationStrategy",
+            "onDemandBaseCapacity", "onDemandPercentageAboveBaseCapacity", "spotAllocationStrategy",
+            "spotInstancePools", "launchTemplateOverridesForInstanceType", "enableEnclave"].toSet()
+  }
+
+  static Set<String> getMixedInstancesPolicyFieldNames() {
+    return ["onDemandAllocationStrategy", "onDemandBaseCapacity", "onDemandPercentageAboveBaseCapacity",
+            "spotAllocationStrategy", "spotInstancePools", "launchTemplateOverridesForInstanceType"].toSet()
+  }
+
+  /**
+   * Get all instance types in description.
+   *
+   * Why does this method exist?
+   *      When launchTemplateOverrides are specified, either the overrides or instanceType is used,
+   *      but all instance type inputs are returned by this method.
+   * When is this method used?
+   *      Used primarily for validation purposes, to ensure all instance types in request are compatible with
+   *      other validated configuration parameters (to prevent ambiguity).
+   *
+   * @return all instance type(s)
+   */
+  Set<String> getAllInstanceTypes() {
+    Set<String> instanceTypes = [instanceType]
+    if (launchTemplateOverridesForInstanceType) {
+      launchTemplateOverridesForInstanceType.each {
+        instanceTypes << it.instanceType
+      }
+    }
+    return instanceTypes
+  }
+
+  /**
+   * Get allowed instance types in description. These are the instance types that an ASG can realistically launch.
+   *
+   * Why does this method exist?
+   *      If launchTemplateOverrides are specified, they will override the same properties in launch template e.g. instanceType
+   *      https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_LaunchTemplate.html.
+   * When is this method used?
+   *      Used for functional purposes and when the result is used for further actions like deriving certain defaults, whether to allow modifying cpu credit spec or not.
+   *
+   * @return allowed instance type(s)
+   */
+  Set<String> getAllowedInstanceTypes() {
+    if (launchTemplateOverridesForInstanceType) {
+      launchTemplateOverridesForInstanceType.collect{ it.instanceType }.toSet()
+    } else {
+      Collections.singleton(instanceType)
+    }
+  }
+ // Launch Template features:end
 
   @Override
   Collection<String> getApplications() {
@@ -177,5 +297,89 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
   @Canonical
   static class LaunchTemplateLicenseSpecification {
     String arn
+  }
+
+  /**
+   * Support for multiple instance types.
+   * This class encapsulates configuration mapped to a particular instance type.
+   */
+  @Canonical
+  static class LaunchTemplateOverridesForInstanceType {
+    /**
+     * An instance type that is supported in the requested region and availability zone.
+     * Required field when instanceTypeConfigOverrides is used.
+     */
+    String instanceType
+
+    /**
+     * The number of capacity units provided by {@link #instanceType} in terms of virtual CPUs, memory, storage, throughput, or other relative performance characteristic.
+     * When an instance of type {@link #instanceType} is provisioned, it's capacity units count toward the desired capacity.
+     */
+    String weightedCapacity
+
+    /**
+     * Optional priority for instance type.
+     * Valid values: integer > 0. Lower the number, higher the priority. If unset, the launch template override has the lowest priority.
+     * The order of instance types in the list of launch template overrides sent to AWS is set from highest to lowest priority.
+     *
+     * When to use?
+     *    Use when the order of instance types matter with '*prioritized' allocation strategies.
+     *    With OnDemandAllocationStrategy "prioritized", priority is used to determine which launch template override to use first in fulfilling On-Demand capacity.
+     *    With SpotAllocationStrategy "capacity-optimized-prioritized", priority is used on a best-effort basis to determine which launch template override to use first in fulfilling Spot capacity, but AWS optimizes for capacity first.
+     *
+     * Example:
+     * In the example below, the bigger instance type is prioritized over the smaller type. The integer priority is used to transform unordered list to an ordered list.
+     *
+     * LaunchTemplateOverridesForInstanceType[               ------>               LaunchTemplateOverrides[
+     * {                                                                           {
+     *    "instanceType": "c5.large",                                                   "instanceType": "c5.XLARGE",
+     *    "weightedCapacity": 2,                                                        "weightedCapacity": 4,
+     *    "priority": 2                                                            },
+     * },                                                                          {
+     * {                                                                                "instanceType": "c5.large",
+     *    "instanceType": "c5.XLARGE",                                                  "weightedCapacity": 2,
+     *    "weightedCapacity": 4,                                                   }
+     *    "priority": 1                                                            ],
+     * },                                                                          {
+     * {                                                                                "instanceType": "c4.large",
+     *    "instanceType": "c4.large",                                                   "weightedCapacity": 2,
+     *    "weightedCapacity": 2                                                    ]
+     * }
+     * ]
+     */
+    Integer priority
+
+    LaunchTemplateOverridesForInstanceType() {}
+
+    private LaunchTemplateOverridesForInstanceType(Builder builder) {
+      instanceType = builder.instanceType
+      weightedCapacity = builder.weightedCapacity
+      priority = builder.priority
+    }
+
+    static class Builder {
+      String instanceType
+      String weightedCapacity
+      Integer priority
+
+      Builder instanceType(String instanceType) {
+        this.instanceType = instanceType
+        return this
+      }
+
+      Builder weightedCapacity(String weightedCapacity) {
+        this.weightedCapacity = weightedCapacity
+        return this
+      }
+
+      Builder priority(Integer priority) {
+        this.priority = priority
+        return this
+      }
+
+      LaunchTemplateOverridesForInstanceType build() {
+        return new LaunchTemplateOverridesForInstanceType(this)
+      }
+    }
   }
 }

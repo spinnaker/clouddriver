@@ -38,22 +38,11 @@ plugins {
 }
 
 allprojects {
-  repositories {
-    jcenter()
-  }
   apply plugin: 'io.spinnaker.project'
 }
 
 subprojects {
   group = "io.spinnaker.clouddriver"
-
-  configurations.all {
-    resolutionStrategy {
-      eachDependency {
-        if (it.requested.group.startsWith("com.fasterxml.jackson")) it.useVersion "2.11.1"
-      }
-    }
-  }
 
   if (name != "clouddriver-bom" && name != "clouddriver-api") {
     apply plugin: 'java-library'
@@ -66,7 +55,7 @@ subprojects {
     sourceSets.main.groovy.srcDirs += ["src/main/java"]
 
     dependencies {
-      implementation platform("io.spinnaker.kork:kork-bom:$korkVersion")
+      implementation enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
 
       annotationProcessor platform("io.spinnaker.kork:kork-bom:$korkVersion")
       annotationProcessor "org.projectlombok:lombok"

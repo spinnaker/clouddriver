@@ -179,6 +179,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.tags.get(1).value == 'tomato'
       request.launchType == null
       request.platformVersion == null
+      request.enableExecuteCommand == false
     }) >> new CreateServiceResult().withService(service)
 
     result.getServerGroupNames().size() == 1
@@ -244,7 +245,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       subnetType: 'public',
       securityGroupNames: ['helloworld'],
       associatePublicIpAddress: true,
-      serviceDiscoveryAssociations: [serviceRegistry]
+      serviceDiscoveryAssociations: [serviceRegistry],
+      enableExecuteCommand: true
     )
 
     def operation = new CreateServerGroupAtomicOperation(description)
@@ -308,6 +310,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.tags == []
       request.launchType == 'FARGATE'
       request.platformVersion == '1.0.0'
+      request.enableExecuteCommand == true
     } as CreateServiceRequest) >> new CreateServiceResult().withService(service)
 
     result.getServerGroupNames().size() == 1
@@ -1851,6 +1854,64 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     result.getTaskRoleArn() == null
     result.getFamily() == "v1-ecs-test"
     result.getExecutionRoleArn() == "arn:aws-us-gov:iam:123123123123:role/test-role"
+  }
+
+  def 'should return valid task def from spelProcessedArtifact'() {
+    given:
+    def credentials = Mock(NetflixAssumeRoleAmazonCredentials) {
+      getName() >> { "test" }
+      getRegions() >> { [new AmazonCredentials.AWSRegion('us-west-1', ['us-west-1a', 'us-west-1b'])] }
+      getAssumeRole() >> { 'arn:aws-us-gov:iam:123123123123:role/test-role' }
+      getAccountId() >> { 'test' }
+    }
+    def containerDef = createContainerDef()
+    def registerTaskDefRequest = createRegisterTaskDefRequest(containerDef)
+    def description = createDescription(null);
+    description.isEvaluateTaskDefinitionArtifactExpressions() >> true
+    Map<Object, Object> spelArtifactMap = new HashMap<>()
+    spelArtifactMap.put("family", "PLACEHOLDER")
+    description.getSpelProcessedTaskDefinitionArtifact() >> spelArtifactMap
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+    operation.mapper = objectMapper
+
+    objectMapper.convertValue(_,_) >> registerTaskDefRequest
+
+    when:
+    String ecsServiceRole = operation.inferAssumedRoleArn(credentials);
+    RegisterTaskDefinitionRequest result =
+      operation.makeTaskDefinitionRequestFromArtifact(ecsServiceRole, new EcsServerGroupName('v1-ecs-test-v001'))
+
+    then:
+    result.getTaskRoleArn() == null
+    result.getFamily() == "v1-ecs-test"
+    result.getExecutionRoleArn() == "arn:aws-us-gov:iam:123123123123:role/test-role"
+  }
+
+  def 'should fail for invalid task def from spelProcessedArtifact'() {
+    given:
+    def credentials = Mock(NetflixAssumeRoleAmazonCredentials) {
+      getName() >> { "test" }
+      getRegions() >> { [new AmazonCredentials.AWSRegion('us-west-1', ['us-west-1a', 'us-west-1b'])] }
+      getAssumeRole() >> { 'arn:aws-us-gov:iam:123123123123:role/test-role' }
+      getAccountId() >> { 'test' }
+    }
+
+    def description = createDescription(null);
+    description.isEvaluateTaskDefinitionArtifactExpressions() >> true
+    description.getSpelProcessedTaskDefinitionArtifact() >> null
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    String ecsServiceRole = operation.inferAssumedRoleArn(credentials);
+    RegisterTaskDefinitionRequest result =
+      operation.makeTaskDefinitionRequestFromArtifact(ecsServiceRole, new EcsServerGroupName('v1-ecs-test-v001'))
+
+    then:
+    IllegalArgumentException exception = thrown()
+    exception.message ==
+      "Task definition artifact can not be null"
   }
 
   def createResolvedArtifact (){

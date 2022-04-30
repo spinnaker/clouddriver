@@ -16,13 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.api;
 
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ApplicationEnv;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.InstanceStatus;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.MapRoute;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Page;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Application;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Package;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
 import java.util.List;
 import java.util.Map;
 import okhttp3.MultipartBody;
@@ -78,19 +75,6 @@ public interface ApplicationService {
   @DELETE("/v2/apps/{guid}/instances/{index}")
   Call<ResponseBody> deleteAppInstance(@Path("guid") String guid, @Path("index") String index);
 
-  @POST("/v3/processes/{guid}/actions/scale")
-  Call<ResponseBody> scaleApplication(
-      @Path("guid") String guid, @Body ScaleApplication scaleApplication);
-
-  @PATCH("/v3/processes/{guid}")
-  Call<Process> updateProcess(@Path("guid") String guid, @Body UpdateProcess updateProcess);
-
-  @GET("/v3/processes/{guid}")
-  Call<Process> findProcessById(@Path("guid") String guid);
-
-  @GET("/v3/processes/{guid}/stats")
-  Call<ProcessResources> findProcessStatsById(@Path("guid") String guid);
-
   @POST("/v3/apps")
   Call<Application> createApplication(@Body CreateApplication application);
 
@@ -121,4 +105,7 @@ public interface ApplicationService {
 
   @POST("/v2/apps/{guid}/restage")
   Call<ResponseBody> restageApplication(@Path("guid") String appGuid, @Body Object dummy);
+
+  @GET("/v2/apps/{guid}/service_bindings")
+  Call<Page<ServiceBinding>> getServiceBindings(@Path("guid") String appGuid);
 }

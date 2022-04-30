@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client;
 
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.*;
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.ErrorDescription.Code.NOT_AUTHORIZED;
 import static java.util.Arrays.asList;
 import static java.util.Collections.*;
 import static java.util.Optional.ofNullable;
@@ -31,9 +32,11 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.ApplicationServ
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ApplicationEnv;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.MapRoute;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceBinding;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Package;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
 import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
@@ -42,6 +45,7 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,6 +53,7 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
 import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
@@ -58,8 +63,9 @@ public class Applications {
   private final String metricsUri;
   private final ApplicationService api;
   private final Spaces spaces;
+  private final Processes processes;
   private final Integer resultsPerPage;
-
+  private final boolean onlySpinnakerManaged;
   private final ForkJoinPool forkJoinPool;
   private final LoadingCache<String, CloudFoundryServerGroup> serverGroupCache;
 
@@ -69,28 +75,43 @@ public class Applications {
       String metricsUri,
       ApplicationService api,
       Spaces spaces,
+      Processes processes,
       Integer resultsPerPage,
-      ForkJoinPool forkJoinPool) {
+      boolean onlySpinnakerManaged,
+      ForkJoinPool forkJoinPool,
+      CloudFoundryConfigurationProperties.LocalCacheConfig localCacheConfig) {
     this.account = account;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
     this.api = api;
     this.spaces = spaces;
+    this.processes = processes;
     this.resultsPerPage = resultsPerPage;
-
+    this.onlySpinnakerManaged = onlySpinnakerManaged;
     this.forkJoinPool = forkJoinPool;
+
+    CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder();
+    if (localCacheConfig.getApplicationsAccessExpirySeconds() >= 0) {
+      builder.expireAfterAccess(
+          localCacheConfig.getApplicationsAccessExpirySeconds(), TimeUnit.SECONDS);
+    }
+    if (localCacheConfig.getApplicationsWriteExpirySeconds() >= 0) {
+      builder.expireAfterWrite(
+          localCacheConfig.getApplicationsWriteExpirySeconds(), TimeUnit.SECONDS);
+    }
+
     this.serverGroupCache =
-        CacheBuilder.newBuilder()
-            .build(
-                new CacheLoader<String, CloudFoundryServerGroup>() {
-                  @Override
-                  public CloudFoundryServerGroup load(@Nonnull String guid)
-                      throws ResourceNotFoundException {
-                    return safelyCall(() -> api.findById(guid))
-                        .map(Applications.this::map)
-                        .orElseThrow(ResourceNotFoundException::new);
-                  }
-                });
+        builder.build(
+            new CacheLoader<>() {
+              @Override
+              public CloudFoundryServerGroup load(@Nonnull String guid)
+                  throws ResourceNotFoundException {
+                return safelyCall(() -> api.findById(guid))
+                    .map(Applications.this::map)
+                    .flatMap(sg -> sg)
+                    .orElseThrow(ResourceNotFoundException::new);
+              }
+            });
   }
 
   @Nullable
@@ -119,8 +140,13 @@ public class Applications {
         newCloudFoundryAppList.size(),
         this.account);
 
+    List<Application> cacheableApplications =
+        newCloudFoundryAppList.stream()
+            .filter(this::shouldCacheApplication)
+            .collect(Collectors.toUnmodifiableList());
+
     List<String> availableAppIds =
-        newCloudFoundryAppList.stream().map(Application::getGuid).collect(toList());
+        cacheableApplications.stream().map(Application::getGuid).collect(toList());
 
     long invalidatedServerGroups =
         serverGroupCache.asMap().keySet().parallelStream()
@@ -140,7 +166,7 @@ public class Applications {
       forkJoinPool
           .submit(
               () ->
-                  newCloudFoundryAppList.parallelStream()
+                  cacheableApplications.parallelStream()
                       .filter(
                           app -> {
                             CloudFoundryServerGroup cachedApp = findById(app.getGuid());
@@ -165,6 +191,8 @@ public class Applications {
                             }
                           })
                       .map(this::map)
+                      .filter(Optional::isPresent)
+                      .map(Optional::get)
                       .forEach(sg -> serverGroupCache.put(sg.getId(), sg)))
           .get();
 
@@ -173,7 +201,7 @@ public class Applications {
               () ->
                   // execute health check on instances, set number of available instances and health
                   // status
-                  newCloudFoundryAppList.parallelStream()
+                  cacheableApplications.parallelStream()
                       .forEach(
                           a ->
                               serverGroupCache.put(
@@ -188,16 +216,11 @@ public class Applications {
 
     for (CloudFoundryServerGroup serverGroup : serverGroupCache.asMap().values()) {
       Names names = Names.parseName(serverGroup.getName());
-      if (names.getCluster() == null) {
-        log.debug(
-            "Skipping app '{}' from foundation '{}' because the name isn't following the frigga naming schema.",
-            serverGroup.getName(),
-            this.account);
-        continue;
-      }
+
       serverGroupsByClusters
           .computeIfAbsent(names.getCluster(), clusterName -> new HashSet<>())
           .add(serverGroup);
+
       clustersByApps
           .computeIfAbsent(names.getApp(), appName -> new HashSet<>())
           .add(names.getCluster());
@@ -226,7 +249,15 @@ public class Applications {
   public CloudFoundryServerGroup findServerGroupByNameAndSpaceId(String name, String spaceId) {
     Optional<CloudFoundryServerGroup> result =
         safelyCall(() -> api.all(null, 1, singletonList(name), spaceId))
-            .flatMap(page -> page.getResources().stream().findFirst().map(this::map));
+            .flatMap(
+                page ->
+                    page.getResources().stream()
+                        .findFirst()
+                        .map(this::map)
+                        .orElseThrow(
+                            () ->
+                                new CloudFoundryApiException(
+                                    "Not authorized error retrieving details for this Server Group")));
     result.ifPresent(sg -> serverGroupCache.put(sg.getId(), sg));
     return result.orElse(null);
   }
@@ -248,6 +279,8 @@ public class Applications {
                             page.getResources().stream()
                                 .findFirst()
                                 .map(this::map)
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
                                 .map(
                                     serverGroup -> {
                                       serverGroupCache.put(serverGroup.getId(), serverGroup);
@@ -257,15 +290,51 @@ public class Applications {
                     .orElse(null));
   }
 
-  private CloudFoundryServerGroup map(Application application) {
+  private boolean shouldCacheApplication(Application application) {
+    Names names = Names.parseName(application.getName());
+
+    if (names.getCluster() == null) {
+      log.debug(
+          "Skipping app '{}' from foundation '{}' because the name isn't following the frigga naming schema.",
+          application.getName(),
+          this.account);
+      return false;
+    }
+
+    if (onlySpinnakerManaged && names.getSequence() == null) {
+      log.debug(
+          "Skipping app '{}' from foundation '{}' because onlySpinnakerManaged is true and it has no version.",
+          application.getName(),
+          this.account);
+      return false;
+    }
+
+    return true;
+  }
+
+  private Optional<CloudFoundryServerGroup> map(Application application) {
     CloudFoundryServerGroup.State state =
         CloudFoundryServerGroup.State.valueOf(application.getState());
 
     CloudFoundrySpace space = spaces.findById(application.getLinks().get("space").getGuid());
     String appId = application.getGuid();
-    ApplicationEnv applicationEnv =
-        safelyCall(() -> api.findApplicationEnvById(appId)).orElse(null);
-    Process process = safelyCall(() -> api.findProcessById(appId)).orElse(null);
+
+    ApplicationEnv applicationEnv;
+    try {
+      applicationEnv = safelyCall(() -> api.findApplicationEnvById(appId)).orElse(null);
+    } catch (CloudFoundryApiException e) {
+      // this happens when an account has access to a space but only has read only permissions
+      // catching this here to prevent all() from completely failing and breaking caching
+      // agents if one space in an account has permissions issues
+      if (e.getErrorCode() == NOT_AUTHORIZED) {
+        return Optional.empty();
+      }
+
+      // null is a valid value and is handled properly in this method
+      applicationEnv = null;
+    }
+
+    Process process = processes.findProcessById(appId).orElse(null);
 
     CloudFoundryDroplet droplet = null;
     try {
@@ -328,19 +397,36 @@ public class Applications {
                     vcap ->
                         vcap.getValue().stream()
                             .map(
-                                instance ->
-                                    CloudFoundryServiceInstance.builder()
-                                        .serviceInstanceName(vcap.getKey())
-                                        .name(instance.getName())
-                                        .plan(instance.getPlan())
-                                        .tags(instance.getTags())
-                                        .build()))
+                                instance -> {
+                                  CloudFoundryServiceInstance.CloudFoundryServiceInstanceBuilder
+                                      cloudFoundryServiceInstanceBuilder =
+                                          CloudFoundryServiceInstance.builder()
+                                              .serviceInstanceName(vcap.getKey())
+                                              .name(instance.getName())
+                                              .plan(instance.getPlan())
+                                              .tags(instance.getTags());
+                                  if (instance.getLastOperation() != null
+                                      && instance.getLastOperation().getState() != null) {
+                                    cloudFoundryServiceInstanceBuilder
+                                        .status(instance.getLastOperation().getState().toString())
+                                        .lastOperationDescription(
+                                            instance.getLastOperation().getDescription());
+                                  }
+                                  return cloudFoundryServiceInstanceBuilder.build();
+                                }))
                 .collect(toList());
 
     Map<String, Object> environmentVars =
         applicationEnv == null || applicationEnv.getEnvironmentJson() == null
             ? emptyMap()
             : applicationEnv.getEnvironmentJson();
+
+    // filter out environment variables that aren't Spinnaker metadata
+    // as these could contain secrets
+    environmentVars =
+        environmentVars.entrySet().stream()
+            .filter(e -> ServerGroupMetaDataEnvVar.contains(e.getKey()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     final CloudFoundryBuildInfo buildInfo = getBuildInfoFromEnvVars(environmentVars);
     final ArtifactInfo artifactInfo = getArtifactInfoFromEnvVars(environmentVars);
@@ -402,7 +488,7 @@ public class Applications {
             .updatedTime(application.getUpdatedAt().toInstant().toEpochMilli())
             .build();
 
-    return checkHealthStatus(cloudFoundryServerGroup, application);
+    return Optional.of(checkHealthStatus(cloudFoundryServerGroup, application));
   }
 
   private CloudFoundryServerGroup checkHealthStatus(
@@ -523,45 +609,11 @@ public class Applications {
                 api.createApplication(
                     new CreateApplication(appName, relationships, environmentVariables, lifecycle)))
         .map(this::map)
+        .flatMap(sg -> sg)
         .orElseThrow(
             () ->
                 new CloudFoundryApiException(
                     "Cloud Foundry signaled that application creation succeeded but failed to provide a response."));
-  }
-
-  public void scaleApplication(
-      String guid,
-      @Nullable Integer instances,
-      @Nullable Integer memInMb,
-      @Nullable Integer diskInMb)
-      throws CloudFoundryApiException {
-    if ((memInMb == null && diskInMb == null && instances == null)
-        || (Integer.valueOf(0).equals(memInMb)
-            && Integer.valueOf(0).equals(diskInMb)
-            && Integer.valueOf(0).equals(instances))) {
-      return;
-    }
-    safelyCall(
-        () -> api.scaleApplication(guid, new ScaleApplication(instances, memInMb, diskInMb)));
-  }
-
-  public void updateProcess(
-      String guid,
-      @Nullable String command,
-      @Nullable String healthCheckType,
-      @Nullable String healthCheckEndpoint)
-      throws CloudFoundryApiException {
-    final Process.HealthCheck healthCheck =
-        healthCheckType != null ? new Process.HealthCheck().setType(healthCheckType) : null;
-    if (healthCheckEndpoint != null && !healthCheckEndpoint.isEmpty() && healthCheck != null) {
-      healthCheck.setData(new Process.HealthCheckData().setEndpoint(healthCheckEndpoint));
-    }
-    if (command != null && command.isEmpty()) {
-      throw new IllegalArgumentException(
-          "Buildpack commands cannot be empty. Please specify a custom command or set it to null to use the original buildpack command.");
-    }
-
-    safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
   }
 
   public String createPackage(CreatePackage createPackageRequest) throws CloudFoundryApiException {
@@ -585,11 +637,9 @@ public class Applications {
   @Nonnull
   public InputStream downloadPackageBits(String packageGuid) throws CloudFoundryApiException {
     Optional<InputStream> optionalPackageInput =
-        safelyCall(() -> api.downloadPackage(packageGuid)).map(r -> r.byteStream());
-    InputStream packageInput =
-        optionalPackageInput.orElseThrow(
-            () -> new CloudFoundryApiException("Failed to retrieve input stream of package bits."));
-    return packageInput;
+        safelyCall(() -> api.downloadPackage(packageGuid)).map(ResponseBody::byteStream);
+    return optionalPackageInput.orElseThrow(
+        () -> new CloudFoundryApiException("Failed to retrieve input stream of package bits."));
   }
 
   public void uploadPackageBits(String packageGuid, File file) throws CloudFoundryApiException {
@@ -656,32 +706,11 @@ public class Applications {
         () -> api.setCurrentDroplet(appGuid, new ToOneRelationship(new Relationship(dropletGuid))));
   }
 
-  @Nullable
-  public ProcessStats.State getProcessState(String appGuid) throws CloudFoundryApiException {
-    return safelyCall(() -> api.findProcessStatsById(appGuid))
-        .map(
-            pr ->
-                pr.getResources().stream()
-                    .findAny()
-                    .map(ProcessStats::getState)
-                    .orElseGet(
-                        () ->
-                            safelyCall(() -> api.findById(appGuid))
-                                .filter(
-                                    application ->
-                                        CloudFoundryServerGroup.State.STARTED.equals(
-                                            CloudFoundryServerGroup.State.valueOf(
-                                                application.getState())))
-                                .map(appState -> ProcessStats.State.RUNNING)
-                                .orElse(ProcessStats.State.DOWN)))
-        .orElse(ProcessStats.State.DOWN);
-  }
-
   public List<Resource<com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Application>>
       getTakenSlots(String clusterName, String spaceId) {
     String finalName = buildFinalAsgName(clusterName);
     List<String> filter =
-        asList("name<" + finalName, "name>=" + clusterName, "space_guid:" + spaceId);
+        asList("name<=" + finalName, "name>=" + clusterName, "space_guid:" + spaceId);
     return collectPageResources("applications", page -> api.listAppsFiltered(page, filter, 10))
         .stream()
         .filter(
@@ -700,5 +729,23 @@ public class Applications {
 
   public void restageApplication(String appGuid) {
     safelyCall(() -> api.restageApplication(appGuid, ""));
+  }
+
+  public ProcessStats.State getAppState(String guid) {
+    return processes
+        .getProcessState(guid)
+        .orElseGet(
+            () ->
+                safelyCall(() -> api.findById(guid))
+                    .filter(
+                        application ->
+                            CloudFoundryServerGroup.State.STARTED.equals(
+                                CloudFoundryServerGroup.State.valueOf(application.getState())))
+                    .map(appState -> ProcessStats.State.RUNNING)
+                    .orElse(ProcessStats.State.DOWN));
+  }
+
+  public List<Resource<ServiceBinding>> getServiceBindingsByApp(String appGuid) {
+    return collectPageResources("service bindings", pg -> api.getServiceBindings(appGuid));
   }
 }

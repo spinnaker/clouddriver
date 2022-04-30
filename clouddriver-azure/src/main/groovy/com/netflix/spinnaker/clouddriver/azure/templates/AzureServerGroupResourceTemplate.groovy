@@ -33,12 +33,12 @@ package com.netflix.spinnaker.clouddriver.azure.templates
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.microsoft.azure.management.compute.ResourceIdentityType
 import com.microsoft.azure.management.compute.VirtualMachineScaleSetDataDisk
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancer
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription.AzureInboundPortConfig
-import com.microsoft.azure.management.compute.ResourceIdentityType
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -185,7 +185,7 @@ class AzureServerGroupResourceTemplate {
   static class ServerGroupTemplateParameters {
     LocationParameter location = new LocationParameter(["description": "Location to deploy"])
     SubnetParameter subnetId = new SubnetParameter(["description": "Subnet Resource ID"], "")
-    AppGatewayAddressPoolParameter appGatewayAddressPoolId = new AppGatewayAddressPoolParameter(["description": "App Gateway backend address pool resource ID"])
+    AppGatewayAddressPoolParameter appGatewayAddressPoolId = new AppGatewayAddressPoolParameter(["description": "App Gateway backend address pool resource ID"], "")
     VMUserNameParameter vmUserName = new VMUserNameParameter(["description": "Admin username on all VMs"], "")
     VMPasswordParameter vmPassword = new VMPasswordParameter(["description": "Admin password on all VMs"], "")
     VMSshPublicKeyParameter vmSshPublicKey = new VMSshPublicKeyParameter(["description": "SSH public key on all VMs"], "")
@@ -212,9 +212,9 @@ class AzureServerGroupResourceTemplate {
   }
 
   static String appGatewayAddressPoolParameterName = "appGatewayAddressPoolId"
-  static class AppGatewayAddressPoolParameter extends StringParameter {
-    AppGatewayAddressPoolParameter(Map<String, String> metadata) {
-      super(metadata)
+  static class AppGatewayAddressPoolParameter extends StringParameterWithDefault {
+    AppGatewayAddressPoolParameter(Map<String, String> metadata, String defaultValue) {
+      super(metadata, defaultValue)
     }
   }
 
@@ -412,14 +412,9 @@ class AzureServerGroupResourceTemplate {
       upgradePolicy["mode"] = description.upgradePolicy.toString()
       doNotRunExtensionsOnOverprovisionedVMs = description.doNotRunExtensionsOnOverprovisionedVMs
 
-      if (description.customScriptsSettings?.commandToExecute) {
-        Collection<String> uriTemp = description.customScriptsSettings.fileUris
-        if (!uriTemp || uriTemp.isEmpty() || (uriTemp.size() == 1 && !uriTemp.first()?.trim())) {
-
-          // if there are no custom scripts provided, set the fileUris section as an empty array.
-          description.customScriptsSettings.fileUris = []
-        }
-
+      // protocol is the only required setting in both scenarios
+      // https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-health-extension#settings
+      if (description.customScriptsSettings?.commandToExecute || description.healthSettings?.protocol) {
         virtualMachineProfile = new ScaleSetVMProfilePropertyWithExtension(description)
       }
       else {
@@ -607,6 +602,7 @@ class AzureServerGroupResourceTemplate {
    */
   static class NetworkInterfaceConfigurationProperty {
     boolean primary
+    boolean enableIpForwarding
     ArrayList<NetworkInterfaceIPConfiguration> ipConfigurations = []
 
     /**
@@ -615,6 +611,7 @@ class AzureServerGroupResourceTemplate {
      */
     NetworkInterfaceConfigurationProperty(AzureServerGroupDescription description) {
       primary = true
+      enableIpForwarding = description.enableIpForwarding
       ipConfigurations.add(new NetworkInterfaceIPConfiguration(description))
     }
   }
@@ -662,13 +659,17 @@ class AzureServerGroupResourceTemplate {
         subnet = new NetworkInterfaceIPConfigurationSubnet()
         loadBalancerBackendAddressPools.add(new ExistLoadBalancerBackendAddressPool())
         loadBalancerInboundNatPools.add(new ExistLoadBalancerInboundNatPoolId())
-      }else {
+      } else if (description.loadBalancerType == AzureLoadBalancer.AzureLoadBalancerType.AZURE_APPLICATION_GATEWAY.toString()) {
         subnet = new NetworkInterfaceIPConfigurationSubnet()
         if(description.enableInboundNAT) {
           loadBalancerBackendAddressPools.add(new LoadBalancerBackendAddressPool())
           loadBalancerInboundNatPools.add(new LoadBalancerInboundNatPoolId())
         }
         ApplicationGatewayBackendAddressPools.add(new AppGatewayBackendAddressPool())
+      } else if (description.loadBalancerType == null) {
+        subnet = new NetworkInterfaceIPConfigurationSubnet()
+      } else {
+        throw new RuntimeException("Load balancer type $description.loadBalancerType is not valid")
       }
     }
   }
@@ -839,31 +840,84 @@ class AzureServerGroupResourceTemplate {
 
   /**** VMSS extensionsProfile ****/
   static class ScaleSetExtensionProfileProperty {
-    Collection<Extensions> extensions = []
+    Collection<IExtensions> extensions = []
 
     ScaleSetExtensionProfileProperty(AzureServerGroupDescription description) {
-      extensions.add(new Extensions(description))
+      if (description.customScriptsSettings?.commandToExecute) {
+        Collection<String> uriTemp = description.customScriptsSettings.fileUris
+        if (!uriTemp || uriTemp.isEmpty() || (uriTemp.size() == 1 && !uriTemp.first()?.trim())) {
+
+          // if there are no custom scripts provided, set the fileUris section as an empty array.
+          description.customScriptsSettings.fileUris = []
+        }
+
+        extensions.add(new CustomScriptExtensions(description))
+      }
+
+      // protocol is the only required setting in both scenarios
+      // https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-health-extension#settings
+      if (description.healthSettings?.protocol) {
+        extensions.add(new HealthExtensions(description))
+      }
     }
   }
 
-  static class Extensions {
+  interface IExtensions {
     String name
-    ExtensionProperty properties
+    IExtensionProperty properties
+  }
 
-    Extensions(AzureServerGroupDescription description) {
-      name = description.application + "_ext"
-      properties = new ExtensionProperty(description)
+  static class HealthExtensions implements IExtensions {
+    String name
+    HealthExtensionProperty properties
+
+    HealthExtensions(AzureServerGroupDescription description) {
+      name = description.application + "_health_ext"
+      properties = new HealthExtensionProperty(description)
     }
   }
 
-  static class ExtensionProperty {
+  static class CustomScriptExtensions implements IExtensions {
+    String name
+    CustomStringExtensionProperty properties
+
+    CustomScriptExtensions(AzureServerGroupDescription description) {
+      name = description.application + "_ext"
+      properties = new CustomStringExtensionProperty(description)
+    }
+  }
+
+  interface IExtensionProperty {
+    String publisher
+    String type
+    String typeHandlerVersion // This will need to be updated every time the custom script extension major version is updated
+    Boolean autoUpgradeMinorVersion = true
+    IExtensionSettings settings
+  }
+
+  static class HealthExtensionProperty implements IExtensionProperty {
+    String publisher
+    String type
+    String typeHandlerVersion // This will need to be updated every time the custom script extension major version is updated
+    Boolean autoUpgradeMinorVersion = true
+    HealthExtensionSettings settings
+
+    HealthExtensionProperty(AzureServerGroupDescription description) {
+      settings = new HealthExtensionSettings(description)
+      publisher = AzureUtilities.AZURE_HEALTH_EXT_PUBLISHER
+      type = description.image?.ostype?.toLowerCase() == "linux" ? AzureUtilities.AZURE_HEALTH_EXT_TYPE_LINUX : AzureUtilities.AZURE_HEALTH_EXT_TYPE_WINDOWS
+      typeHandlerVersion = AzureUtilities.AZURE_HEALTH_EXT_VERSION
+    }
+  }
+
+  static class CustomStringExtensionProperty implements IExtensionProperty {
     String publisher
     String type
     String typeHandlerVersion // This will need to be updated every time the custom script extension major version is updated
     Boolean autoUpgradeMinorVersion = true
     CustomScriptExtensionSettings settings
 
-    ExtensionProperty(AzureServerGroupDescription description) {
+    CustomStringExtensionProperty(AzureServerGroupDescription description) {
       settings = new CustomScriptExtensionSettings(description)
       publisher = description.image?.ostype?.toLowerCase() == "linux" ? AzureUtilities.AZURE_CUSTOM_SCRIPT_EXT_PUBLISHER_LINUX : AzureUtilities.AZURE_CUSTOM_SCRIPT_EXT_PUBLISHER_WINDOWS
       type = description.image?.ostype?.toLowerCase() == "linux" ? AzureUtilities.AZURE_CUSTOM_SCRIPT_EXT_TYPE_LINUX: AzureUtilities.AZURE_CUSTOM_SCRIPT_EXT_TYPE_WINDOWS
@@ -871,7 +925,26 @@ class AzureServerGroupResourceTemplate {
     }
   }
 
-  static class CustomScriptExtensionSettings {
+  interface IExtensionSettings {}
+
+  static class HealthExtensionSettings implements IExtensionSettings {
+    String protocol
+    int port
+    String requestPath
+
+    HealthExtensionSettings(AzureServerGroupDescription description) {
+      protocol = description.healthSettings.protocol
+      try {
+        port = Integer.parseInt(description.healthSettings.port)
+      } catch (NumberFormatException ignored) {
+        port = 0
+        throw new IllegalArgumentException("healthSettings.port \"$description.healthSettings.port\" is not a valid integer")
+      }
+      requestPath = description.healthSettings.requestPath
+    }
+  }
+
+  static class CustomScriptExtensionSettings implements IExtensionSettings {
     Collection<String> fileUris
     String commandToExecute
 

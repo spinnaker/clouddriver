@@ -16,65 +16,93 @@
  */
 package com.netflix.spinnaker.clouddriver.kubernetes.config;
 
-import com.google.common.base.Strings;
-import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
-import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.Data;
 
 @Data
 public class KubernetesConfigurationProperties {
-  private static final int DEFAULT_CACHE_THREADS = 1;
-  private List<ManagedAccount> accounts = new ArrayList<>();
+  private KubernetesJobExecutorProperties jobExecutor = new KubernetesJobExecutorProperties();
+
+  /**
+   * flag to toggle loading namespaces for a k8s account. By default, it is enabled, i.e., set to
+   * true. Disabling it is meant primarily for making clouddriver start up faster, since no calls
+   * are made to the k8s cluster to load these namespaces for accounts that are newly added
+   */
+  private boolean loadNamespacesInAccount = true;
+
+  /** flag to toggle account health check. Defaults to true. */
+  private boolean verifyAccountHealth = true;
+
+  private Cache cache = new Cache();
 
   @Data
-  public static class ManagedAccount implements CredentialsDefinition {
-    private String name;
-    private String environment;
-    private String accountType;
-    private String context;
-    private String oAuthServiceAccount;
-    private List<String> oAuthScopes;
-    private String kubeconfigFile;
-    private String kubeconfigContents;
-    private String kubectlExecutable;
-    private Integer kubectlRequestTimeoutSeconds;
-    private boolean serviceAccount = false;
-    private List<String> namespaces = new ArrayList<>();
-    private List<String> omitNamespaces = new ArrayList<>();
-    private int cacheThreads = DEFAULT_CACHE_THREADS;
-    private List<String> requiredGroupMembership = new ArrayList<>();
-    private Permissions.Builder permissions = new Permissions.Builder();
-    private String namingStrategy = "kubernetesAnnotations";
-    private boolean debug = false;
-    private boolean metrics = true;
-    private boolean checkPermissionsOnStartup = true;
-    private List<CustomKubernetesResource> customResources = new ArrayList<>();
-    private List<KubernetesCachingPolicy> cachingPolicies = new ArrayList<>();
-    private List<String> kinds = new ArrayList<>();
-    private List<String> omitKinds = new ArrayList<>();
-    private boolean onlySpinnakerManaged = false;
-    private Long cacheIntervalSeconds;
-    private boolean cacheAllApplicationRelationships = false;
-    private RawResourcesEndpointConfig rawResourcesEndpointConfig =
-        new RawResourcesEndpointConfig();
+  public static class KubernetesJobExecutorProperties {
+    private Retries retries = new Retries();
 
-    public void validate() {
-      if (Strings.isNullOrEmpty(name)) {
-        throw new IllegalArgumentException("Account name for Kubernetes provider missing.");
-      }
+    @Data
+    public static class Retries {
+      // flag to turn on/off kubectl retry on errors capability.
+      private boolean enabled = false;
 
-      if (!omitNamespaces.isEmpty() && !namespaces.isEmpty()) {
-        throw new IllegalArgumentException(
-            "At most one of 'namespaces' and 'omitNamespaces' can be specified");
-      }
+      // total number of attempts that are made to complete a kubectl call
+      int maxAttempts = 3;
 
-      if (!omitKinds.isEmpty() && !kinds.isEmpty()) {
-        throw new IllegalArgumentException(
-            "At most one of 'kinds' and 'omitKinds' can be specified");
-      }
-      rawResourcesEndpointConfig.validate();
+      // time in ms to wait before subsequent retry attempts
+      long backOffInMs = 5000;
+
+      // list of error strings on which to retry since kubectl binary returns textual error messages
+      // back
+      List<String> retryableErrorMessages = List.of("TLS handshake timeout");
+
+      // flag to enable exponential backoff - only applicable when enableRetries: true
+      boolean exponentialBackoffEnabled = false;
+
+      // only applicable when exponentialBackoff = true
+      int exponentialBackoffMultiplier = 2;
+
+      // only applicable when exponentialBackoff = true
+      long exponentialBackOffIntervalMs = 10000;
     }
+  }
+
+  @Data
+  public static class Cache {
+
+    /** Whether caching is enabled in the kubernetes provider. */
+    private boolean enabled = true;
+
+    /**
+     * Whether to cache all kubernetes kinds or not. If this value is "true", the setting
+     * "cacheKinds" is ignored.
+     */
+    private boolean cacheAll = false;
+
+    /**
+     * Only cache the kubernetes kinds in this list. If not configured, only the kinds that show in
+     * Spinnaker's classic infrastructure screens are cached, which are the ones mapped to the
+     * following Spinnaker's kinds: <br>
+     * - SERVER_GROUP_MANAGERS <br>
+     * - SERVER_GROUPS <br>
+     * - INSTANCES <br>
+     * - LOAD_BALANCERS <br>
+     * - SECURITY_GROUPS
+     *
+     * <p>Names are in {kind.group} format, where the group is optional for core kinds. Example:
+     * <br>
+     * cacheKinds: <br>
+     * - deployment.apps <br>
+     * - replicaSet <br>
+     * - pod <br>
+     * - myCustomKind.my.group
+     *
+     * <p>If the setting {@link Cache#cacheAll} is true, this setting is ignored.
+     */
+    private List<String> cacheKinds = null;
+
+    /**
+     * Do not cache the kinds in this list. The format of the list is the same as {@link
+     * Cache#cacheKinds}
+     */
+    private List<String> cacheOmitKinds = null;
   }
 }
