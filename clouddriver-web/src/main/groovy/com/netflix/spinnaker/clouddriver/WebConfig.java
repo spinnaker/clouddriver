@@ -76,8 +76,14 @@ public class WebConfig extends WebMvcConfigurerAdapter {
   }
 
   @Bean
-  FilterRegistrationBean authenticatedRequestFilter() {
-    FilterRegistrationBean frb = new FilterRegistrationBean(new AuthenticatedRequestFilter(true));
+  AuthenticatedRequestFilter authenticatedRequestFilter() {
+    return new AuthenticatedRequestFilter(true);
+  }
+
+  @Bean
+  FilterRegistrationBean authenticatedRequestFilterRegistrationBean(
+      AuthenticatedRequestFilter authenticatedRequestFilter) {
+    FilterRegistrationBean frb = new FilterRegistrationBean(authenticatedRequestFilter);
     frb.setOrder(Ordered.HIGHEST_PRECEDENCE);
     return frb;
   }
