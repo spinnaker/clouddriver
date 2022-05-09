@@ -14,19 +14,15 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.model
+package com.netflix.spinnaker.clouddriver.model;
 
-interface CloudMetricStatistics<T extends CloudMetricDatapoint> {
-  /**
-   * Unit of measurement for all datapoints; should be the plural form of the unit if applicable,
-   * e.g. "Bytes", "Percent", "Kilobytes/Second"
-   */
-  String unit
+/**
+ * Describes a metric reported by a cloud provider.
+ *
+ * <p>Implementations should add any fields necessary to uniquely identify a particular metric; for
+ * example, AWS supplies a "namespace" field, as well as a collection of "dimensions"
+ */
+interface CloudMetricDescriptor {
 
-  /**
-   * List of statistical datapoints; at least one statistic (average, sum, sampleCount, minimum, maximum) should be
-   * populated, as well as the timestamp
-   */
-  List<T> datapoints
-
+  String getName();
 }

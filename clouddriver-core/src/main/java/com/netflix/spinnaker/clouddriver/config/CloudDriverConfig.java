@@ -196,7 +196,7 @@ class CloudDriverConfig {
   @ConditionalOnMissingBean(AccountCredentialsProvider.class)
   AccountCredentialsProvider accountCredentialsProvider(
       AccountCredentialsRepository accountCredentialsRepository,
-      CompositeCredentialsRepository<AccountCredentials> compositeRepository) {
+      CompositeCredentialsRepository<AccountCredentials<?>> compositeRepository) {
     return new DefaultAccountCredentialsProvider(accountCredentialsRepository, compositeRepository);
   }
 
