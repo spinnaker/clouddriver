@@ -18,7 +18,7 @@ package com.netflix.spinnaker.clouddriver.model;
 
 import java.util.List;
 
-interface CloudMetricStatistics<T extends CloudMetricDatapoint> {
+public interface CloudMetricStatistics<T extends CloudMetricDatapoint> {
   /**
    * Unit of measurement for all datapoints; should be the plural form of the unit if applicable,
    * e.g. "Bytes", "Percent", "Kilobytes/Second"
