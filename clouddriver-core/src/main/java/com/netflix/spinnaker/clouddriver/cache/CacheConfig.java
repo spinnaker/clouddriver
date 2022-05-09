@@ -55,8 +55,7 @@ public class CacheConfig {
   @ConditionalOnMissingBean(AgentScheduler.class)
   @ConditionalOnProperty(value = "caching.write-enabled", matchIfMissing = true)
   AgentScheduler agentScheduler() {
-    new DefaultAgentScheduler(60, TimeUnit.SECONDS);
-    return null;
+    return new DefaultAgentScheduler(60, TimeUnit.SECONDS);
   }
 
   @Bean
