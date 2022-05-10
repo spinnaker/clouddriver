@@ -22,17 +22,21 @@ import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue;
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueueConfiguration;
 import com.netflix.spinnaker.filters.AuthenticatedRequestFilter;
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
+import com.netflix.spinnaker.kork.web.context.MdcCopyingAsyncTaskExecutor;
 import com.netflix.spinnaker.kork.web.interceptors.MetricsInterceptor;
 import java.util.List;
 import javax.servlet.Filter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.ShallowEtagHeaderFilter;
+import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.ContentNegotiationConfigurer;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
@@ -47,9 +51,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter
 @EnableConfigurationProperties({CredentialsConfiguration.class, RequestQueueConfiguration.class})
 public class WebConfig extends WebMvcConfigurerAdapter {
   private final Registry registry;
+  private final AsyncTaskExecutor asyncTaskExecutor;
 
-  public WebConfig(Registry registry) {
+  @Autowired
+  public WebConfig(Registry registry, AsyncTaskExecutor asyncTaskExecutor) {
     this.registry = registry;
+    this.asyncTaskExecutor = asyncTaskExecutor;
   }
 
   @Override
@@ -94,5 +101,10 @@ public class WebConfig extends WebMvcConfigurerAdapter {
         .defaultContentType(MediaType.APPLICATION_JSON_UTF8)
         .favorPathExtension(false)
         .ignoreAcceptHeader(true);
+  }
+
+  @Override
+  public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
+    configurer.setTaskExecutor(new MdcCopyingAsyncTaskExecutor(asyncTaskExecutor));
   }
 }

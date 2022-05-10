@@ -114,7 +114,6 @@ public class ArtifactControllerSpec {
         .andExpect(content().string(is(emptyString())));
 
     List<String> userMessages = memoryAppender.layoutSearch("[" + userValue + "]", Level.DEBUG);
-    // Note: this test currently fails
     assertThat(userMessages).hasSize(1);
   }
 
