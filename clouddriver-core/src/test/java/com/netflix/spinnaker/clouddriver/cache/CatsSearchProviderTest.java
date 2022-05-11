@@ -32,7 +32,8 @@ public class CatsSearchProviderTest {
   private final ApplicationContextRunner runner =
       new ApplicationContextRunner()
           .withPropertyValues("caching.write-enabled=false", "redis.enabled:false")
-          .withConfiguration(UserConfigurations.of(CacheConfig.class, TestConfiguration.class));
+          .withConfiguration(UserConfigurations.of(CacheConfig.class, TestConfiguration.class))
+          .withAllowBeanDefinitionOverriding(true);
 
   @Test
   void testCatsSearchProviderBeanIsPresentByDefault() {
