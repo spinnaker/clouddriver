@@ -110,7 +110,7 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
                 parameters,
                 tags,
                 description.getCapabilities(),
-                notificationArns);
+                notificationARNs);
       } else {
         log.info("Creating new stack: {}", description);
         stackId =
