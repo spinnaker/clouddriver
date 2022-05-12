@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.netflix.spinnaker.clouddriver.kubernetes.it.containers.KubernetesCluster;
 import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
@@ -37,6 +38,7 @@ import java.io.UncheckedIOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -186,7 +188,13 @@ public abstract class KubeTestUtils {
       KubeTestUtils.repeatUntilTrue(
           () -> {
             String url =
-                baseUrl + "/manifests/" + ACCOUNT1_NAME + "/" + targetNs + "/" + objectName;
+                baseUrl
+                    + "/manifests/"
+                    + ACCOUNT1_NAME
+                    + "/"
+                    + (targetNs.isBlank() ? "default" : targetNs)
+                    + "/"
+                    + objectName;
             System.out.println("GET " + url);
             Response respWait = given().queryParam("includeEvents", false).get(url);
             JsonPath jsonPath = respWait.jsonPath();
@@ -216,7 +224,106 @@ public abstract class KubeTestUtils {
   public static List<String> sendOperation(
       String baseUrl, List<Map<String, Object>> reqBody, String targetNs)
       throws InterruptedException {
+    return sendOperation(baseUrl, reqBody, targetNs, 30, TimeUnit.SECONDS);
+  }
 
+  public static List<String> sendOperation(
+      String baseUrl,
+      List<Map<String, Object>> reqBody,
+      String targetNs,
+      long duration,
+      TimeUnit unit)
+      throws InterruptedException {
+
+    String taskId = submitOperation(baseUrl, reqBody);
+
+    List<String> deployedObjectNames = new ArrayList<>();
+    processOperation(
+        baseUrl,
+        taskId,
+        duration,
+        unit,
+        (Response respTask) -> {
+          respTask.then().body("status.failed", is(false));
+          deployedObjectNames.addAll(
+              respTask
+                  .jsonPath()
+                  .getList(
+                      "resultObjects.manifestNamesByNamespace."
+                          + (targetNs.isBlank() ? "''" : targetNs)
+                          + ".flatten()",
+                      String.class));
+        });
+
+    return deployedObjectNames;
+  }
+
+  public static String sendOperationExpectFailure(
+      String baseUrl,
+      List<Map<String, Object>> reqBody,
+      String targetNs,
+      long duration,
+      TimeUnit unit)
+      throws InterruptedException {
+    String taskId = submitOperation(baseUrl, reqBody);
+
+    // The last status is most interesting, but a single String isn't
+    // effectively final and so can't be used in a lambda.  So, use a list.  Any
+    // kind of wrapper object would do.
+    List<String> status = new ArrayList<>();
+    processOperation(
+        baseUrl,
+        taskId,
+        duration,
+        unit,
+        (Response respTask) -> {
+          respTask.then().body("status.failed", is(true));
+          status.add(respTask.jsonPath().getString("status.status"));
+        });
+
+    // Return the status to the caller so it's possible to assert on it.
+    return Iterables.getOnlyElement(status);
+  }
+
+  /** Wait until a task has completed, calling a consumer with the response once it has. */
+  public static void processOperation(
+      String baseUrl, String taskId, long duration, TimeUnit unit, Consumer<Response> consumer)
+      throws InterruptedException {
+    System.out.println("> Waiting for task to complete");
+    long start = System.currentTimeMillis();
+
+    // So it's possible to capture the Response from the lambda passed to
+    // repeatUntilTrue, uese a wrapper.  List is an arbitrary choice.
+    List<Response> respList = new ArrayList();
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          Response respTask = getTask(baseUrl, taskId);
+          if (respTask == null) {
+            return false;
+          }
+          respList.add(respTask);
+          return true;
+        },
+        duration,
+        unit,
+        "Waited "
+            + duration
+            + " "
+            + unit
+            + " on GET /task/{id} to return \"status.completed: true\"");
+    System.out.println(
+        "< Task completed in " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
+
+    consumer.accept(Iterables.getOnlyElement(respList));
+  }
+
+  /**
+   * Submit an operation to clouddriver
+   *
+   * @return the task id
+   */
+  public static String submitOperation(String baseUrl, List<Map<String, Object>> reqBody) {
     String url = baseUrl + "/kubernetes/ops";
     System.out.println("POST " + url);
     Response resp =
@@ -224,37 +331,30 @@ public abstract class KubeTestUtils {
     System.out.println(resp.asString());
     resp.then().statusCode(200);
     System.out.println("< Completed in " + resp.getTimeIn(TimeUnit.SECONDS) + " seconds");
-    String taskId = resp.jsonPath().get("id");
+    return resp.jsonPath().get("id");
+  }
 
-    System.out.println("> Waiting for task to complete");
-    long start = System.currentTimeMillis();
-    List<String> deployedObjectNames = new ArrayList<>();
-    KubeTestUtils.repeatUntilTrue(
-        () -> {
-          String taskUrl = baseUrl + "/task/" + taskId;
-          System.out.println("GET " + taskUrl);
-          Response respTask = given().get(taskUrl);
-          if (respTask.statusCode() == 404) {
-            return false;
-          }
-          respTask.then().statusCode(200);
-          System.out.println(respTask.jsonPath().getObject("status", Map.class));
-          respTask.then().body("status.failed", is(false));
-          deployedObjectNames.clear();
-          deployedObjectNames.addAll(
-              respTask
-                  .jsonPath()
-                  .getList(
-                      "resultObjects.manifestNamesByNamespace." + targetNs + ".flatten()",
-                      String.class));
-          return respTask.jsonPath().getBoolean("status.completed");
-        },
-        30,
-        TimeUnit.SECONDS,
-        "Waited 30 seconds on GET /task/{id} to return \"status.completed: true\"");
-    System.out.println(
-        "< Task completed in " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
-    return deployedObjectNames;
+  /**
+   * Get a task from clouddriver
+   *
+   * @return the response from the get task method, if the task has completed, or null if the task
+   *     was not found, or the task hasn't completed yet.
+   */
+  public static Response getTask(String baseUrl, String taskId) {
+    String taskUrl = baseUrl + "/task/" + taskId;
+    System.out.println("GET " + taskUrl);
+    Response respTask = given().get(taskUrl);
+    if (respTask.statusCode() == 404) {
+      return null;
+    }
+    respTask.then().statusCode(200);
+    System.out.println(respTask.jsonPath().getObject("status", Map.class));
+
+    if (!respTask.jsonPath().getBoolean("status.completed")) {
+      return null;
+    }
+
+    return respTask;
   }
 
   @SuppressWarnings("unchecked")
