@@ -16,14 +16,23 @@
 package com.netflix.spinnaker.clouddriver.alicloud.provider;
 
 import static com.netflix.spinnaker.clouddriver.alicloud.cache.Keys.Namespace.SECURITY_GROUPS;
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.*;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.INSTANCES;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.LOAD_BALANCERS;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.SERVER_GROUPS;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.TARGET_GROUPS;
 
 import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.agent.AgentSchedulerAware;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.cache.SearchableProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @ConditionalOnProperty("alicloud.enabled")
@@ -49,7 +58,7 @@ public class AliProvider extends AgentSchedulerAware implements SearchableProvid
   }
 
   final Set<String> defaultCaches =
-      new HashSet<String>() {
+      new HashSet<>() {
         {
           add(LOAD_BALANCERS.ns);
           add(CLUSTERS.ns);
@@ -61,7 +70,7 @@ public class AliProvider extends AgentSchedulerAware implements SearchableProvid
       };
 
   final Map<String, String> urlMappingTemplates =
-      new HashMap<String, String>() {
+      new HashMap<>() {
         {
           put(
               SERVER_GROUPS.ns,
@@ -72,7 +81,7 @@ public class AliProvider extends AgentSchedulerAware implements SearchableProvid
         }
       };
 
-  final Map<SearchableResource, SearchResultHydrator> searchResultHydrators =
+  final Map<SearchableResource, SearchableProvider.SearchResultHydrator> searchResultHydrators =
       Collections.emptyMap();
 
   @Override

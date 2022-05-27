@@ -1,0 +1,32 @@
+{
+  "loadBalancerId": "lb-bp14zp0z9a14keun50qed",
+  "loadBalancerName": "test-loadBalancerName",
+  "loadBalancerStatus": "active",
+  "address": "172.16.6.153",
+  "addressType": "intranet",
+  "regionId": "cn-hangzhou",
+  "regionIdAlias": "cn-hangzhou",
+  "vSwitchId": "vsw-bp1ov7as4qoh1b7qrhgpq",
+  "vpcId": "vpc-bp1v8dqu75hsxns2vh4l0",
+  "networkType": "vpc",
+  "masterZoneId": "cn-hangzhou-g",
+  "slaveZoneId": "cn-hangzhou-b",
+  "internetChargeType": "4",
+  "createTime": "2022-04-07T17:39Z",
+  "createTimeStamp": 1649324396000,
+  "payType": "PayOnDemand",
+  "resourceGroupId": "rg-acfmwvvtg5owavy",
+  "addressIPVersion": "ipv4",
+  "tags": [
+    {
+      "tagKey": "ack.aliyun.com",
+      "tagValue": "ca6a8ff0dd3c4471fb22b0b308afdbae7"
+    }
+  ]
+}
+
+
+
+
+
+

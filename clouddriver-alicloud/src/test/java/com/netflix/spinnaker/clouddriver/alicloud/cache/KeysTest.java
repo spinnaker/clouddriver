@@ -15,7 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.alicloud.cache;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
@@ -28,35 +28,35 @@ public class KeysTest {
   public void testGetLoadBalancerKey() {
     String key = "alicloud:loadBalancers:test-account:cn-test:test-loadBalancer";
     String loadBalancerKey = Keys.getLoadBalancerKey("test-loadBalancer", ACCOUNT, REGION, null);
-    assertTrue(key.equals(loadBalancerKey));
+    assertEquals(key, loadBalancerKey);
   }
 
   @Test
   public void testGetSubnetKey() {
     String key = "alicloud:subnets:test-account:cn-test:test-vswitchId";
     String subnetKey = Keys.getSubnetKey("test-vswitchId", REGION, ACCOUNT);
-    assertTrue(key.equals(subnetKey));
+    assertEquals(key, subnetKey);
   }
 
   @Test
   public void testGetImageKey() {
     String key = "alicloud:images:test-account:cn-test:test-imageId";
     String imageKey = Keys.getImageKey("test-imageId", ACCOUNT, REGION);
-    assertTrue(key.equals(imageKey));
+    assertEquals(key, imageKey);
   }
 
   @Test
   public void testGetNamedImageKey() {
     String key = "alicloud:namedImages:test-account:test-imageName";
     String namedImageKey = Keys.getNamedImageKey(ACCOUNT, "test-imageName");
-    assertTrue(key.equals(namedImageKey));
+    assertEquals(key, namedImageKey);
   }
 
   @Test
   public void testGetInstanceTypeKey() {
     String key = "alicloud:instanceTypes:test-account:cn-test:test-zoneId";
     String instanceTypeKey = Keys.getInstanceTypeKey(ACCOUNT, REGION, "test-zoneId");
-    assertTrue(key.equals(instanceTypeKey));
+    assertEquals(key, instanceTypeKey);
   }
 
   @Test
@@ -66,48 +66,48 @@ public class KeysTest {
     String securityGroupKey =
         Keys.getSecurityGroupKey(
             "test-SecurityGroupName", "test-SecurityGroupId", REGION, ACCOUNT, null);
-    assertTrue(key.equals(securityGroupKey));
+    assertEquals(key, securityGroupKey);
   }
 
   @Test
   public void testGetKeyPairKey() {
     String key = "alicloud:aliCloudKeyPairs:test-KeyPair:test-account:cn-test";
     String keyPairKey = Keys.getKeyPairKey("test-KeyPair", REGION, ACCOUNT);
-    assertTrue(key.equals(keyPairKey));
+    assertEquals(key, keyPairKey);
   }
 
   @Test
   public void testGetServerGroupKey() {
     String key = "alicloud:serverGroups:Spin63-test-ali:test-account:cn-test:Spin63-test-ali";
     String serverGroupKey = Keys.getServerGroupKey("Spin63-test-ali", ACCOUNT, REGION);
-    assertTrue(key.equals(serverGroupKey));
+    assertEquals(key, serverGroupKey);
   }
 
   @Test
   public void testGetApplicationKey() {
     String key = "alicloud:applications:test-application";
     String applicationKey = Keys.getApplicationKey("test-Application");
-    assertTrue(key.equals(applicationKey));
+    assertEquals(key, applicationKey);
   }
 
   @Test
   public void testGetClusterKey() {
     String key = "alicloud:clusters:test-application:test-account:test-Cluster";
     String clusterKey = Keys.getClusterKey("test-Cluster", "test-Application", ACCOUNT);
-    assertTrue(key.equals(clusterKey));
+    assertEquals(key, clusterKey);
   }
 
   @Test
   public void testGetLaunchConfigKey() {
     String key = "alicloud:launchConfigs:test-account:cn-test:test-LaunchConfigName";
     String launchConfigKey = Keys.getLaunchConfigKey("test-LaunchConfigName", ACCOUNT, REGION);
-    assertTrue(key.equals(launchConfigKey));
+    assertEquals(key, launchConfigKey);
   }
 
   @Test
   public void testGetInstanceKey() {
     String key = "alicloud:instances:test-account:cn-test:test-instanceId";
     String instanceKey = Keys.getInstanceKey("test-instanceId", ACCOUNT, REGION);
-    assertTrue(key.equals(instanceKey));
+    assertEquals(key, instanceKey);
   }
 }

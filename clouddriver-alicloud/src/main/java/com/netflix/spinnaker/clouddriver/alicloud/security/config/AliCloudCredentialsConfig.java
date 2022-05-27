@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.alicloud.security;
+package com.netflix.spinnaker.clouddriver.alicloud.security.config;
 
 import java.util.List;
 import lombok.Data;

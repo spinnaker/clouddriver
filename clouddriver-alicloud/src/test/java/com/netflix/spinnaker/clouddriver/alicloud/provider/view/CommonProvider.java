@@ -20,12 +20,10 @@ import static org.mockito.Mockito.mock;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
+import com.netflix.spinnaker.clouddriver.alicloud.BaseTest;
 import spock.lang.Subject;
 
-public class CommonProvider {
-
-  static final String ACCOUNT = "test-account";
-  static final String REGION = "cn-test";
+public class CommonProvider extends BaseTest {
 
   @Subject ObjectMapper objectMapper = new ObjectMapper();
 

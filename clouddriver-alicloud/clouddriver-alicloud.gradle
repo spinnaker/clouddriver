@@ -1,8 +1,11 @@
 dependencies {
   implementation project(":cats:cats-core")
+  implementation project(":clouddriver-api")
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-eureka")
   implementation project(":clouddriver-security")
+  implementation project(":clouddriver-configserver")
+
 
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"

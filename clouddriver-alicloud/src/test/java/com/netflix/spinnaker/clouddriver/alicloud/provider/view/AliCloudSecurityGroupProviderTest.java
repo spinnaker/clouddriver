@@ -15,7 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.alicloud.provider.view;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -23,7 +23,11 @@ import static org.mockito.Mockito.when;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudSecurityGroup;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
@@ -42,7 +46,7 @@ public class AliCloudSecurityGroupProviderTest extends CommonProvider {
     AliCloudSecurityGroupProvider provider =
         new AliCloudSecurityGroupProvider(objectMapper, cacheView);
     Collection<AliCloudSecurityGroup> allByAccounts = provider.getAllByAccount(true, ACCOUNT);
-    assertTrue(allByAccounts.size() == 1);
+    assertEquals(1, allByAccounts.size());
   }
 
   private class FilterAnswer implements Answer<List<String>> {

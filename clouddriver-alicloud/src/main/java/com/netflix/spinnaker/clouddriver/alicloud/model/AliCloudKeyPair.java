@@ -18,7 +18,11 @@ package com.netflix.spinnaker.clouddriver.alicloud.model;
 
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.model.KeyPair;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@Data
+@EqualsAndHashCode
 public class AliCloudKeyPair implements KeyPair {
 
   String account;
@@ -32,27 +36,5 @@ public class AliCloudKeyPair implements KeyPair {
     this.region = region;
     this.keyName = keyName;
     this.keyFingerprint = keyFingerprint;
-  }
-
-  @Override
-  public String getKeyName() {
-    return keyName;
-  }
-
-  @Override
-  public String getKeyFingerprint() {
-    return keyFingerprint;
-  }
-
-  public String getAccount() {
-    return account;
-  }
-
-  public String getRegion() {
-    return region;
-  }
-
-  public String getCloudProvider() {
-    return cloudProvider;
   }
 }
