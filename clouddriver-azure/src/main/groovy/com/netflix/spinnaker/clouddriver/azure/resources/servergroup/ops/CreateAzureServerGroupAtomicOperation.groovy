@@ -32,6 +32,8 @@ import org.springframework.beans.factory.annotation.Autowired
 
 class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
   private static final String BASE_PHASE = "CREATE_SERVER_GROUP"
+  // TODO make this user configurable?
+  public static final long SERVER_WAIT_TIMEOUT = 1 * 60 * 1000
 
   private static Task getTask() {
     TaskRepository.threadLocalTask.get()
@@ -229,25 +231,33 @@ class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
           .credentials
           .networkClient
           .enableServerGroupWithAppGateway(resourceGroupName, description.appGatewayName, description.name)
-        task.updateStatus BASE_PHASE, "Done enabling Azure server group ${description.name} in ${description.region}."
+
+        def healthy = description.credentials.computeClient.waitForScaleSetHealthy(resourceGroupName, description.name, SERVER_WAIT_TIMEOUT);
+
+        if (healthy) {
+          task.updateStatus BASE_PHASE, "Done enabling Azure server group ${description.name} in ${description.region}."
+        } else {
+          errList.add("Server group did not come up in time")
+        }
+
       } else {
         task.updateStatus BASE_PHASE, "Azure server group ${description.name} in ${description.region} is already enabled."
       }
 
       task.updateStatus(BASE_PHASE, "Deployment for server group ${description.name} in ${description.region} has succeeded.")
     }
-    else {
-      // cleanup any resources that might have been created prior to server group failing to deploy
+
+    if (!errList.isEmpty()) {
       task.updateStatus(BASE_PHASE, "Cleanup any resources created as part of server group upsert")
       try {
-        if (serverGroupName) {
+        if (description.name) {
           def sgDescription = description.credentials
             .computeClient
-            .getServerGroup(resourceGroupName, serverGroupName)
+            .getServerGroup(resourceGroupName, description.name)
           if (sgDescription) {
             description.credentials
               .computeClient
-              .destroyServerGroup(resourceGroupName, serverGroupName)
+              .destroyServerGroup(resourceGroupName, description.name)
 
             // If this an Azure Market Store image, delete the storage that was created for it as well
             if (!sgDescription.image.isCustom) {
@@ -269,7 +279,6 @@ class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
         task.updateStatus(BASE_PHASE, errMessage)
         errList.add(errMessage)
       }
-
       try {
         if (appGatewayPoolID) {
           description.credentials
@@ -281,11 +290,11 @@ class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
         task.updateStatus(BASE_PHASE, errMessage)
         errList.add(errMessage)
       }
-
       throw new AtomicOperationException("${description.name} deployment failed", errList)
     }
 
     [serverGroups: [(description.region): [name: description.name]],
     serverGroupNames: ["${description.region}:${description.name}".toString()]]
   }
+
 }

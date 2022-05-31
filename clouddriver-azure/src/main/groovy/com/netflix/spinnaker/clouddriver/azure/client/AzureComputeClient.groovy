@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.azure.client
 
 import com.microsoft.azure.CloudException
+import com.microsoft.azure.PagedList
 import com.microsoft.azure.credentials.ApplicationTokenCredentials
 import com.microsoft.azure.management.compute.VirtualMachineImage
 import com.microsoft.azure.management.compute.VirtualMachineOffer
@@ -29,9 +30,13 @@ import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.Azure
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureVMImage
 import com.netflix.spinnaker.clouddriver.azure.security.AzureNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.model.HealthState
 import groovy.transform.Canonical
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
+
+import java.time.Duration
+import java.time.OffsetDateTime
 
 
 @Slf4j
@@ -193,6 +198,30 @@ public class AzureComputeClient extends AzureBaseClient {
     })
 
     instances
+  }
+
+  Boolean waitForScaleSetHealthy(String resourceGroupName, String serverGroupName, long timeoutMillis) {
+    // check the scale set's health status, wait for the timeout return true when healthy, false if we hit the timeout
+
+    def instances = getServerGroupInstances(resourceGroupName, serverGroupName)
+    def now = System.nanoTime()
+    def currentTime = System.nanoTime()
+
+    while (currentTime - now < timeoutMillis * 1000000) {
+      def healthy = true
+      instances.each { instance ->
+        if (instance.healthState != HealthState.Up) {
+          healthy = false
+        }
+      }
+      if (healthy) {
+        return true
+      }
+      Thread.sleep(100)
+      currentTime = System.nanoTime()
+    }
+
+    false
   }
 
   Map<String, List<VirtualMachineSize>> getVirtualMachineSizesByRegions(List<AzureNamedAccountCredentials.AzureRegion> regions) {

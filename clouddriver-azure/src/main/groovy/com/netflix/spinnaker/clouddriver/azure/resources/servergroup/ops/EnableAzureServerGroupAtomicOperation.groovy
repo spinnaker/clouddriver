@@ -72,6 +72,10 @@ class EnableAzureServerGroupAtomicOperation implements AtomicOperation<Void> {
                 .credentials
                 .networkClient
                 .enableServerGroupWithLoadBalancer(resourceGroupName, serverGroupDescription.loadBalancerName, serverGroupDescription.name)
+
+              // wait for health state to be up
+              description.credentials.networkClient.
+
               task.updateStatus BASE_PHASE, "Done enabling Azure server group ${serverGroupDescription.name} in ${region}."
             } else {
               task.updateStatus BASE_PHASE, "Azure server group ${serverGroupDescription.name} in ${region} is already enabled."
@@ -89,6 +93,7 @@ class EnableAzureServerGroupAtomicOperation implements AtomicOperation<Void> {
           } else {
             throw new RuntimeException("Azure server group with load balancer type $serverGroupDescription.loadBalancerType cannot be enabled.")
           }
+
 
         } catch (Exception e) {
           task.updateStatus(BASE_PHASE, "Enabling of server group ${description.name} failed: ${e.message}")

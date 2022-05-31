@@ -308,12 +308,26 @@ class CreateAzureServerGroupWithAzureLoadBalancerAtomicOperation implements Atom
             .getNetworkClient()
             .enableServerGroupWithLoadBalancer(
                 resourceGroupName, description.getLoadBalancerName(), description.getName());
-        getTask()
-            .updateStatus(
-                BASE_PHASE,
-                String.format(
-                    "Done enabling Azure server group %s in %s.",
-                    description.getName(), description.getRegion()));
+
+        Boolean healthy =
+            description
+                .getCredentials()
+                .getComputeClient()
+                .waitForScaleSetHealthy(
+                    resourceGroupName,
+                    description.getName(),
+                    CreateAzureServerGroupAtomicOperation.SERVER_WAIT_TIMEOUT);
+
+        if (healthy) {
+          getTask()
+              .updateStatus(
+                  BASE_PHASE,
+                  String.format(
+                      "Done enabling Azure server group %s in %s.",
+                      description.getName(), description.getRegion()));
+        } else {
+          errList.add("Server group did not come up in time");
+        }
 
       } else {
         getTask()
@@ -330,22 +344,23 @@ class CreateAzureServerGroupWithAzureLoadBalancerAtomicOperation implements Atom
               String.format(
                   "Deployment for server group %s in %s has succeeded.",
                   description.getName(), description.getRegion()));
-    } else {
+    }
+    if (!errList.isEmpty()) {
       // cleanup any resources that might have been created prior to server group failing to deploy
       getTask()
           .updateStatus(BASE_PHASE, "Cleanup any resources created as part of server group upsert");
       try {
-        if (serverGroupName != null && serverGroupName.length() > 0) {
+        if (description.getName() != null && description.getName().length() > 0) {
           AzureServerGroupDescription sgDescription =
               description
                   .getCredentials()
                   .getComputeClient()
-                  .getServerGroup(resourceGroupName, serverGroupName);
+                  .getServerGroup(resourceGroupName, description.getName());
           if (sgDescription != null) {
             description
                 .getCredentials()
                 .getComputeClient()
-                .destroyServerGroup(resourceGroupName, serverGroupName);
+                .destroyServerGroup(resourceGroupName, description.getName());
           }
         }
       } catch (Exception e) {
