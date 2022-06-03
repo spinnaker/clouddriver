@@ -23,6 +23,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 import com.netflix.spinnaker.clouddriver.config.AccountDefinitionConfiguration;
+import com.netflix.spinnaker.kork.secrets.SecretManager;
 import com.netflix.spinnaker.kork.secrets.user.UserSecret;
 import com.netflix.spinnaker.kork.secrets.user.UserSecretManager;
 import com.netflix.spinnaker.kork.secrets.user.UserSecretReference;
@@ -41,9 +42,11 @@ class AccountDefinitionSecretManagerTest {
 
   @MockBean UserSecretManager userSecretManager;
 
+  @MockBean SecretManager secretManager;
+
   @MockBean AccountSecurityPolicy policy;
 
-  @Autowired AccountDefinitionSecretManager secretManager;
+  @Autowired AccountDefinitionSecretManager accountDefinitionSecretManager;
 
   @Test
   void canAccessUserSecret() {
@@ -58,8 +61,10 @@ class AccountDefinitionSecretManagerTest {
     given(policy.canUseAccount(username, accountName)).willReturn(true);
 
     var ref = UserSecretReference.parse("secret://test?k=foo");
-    assertThat(secretManager.getUserSecretString(ref, accountName)).isEqualTo("bar");
-    assertThat(secretManager.canAccessAccountWithSecrets(username, accountName)).isTrue();
+    assertThat(accountDefinitionSecretManager.getUserSecretString(ref, accountName))
+        .isEqualTo("bar");
+    assertThat(accountDefinitionSecretManager.canAccessAccountWithSecrets(username, accountName))
+        .isTrue();
   }
 
   @Test
@@ -72,8 +77,10 @@ class AccountDefinitionSecretManagerTest {
 
     var ref = UserSecretReference.parse("secret://test?k=foo");
     var accountName = "cube";
-    assertThat(secretManager.getUserSecretString(ref, accountName)).isEqualTo("bar");
-    assertThat(secretManager.canAccessAccountWithSecrets("sphere", accountName)).isTrue();
+    assertThat(accountDefinitionSecretManager.getUserSecretString(ref, accountName))
+        .isEqualTo("bar");
+    assertThat(accountDefinitionSecretManager.canAccessAccountWithSecrets("sphere", accountName))
+        .isTrue();
   }
 
   @Test
@@ -87,8 +94,10 @@ class AccountDefinitionSecretManagerTest {
 
     var accountName = "cube";
     var ref = UserSecretReference.parse("secret://test?k=foo");
-    assertThat(secretManager.getUserSecretString(ref, accountName)).isEqualTo("bar");
-    assertThat(secretManager.canAccessAccountWithSecrets("sphere", accountName)).isFalse();
+    assertThat(accountDefinitionSecretManager.getUserSecretString(ref, accountName))
+        .isEqualTo("bar");
+    assertThat(accountDefinitionSecretManager.canAccessAccountWithSecrets("sphere", accountName))
+        .isFalse();
   }
 
   @Test
@@ -103,7 +112,9 @@ class AccountDefinitionSecretManagerTest {
 
     var accountName = "cube";
     var ref = UserSecretReference.parse("secret://test?k=foo");
-    assertThat(secretManager.getUserSecretString(ref, accountName)).isEqualTo("bar");
-    assertThat(secretManager.canAccessAccountWithSecrets("sphere", accountName)).isFalse();
+    assertThat(accountDefinitionSecretManager.getUserSecretString(ref, accountName))
+        .isEqualTo("bar");
+    assertThat(accountDefinitionSecretManager.canAccessAccountWithSecrets("sphere", accountName))
+        .isFalse();
   }
 }

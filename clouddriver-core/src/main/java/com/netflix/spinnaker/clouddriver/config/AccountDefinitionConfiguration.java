@@ -33,6 +33,8 @@ import com.netflix.spinnaker.clouddriver.security.AuthorizedRolesExtractor;
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountSecurityPolicy;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator;
+import com.netflix.spinnaker.kork.secrets.SecretManager;
+import com.netflix.spinnaker.kork.secrets.SecretSession;
 import com.netflix.spinnaker.kork.secrets.user.UserSecretManager;
 import com.netflix.spinnaker.kork.secrets.user.UserSecretReference;
 import java.util.ArrayList;
@@ -99,8 +101,11 @@ public class AccountDefinitionConfiguration {
    */
   @Bean
   public AccountDefinitionMapper accountDefinitionMapper(
-      ObjectMapper mapper, AccountDefinitionSecretManager secretManager) {
-    return new AccountDefinitionMapper(mapper, secretManager);
+      ObjectMapper mapper,
+      AccountDefinitionSecretManager accountDefinitionSecretManager,
+      SecretManager secretManager) {
+    return new AccountDefinitionMapper(
+        mapper, accountDefinitionSecretManager, new SecretSession(secretManager));
   }
 
   @Bean

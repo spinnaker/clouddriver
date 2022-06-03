@@ -69,4 +69,14 @@ class AccountDefinitionMapperTest {
     TestAccount testAccount = (TestAccount) account;
     assertThat(testAccount.getData().get("password")).isEqualTo("hunter2");
   }
+
+  @Test
+  void canDecryptEncryptedUris() {
+    var data = "{\"type\":\"test\",\"name\":\"bar\",\"password\":\"encrypted:noop!v:hunter2\"}";
+    CredentialsDefinition account = assertDoesNotThrow(() -> mapper.deserialize(data));
+    assertThat(account).isInstanceOf(TestAccount.class);
+    assertThat(account.getName()).isEqualTo("bar");
+    TestAccount testAccount = (TestAccount) account;
+    assertThat(testAccount.getData().get("password")).isEqualTo("hunter2");
+  }
 }
