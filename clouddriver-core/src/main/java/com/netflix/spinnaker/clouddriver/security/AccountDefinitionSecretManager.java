@@ -70,18 +70,25 @@ public class AccountDefinitionSecretManager {
    * @return true if the given username is allowed to access the given account
    */
   public boolean canAccessAccountWithSecrets(String username, String accountName) {
-    if (policy.isAdmin(username)) {
-      return true;
-    }
+    return policy.isAdmin(username)
+        || !accountDefinitionUsesUnauthorizedUserSecrets(username, accountName)
+            && policy.canUseAccount(username, accountName);
+  }
+
+  /**
+   * Checks the account definition for the provided account name and returns true if said account
+   * references at least one UserSecret for which the provided user does not have a role in common
+   * with. If the account definition uses no UserSecrets or the provided user is allowed to use all
+   * the UserSecrets referenced, then this returns false.
+   */
+  private boolean accountDefinitionUsesUnauthorizedUserSecrets(
+      String username, String accountName) {
     var userRoles = policy.getRoles(username);
-    if (userRoles.isEmpty()) {
-      return false;
-    }
-    if (refsByAccountName.getOrDefault(accountName, Set.of()).stream()
+    // if at least one UserSecret is referenced which the user has no common roles with
+    return refsByAccountName.getOrDefault(accountName, Set.of()).stream()
         .map(this::getUserSecret)
-        .anyMatch(secret -> Collections.disjoint(secret.getRoles(), userRoles))) {
-      return false;
-    }
-    return policy.canUseAccount(username, accountName);
+        .anyMatch(secret -> Collections.disjoint(secret.getRoles(), userRoles));
+    // Collections::disjoint checks if both collections have nothing in common (i.e., an empty set
+    // intersection)
   }
 }

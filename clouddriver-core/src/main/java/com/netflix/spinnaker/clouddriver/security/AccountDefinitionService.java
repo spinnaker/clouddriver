@@ -134,6 +134,10 @@ public class AccountDefinitionService {
             .flatMap(extractor -> extractor.getAuthorizedRoles(definition).stream())
             .collect(Collectors.toSet());
     var userRoles = policy.getRoles(username);
+    // if the account defines authorized roles and the user has no roles in common with these
+    // authorized roles, then the user attempted to create an account they'd immediately be
+    // locked out from which is a poor user experience
+    // (Collections::disjoint returns true if both collections have no elements in common)
     if (!authorizedRoles.isEmpty() && Collections.disjoint(userRoles, authorizedRoles)) {
       throw new InvalidRequestException(
           String.format(
@@ -146,10 +150,13 @@ public class AccountDefinitionService {
         field ->
             UserSecretReference.tryParse(field.get(definition)).ifPresent(secretReferences::add),
         field -> field.getType() == String.class);
+    // if the account uses any UserSecrets and the user has no roles in common with any of
+    // the UserSecrets, then don't allow the user to save this account due to lack of authorization
     for (var ref : secretReferences) {
       try {
         var secret = secretManager.getUserSecret(ref);
         var secretRoles = Set.copyOf(secret.getRoles());
+        // (Collections::disjoint returns true if both collections have no elements in common)
         if (Collections.disjoint(userRoles, secretRoles)) {
           throw new AccessDeniedException(
               String.format(
