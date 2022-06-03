@@ -55,7 +55,7 @@ class AccountDefinitionSecretManagerTest {
     var username = "user";
     var accountName = "account";
     given(policy.getRoles(username)).willReturn(Set.of("group"));
-    given(policy.canAccessAccount(username, accountName)).willReturn(true);
+    given(policy.canUseAccount(username, accountName)).willReturn(true);
 
     var ref = UserSecretReference.parse("secret://test?k=foo");
     assertThat(secretManager.getUserSecretString(ref, accountName)).isEqualTo("bar");
@@ -99,7 +99,7 @@ class AccountDefinitionSecretManagerTest {
     given(userSecretManager.getUserSecret(any())).willReturn(userSecret);
     given(policy.isAdmin(any())).willReturn(false);
     given(policy.getRoles(any())).willReturn(Set.of("group0", "group1"));
-    given(policy.canAccessAccount(any(), any())).willReturn(false);
+    given(policy.canUseAccount(any(), any())).willReturn(false);
 
     var accountName = "cube";
     var ref = UserSecretReference.parse("secret://test?k=foo");

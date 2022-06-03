@@ -82,6 +82,6 @@ public class AccountDefinitionSecretManager {
         .anyMatch(secret -> Collections.disjoint(secret.getRoles(), userRoles))) {
       return false;
     }
-    return policy.canAccessAccount(username, accountName);
+    return policy.canUseAccount(username, accountName);
   }
 }

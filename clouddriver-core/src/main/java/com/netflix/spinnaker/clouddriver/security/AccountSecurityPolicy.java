@@ -32,8 +32,8 @@ public interface AccountSecurityPolicy {
   /** Returns the set of roles assigned to the provided user. */
   Set<String> getRoles(String username);
 
-  /** Indicates if the provided user can access the provided account. */
-  boolean canAccessAccount(String username, String account);
+  /** Indicates if the provided user can use the provided account. */
+  boolean canUseAccount(String username, String account);
 
   /** Indicates if the provided user can modify the provided account. */
   boolean canModifyAccount(String username, String account);

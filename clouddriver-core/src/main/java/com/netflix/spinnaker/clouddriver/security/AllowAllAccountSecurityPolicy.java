@@ -37,7 +37,7 @@ public class AllowAllAccountSecurityPolicy implements AccountSecurityPolicy {
   }
 
   @Override
-  public boolean canAccessAccount(String username, String account) {
+  public boolean canUseAccount(String username, String account) {
     return true;
   }
 

@@ -55,7 +55,7 @@ public class DefaultAccountSecurityPolicy implements AccountSecurityPolicy {
   }
 
   @Override
-  public boolean canAccessAccount(@Nonnull String username, @Nonnull String account) {
+  public boolean canUseAccount(@Nonnull String username, @Nonnull String account) {
     return Optional.ofNullable(permissionEvaluator.getPermission(username))
         .filter(
             permission ->
