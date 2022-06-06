@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Apple Inc.
+ * Copyright 2022 Armory, Apple Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,5 +116,18 @@ class AccountDefinitionSecretManagerTest {
         .isEqualTo("bar");
     assertThat(accountDefinitionSecretManager.canAccessAccountWithSecrets("sphere", accountName))
         .isFalse();
+  }
+
+  @Test
+  void canAccessAccountWhenUserAndAccountHaveNoPermissions() {
+    given(policy.isAdmin(any())).willReturn(false);
+    var username = "user";
+    var accountName = "account";
+    given(policy.getRoles(username)).willReturn(Set.of());
+    // also assuming that this user can user the account in general
+    given(policy.canUseAccount(username, accountName)).willReturn(true);
+
+    assertThat(accountDefinitionSecretManager.canAccessAccountWithSecrets(username, accountName))
+        .isTrue();
   }
 }
