@@ -26,18 +26,22 @@ class LoggingInstrumentation implements ExecutionInstrumentation {
 
   @Override
   public void executionStarted(Agent agent) {
-    logger.debug("${agent.providerName}:${agent.agentType} starting");
+    logger.debug("{}:{} starting", agent.getProviderName(), agent.getAgentType());
   }
 
   @Override
   public void executionCompleted(Agent agent, long durationMs) {
-    logger.debug("${agent.providerName}:${agent.agentType} completed in ${durationMs / 1000}s");
+    logger.debug(
+        "{}:{} completed in {}s", agent.getProviderName(), agent.getAgentType(), durationMs / 1000);
   }
 
   @Override
   public void executionFailed(Agent agent, Throwable cause, long durationMs) {
     logger.warn(
-        "${agent.providerName}:${agent.agentType} completed with one or more failures in  ${durationMs / 1000}s",
+        "{}:{} completed with one or more failures in  ${}s",
+        agent.getProviderName(),
+        agent.getAgentType(),
+        durationMs / 1000,
         cause);
   }
 }

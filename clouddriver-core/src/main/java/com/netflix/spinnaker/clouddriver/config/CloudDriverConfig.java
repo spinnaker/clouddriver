@@ -171,7 +171,7 @@ class CloudDriverConfig {
 
   @Bean
   String clouddriverUserAgentApplicationName() {
-    return "Spinnaker/${environment.getProperty(\"Implementation-Version\", \"Unknown\")}";
+    return String.format("Spinnaker/%s", System.getProperty("Implementation-Version", "Unknown"));
   }
 
   @Bean
