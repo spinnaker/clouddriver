@@ -56,6 +56,9 @@ public class DefaultAccountSecurityPolicy implements AccountSecurityPolicy {
 
   @Override
   public boolean canUseAccount(@Nonnull String username, @Nonnull String account) {
+    // note that WRITE permissions are required in order to do anything with an account as the READ
+    // permission
+    // is only used for certain UI items related to the account
     return Optional.ofNullable(permissionEvaluator.getPermission(username))
         .filter(
             permission ->
@@ -67,6 +70,9 @@ public class DefaultAccountSecurityPolicy implements AccountSecurityPolicy {
 
   @Override
   public boolean canModifyAccount(@Nonnull String username, @Nonnull String account) {
+    // note that WRITE permissions are required in order to do anything with an account as the READ
+    // permission
+    // is only used for certain UI items related to the account
     return Optional.ofNullable(permissionEvaluator.getPermission(username))
         .filter(
             permission ->

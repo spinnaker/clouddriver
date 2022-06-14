@@ -68,7 +68,10 @@ public interface AccountDefinitionRepository {
    * will only be decrypted when loading account definitions, not when storing them. Note that
    * account definitions correspond to the JSON representation of the underlying {@link
    * CredentialsDefinition} object along with a JSON type discriminator field with the key {@code
-   * type} and value of the corresponding {@code @JsonTypeName} annotation.
+   * type} and value of the corresponding {@code @JsonTypeName} annotation. Note that in addition to
+   * user secret URIs, traditional {@code EncryptedSecret} URIs (like {@code
+   * encrypted:secrets-manager!r:us-west-2!s:my-account-credentials}) are also supported when
+   * Clouddriver is configured with global secret engines.
    *
    * @param definition account definition to store as a new account
    */
