@@ -1,8 +1,11 @@
 dependencies {
   implementation project(":cats:cats-core")
+  implementation project(":clouddriver-api")
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-eureka")
   implementation project(":clouddriver-security")
+  implementation project(":clouddriver-configserver")
+
 
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
@@ -22,10 +25,11 @@ dependencies {
   implementation 'com.jcraft:jsch.agentproxy.jsch:0.0.9'
   implementation 'com.jcraft:jsch.agentproxy.connector-factory:0.0.9'
   implementation 'com.aliyun:aliyun-java-sdk-core:4.4.2'
-  implementation 'com.aliyun:aliyun-java-sdk-slb:3.2.9'
+  implementation 'com.aliyun:aliyun-java-sdk-slb:3.3.14'
   implementation 'com.aliyun:aliyun-java-sdk-vpc:3.0.6'
   implementation 'com.aliyun:aliyun-java-sdk-ecs:4.16.10'
   implementation 'com.aliyun:aliyun-java-sdk-ess:2.3.2'
+  implementation 'com.aliyun:aliyun-java-sdk-sts:3.0.0'
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation "org.codehaus.groovy:groovy-all"

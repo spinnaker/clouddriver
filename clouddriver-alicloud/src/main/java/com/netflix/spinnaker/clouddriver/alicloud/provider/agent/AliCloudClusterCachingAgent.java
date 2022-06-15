@@ -58,6 +58,7 @@ import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.alicloud.common.CacheDataHelper;
 import com.netflix.spinnaker.clouddriver.alicloud.common.Sets;
+import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudLoadBalancerType;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
@@ -338,27 +339,24 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
       Optional.ofNullable(loadBalancerAttributes)
           .ifPresent(
               l -> {
-                loadBalancerKeys.addAll(
-                    l.stream()
-                        .map(
-                            loadBalancerAttribute ->
-                                (Keys.getLoadBalancerKey(
-                                    loadBalancerAttribute.getLoadBalancerName(),
-                                    account,
-                                    region,
-                                    loadBalancerAttribute.getVpcId())))
-                        .collect(Collectors.toSet()));
+                l.forEach(
+                    loadBalancerAttribute -> {
+                      loadBalancerKeys.add(
+                          Keys.getLoadBalancerKey(
+                              loadBalancerAttribute.getLoadBalancerName(),
+                              account,
+                              region,
+                              loadBalancerAttribute.getVpcId(),
+                              AliCloudLoadBalancerType.CLB.ns));
+                    });
               });
       Optional.ofNullable(scalingInstances)
           .ifPresent(
               instances -> {
-                instanceIds.addAll(
-                    instances.stream()
-                        .map(
-                            scalingInstance ->
-                                Keys.getInstanceKey(
-                                    scalingInstance.getInstanceId(), account, region))
-                        .collect(Collectors.toSet()));
+                instances.forEach(
+                    scalingInstance ->
+                        instanceIds.add(
+                            Keys.getInstanceKey(scalingInstance.getInstanceId(), account, region)));
               });
     }
 
@@ -394,7 +392,8 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
       attributes.put("scalingGroup", this.scalingGroup);
       attributes.put("region", this.region);
       attributes.put("name", this.scalingGroup.getScalingGroupName());
-      if (this.scalingConfigurationsResponse.getScalingConfigurations().size() > 0) {
+      if (this.scalingConfigurationsResponse != null
+          && this.scalingConfigurationsResponse.getScalingConfigurations().size() > 0) {
         attributes.put(
             "launchConfigName",
             this.scalingConfigurationsResponse

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Alibaba Group.
+ * Copyright 2022 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,16 +27,11 @@ import com.netflix.spinnaker.clouddriver.alicloud.common.ClientFactory;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.description.DeleteAliCloudSecurityGroupDescription;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import groovy.util.logging.Slf4j;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DeleteAliCloudSecurityGroupAtomicOperation implements AtomicOperation<Void> {
-
-  private final Logger log =
-      LoggerFactory.getLogger(DeleteAliCloudSecurityGroupAtomicOperation.class);
 
   private final DeleteAliCloudSecurityGroupDescription description;
 
@@ -52,10 +47,8 @@ public class DeleteAliCloudSecurityGroupAtomicOperation implements AtomicOperati
   public Void operate(List priorOutputs) {
     for (String region : description.getRegions()) {
       IAcsClient client =
-          clientFactory.createClient(
-              region,
-              description.getCredentials().getAccessKeyId(),
-              description.getCredentials().getAccessSecretKey());
+          clientFactory.createClient(region, description.getCredentials().getCredentialsProvider());
+
       DescribeSecurityGroupsRequest describeSecurityGroupsRequest =
           new DescribeSecurityGroupsRequest();
       describeSecurityGroupsRequest.setSecurityGroupName(description.getSecurityGroupName());
@@ -72,10 +65,10 @@ public class DeleteAliCloudSecurityGroupAtomicOperation implements AtomicOperati
 
       } catch (ServerException e) {
         log.info(e.getMessage());
-        throw new AliCloudException(e);
+        throw new AliCloudException(e.getMessage());
       } catch (ClientException e) {
         log.info(e.getMessage());
-        throw new AliCloudException(e);
+        throw new AliCloudException(e.getMessage());
       }
     }
     return null;

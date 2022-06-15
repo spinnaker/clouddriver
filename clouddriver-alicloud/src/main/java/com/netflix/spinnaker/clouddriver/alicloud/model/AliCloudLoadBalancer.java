@@ -48,6 +48,7 @@ public class AliCloudLoadBalancer implements LoadBalancer {
   Set<String> securityGroups;
 
   Map<String, String> labels = new HashMap<>();
+  String loadBalancerType;
 
   public AliCloudLoadBalancer(
       String account, String region, String name, String vpcId, String loadBalancerId) {

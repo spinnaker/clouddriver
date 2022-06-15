@@ -15,42 +15,42 @@
  */
 package com.netflix.spinnaker.clouddriver.alicloud.security;
 
+import com.aliyuncs.auth.AlibabaCloudCredentials;
+import com.aliyuncs.auth.AlibabaCloudCredentialsProvider;
+import com.aliyuncs.exceptions.ClientException;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
 import java.util.List;
+import lombok.EqualsAndHashCode;
 
-public class AliCloudCredentials extends AbstractAccountCredentials<AccountCredentials> {
+@EqualsAndHashCode(callSuper = false)
+public class AliCloudCredentials extends AbstractAccountCredentials<AlibabaCloudCredentials> {
 
   private static final String CLOUD_PROVIDER = "alicloud";
 
-  private String name;
+  private final String name;
+  private final String environment;
+  private final String accountType;
 
-  private String accessKeyId;
+  private final List<String> regions;
 
-  private String accessSecretKey;
+  private final List<String> requiredGroupMembership;
 
-  private List<String> regions;
+  private final AlibabaCloudCredentialsProvider credentialsProvider;
 
-  private List<String> requiredGroupMembership;
-
-  public void setName(String name) {
+  public AliCloudCredentials(
+      String name,
+      String environment,
+      String accountType,
+      List<String> regions,
+      List<String> requiredGroupMembership,
+      AlibabaCloudCredentialsProvider credentialsProvider) {
     this.name = name;
-  }
-
-  public String getAccessKeyId() {
-    return accessKeyId;
-  }
-
-  public void setAccessKeyId(String accessKeyId) {
-    this.accessKeyId = accessKeyId;
-  }
-
-  public String getAccessSecretKey() {
-    return accessSecretKey;
-  }
-
-  public void setAccessSecretKey(String accessSecretKey) {
-    this.accessSecretKey = accessSecretKey;
+    this.environment = environment;
+    this.accountType = accountType;
+    this.regions = regions;
+    this.requiredGroupMembership = requiredGroupMembership;
+    this.credentialsProvider = credentialsProvider;
   }
 
   @Override
@@ -60,17 +60,22 @@ public class AliCloudCredentials extends AbstractAccountCredentials<AccountCrede
 
   @Override
   public String getEnvironment() {
-    return null;
+    return environment;
   }
 
   @Override
   public String getAccountType() {
-    return null;
+    return accountType;
   }
 
   @Override
   @JsonIgnore
-  public AccountCredentials getCredentials() {
+  public AlibabaCloudCredentials getCredentials() {
+    try {
+      return credentialsProvider.getCredentials();
+    } catch (ClientException e) {
+      e.printStackTrace();
+    }
     return null;
   }
 
@@ -88,7 +93,8 @@ public class AliCloudCredentials extends AbstractAccountCredentials<AccountCrede
     return regions;
   }
 
-  public void setRegions(List<String> regions) {
-    this.regions = regions;
+  @JsonIgnore
+  public AlibabaCloudCredentialsProvider getCredentialsProvider() {
+    return credentialsProvider;
   }
 }

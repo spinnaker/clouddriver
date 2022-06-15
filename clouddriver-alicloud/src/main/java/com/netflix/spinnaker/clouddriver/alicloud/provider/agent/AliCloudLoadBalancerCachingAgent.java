@@ -44,6 +44,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudLoadBalancer;
+import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudLoadBalancerType;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudClientProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
@@ -320,7 +321,8 @@ public class AliCloudLoadBalancerCachingAgent implements CachingAgent, AccountAw
                   (String) data.get("loadBalancerName"),
                   account.getName(),
                   region,
-                  (String) data.get("vpcId"))));
+                  (String) data.get("vpcId"),
+                  AliCloudLoadBalancerType.CLB.ns)));
     } else {
       metricsSupport.onDemandStore(
           () -> {
@@ -339,7 +341,8 @@ public class AliCloudLoadBalancerCachingAgent implements CachingAgent, AccountAw
                         (String) data.get("loadBalancerName"),
                         account.getName(),
                         region,
-                        (String) data.get("vpcId")),
+                        (String) data.get("vpcId"),
+                        AliCloudLoadBalancerType.CLB.ns),
                     map,
                     Maps.newHashMap());
 
@@ -411,6 +414,7 @@ public class AliCloudLoadBalancerCachingAgent implements CachingAgent, AccountAw
       LoadBalancer loadBalancer = this.loadBalancer;
       Map<String, Object> map = objectMapper.convertValue(loadBalancer, Map.class);
       map.put("account", this.account);
+      map.put("loadBalancerType", AliCloudLoadBalancerType.CLB.ns);
       Map<String, Object> attributeMap =
           objectMapper.convertValue(this.loadBalancerAttribute, Map.class);
       attributeMap.put("listenerPortsAndProtocal", this.listenerAttributes);
@@ -422,7 +426,8 @@ public class AliCloudLoadBalancerCachingAgent implements CachingAgent, AccountAw
               loadBalancer.getLoadBalancerName(),
               this.account,
               this.region,
-              loadBalancer.getVpcId()),
+              loadBalancer.getVpcId(),
+              AliCloudLoadBalancerType.CLB.ns),
           map,
           Maps.newHashMap());
     }

@@ -44,22 +44,17 @@ import com.netflix.spinnaker.clouddriver.alicloud.model.Listener;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import groovy.util.logging.Slf4j;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Slf4j
 public class UpsertAliCloudLoadBalancerAtomicOperation implements AtomicOperation<Map> {
-
-  private final Logger logger =
-      LoggerFactory.getLogger(UpsertAliCloudLoadBalancerAtomicOperation.class);
 
   private final ObjectMapper objectMapper;
 
@@ -94,9 +89,7 @@ public class UpsertAliCloudLoadBalancerAtomicOperation implements AtomicOperatio
 
     IAcsClient client =
         clientFactory.createClient(
-            description.getRegion(),
-            description.getCredentials().getAccessKeyId(),
-            description.getCredentials().getAccessSecretKey());
+            description.getRegion(), description.getCredentials().getCredentialsProvider());
     DescribeLoadBalancersResponse.LoadBalancer loadBalancerT = null;
     // Create or Update load balancing instances
     // Query all load balancing instances under this user
@@ -112,10 +105,10 @@ public class UpsertAliCloudLoadBalancerAtomicOperation implements AtomicOperatio
       }
 
     } catch (ServerException e) {
-      logger.info(e.getMessage());
+      log.error(e.getMessage());
       throw new AliCloudException(e.getMessage());
     } catch (ClientException e) {
-      logger.info(e.getMessage());
+      log.error(e.getMessage());
       throw new AliCloudException(e.getMessage());
     }
 
@@ -140,10 +133,10 @@ public class UpsertAliCloudLoadBalancerAtomicOperation implements AtomicOperatio
         description.setLoadBalancerId(loadBalancerResponse.getLoadBalancerId());
 
       } catch (ServerException e) {
-        logger.info(e.getMessage());
+        log.error(e.getMessage());
         throw new AliCloudException(e.getMessage());
       } catch (ClientException e) {
-        logger.info(e.getMessage());
+        log.error(e.getMessage());
         throw new AliCloudException(e.getMessage());
       }
     }
@@ -153,12 +146,12 @@ public class UpsertAliCloudLoadBalancerAtomicOperation implements AtomicOperatio
     }
 
     try {
-      createListener(loadBalancerT == null ? false : true, client);
+      createListener(loadBalancerT != null, client);
     } catch (ServerException e) {
-      logger.info(e.getMessage());
+      log.error(e.getMessage());
       throw new AliCloudException(e.getMessage());
     } catch (ClientException e) {
-      logger.info(e.getMessage());
+      log.error(e.getMessage());
       throw new AliCloudException(e.getMessage());
     }
 
@@ -169,10 +162,10 @@ public class UpsertAliCloudLoadBalancerAtomicOperation implements AtomicOperatio
     try {
       client.getAcsResponse(statusRequest);
     } catch (ServerException e) {
-      logger.info(e.getMessage());
+      log.error(e.getMessage());
       throw new AliCloudException(e.getMessage());
     } catch (ClientException e) {
-      logger.info(e.getMessage());
+      log.error(e.getMessage());
       throw new AliCloudException(e.getMessage());
     }
 
@@ -293,6 +286,10 @@ public class UpsertAliCloudLoadBalancerAtomicOperation implements AtomicOperatio
   private void addListener(List<Listener> createListenerList, IAcsClient client)
       throws ClientException {
     for (Listener listener : createListenerList) {
+      if (listener.getListenerProtocal() == null) {
+        createHTTPListener(client, listener);
+        continue;
+      }
       switch (listener.getListenerProtocal()) {
         case HTTPS:
           createHTTPSListener(client, listener);

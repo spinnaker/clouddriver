@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.alicloud.common.HealthHelper;
 import com.netflix.spinnaker.clouddriver.alicloud.common.Sets;
 import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudLoadBalancer;
+import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudLoadBalancerType;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
@@ -111,11 +112,10 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
   @Override
   public List<ResultDetails> byAccountAndRegionAndName(String account, String region, String name) {
     List<ResultDetails> results = new ArrayList<>();
-    String searchKey = Keys.getLoadBalancerKey(name, account, region, null) + "*";
+    String searchKey = Keys.getLoadBalancerKey(name + "*", account, region, "*", "*");
     Collection<String> allLoadBalancerKeys =
         cacheView.filterIdentifiers(LOAD_BALANCERS.ns, searchKey);
-    Collection<CacheData> loadBalancers =
-        cacheView.getAll(LOAD_BALANCERS.ns, allLoadBalancerKeys, null);
+    Collection<CacheData> loadBalancers = cacheView.getAll(LOAD_BALANCERS.ns, allLoadBalancerKeys);
     for (CacheData loadBalancer : loadBalancers) {
       ResultDetails resultDetails = new ResultDetails();
       Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
@@ -239,16 +239,17 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
 
   private boolean isContainsLoadBalancer(
       AliCloudLoadBalancer loadBalancer, CacheData applicationServerGroup) {
-    String loadBalancerKey =
+    String clbLoadBalancerKey =
         Keys.getLoadBalancerKey(
             loadBalancer.getName(),
             loadBalancer.getAccount(),
             loadBalancer.getRegion(),
-            loadBalancer.getVpcId());
-    return applicationServerGroup
-        .getRelationships()
-        .get(LOAD_BALANCERS.ns)
-        .contains(loadBalancerKey);
+            loadBalancer.getVpcId(),
+            AliCloudLoadBalancerType.CLB.ns);
+    Collection<String> loadBalancerKeys =
+        applicationServerGroup.getRelationships().get(LOAD_BALANCERS.ns);
+    return AliCloudLoadBalancerType.ALB.ns.equalsIgnoreCase(loadBalancer.getLoadBalancerType())
+        || loadBalancerKeys.contains(clbLoadBalancerKey);
   }
 
   class ResultDetails implements Details {

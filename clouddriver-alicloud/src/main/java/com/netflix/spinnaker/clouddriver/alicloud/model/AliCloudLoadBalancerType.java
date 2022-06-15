@@ -17,7 +17,13 @@
 package com.netflix.spinnaker.clouddriver.alicloud.model;
 
 public enum AliCloudLoadBalancerType {
-  CLASSIC;
+  ALB,
+  CLB;
+  public final String ns;
+
+  AliCloudLoadBalancerType() {
+    ns = name().toLowerCase();
+  }
 
   public static AliCloudLoadBalancerType getByValue(String value) {
     for (AliCloudLoadBalancerType lbt : values()) {
@@ -26,10 +32,5 @@ public enum AliCloudLoadBalancerType {
       }
     }
     return null;
-  }
-
-  @Override
-  public String toString() {
-    return this.name().toLowerCase();
   }
 }

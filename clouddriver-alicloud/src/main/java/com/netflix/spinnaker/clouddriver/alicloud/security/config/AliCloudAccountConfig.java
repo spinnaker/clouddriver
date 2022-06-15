@@ -17,6 +17,8 @@ package com.netflix.spinnaker.clouddriver.alicloud.security.config;
 
 import java.util.List;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.EqualsAndHashCode.Include;
 
 /**
  * A mutable credentials configurations structure suitable for transformation into concrete
@@ -26,16 +28,21 @@ import lombok.Data;
 public class AliCloudAccountConfig {
 
   private List<Account> accounts;
+  private String accessKeyId;
+  private String accessSecretKey;
+  private String defaultRegion;
 
   @Data
+  @EqualsAndHashCode(onlyExplicitlyIncluded = true)
   public static class Account {
-
-    private String name;
-
-    private String accessKeyId;
-
-    private String accessSecretKey;
-
-    private List<String> regions;
+    @Include private String name;
+    @Include private String environment;
+    @Include private String accountType;
+    @Include private String accessKeyId;
+    @Include private String accessSecretKey;
+    @Include private String accountId;
+    @Include private String assumeRole;
+    @Include private List<String> regions;
+    List<String> requiredGroupMembership;
   }
 }

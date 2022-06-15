@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Alibaba Group.
+ * Copyright 2022 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,17 @@
 package com.netflix.spinnaker.clouddriver.alicloud.deploy.ops;
 
 import com.aliyuncs.IAcsClient;
-import com.aliyuncs.ecs.model.v20140526.*;
+import com.aliyuncs.ecs.model.v20140526.AuthorizeSecurityGroupRequest;
+import com.aliyuncs.ecs.model.v20140526.CreateSecurityGroupRequest;
+import com.aliyuncs.ecs.model.v20140526.CreateSecurityGroupResponse;
+import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupAttributeRequest;
+import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupAttributeResponse;
 import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupAttributeResponse.Permission;
+import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupsRequest;
+import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupsResponse;
 import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupsResponse.SecurityGroup;
+import com.aliyuncs.ecs.model.v20140526.ModifySecurityGroupRuleRequest;
+import com.aliyuncs.ecs.model.v20140526.RevokeSecurityGroupRequest;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.exceptions.ServerException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,20 +35,15 @@ import com.netflix.spinnaker.clouddriver.alicloud.common.ClientFactory;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.description.UpsertAliCloudSecurityGroupDescription;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import groovy.util.logging.Slf4j;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Slf4j
 public class UpsertAliCloudSecurityGroupAtomicOperation implements AtomicOperation<Void> {
-
-  private final Logger log =
-      LoggerFactory.getLogger(UpsertAliCloudSecurityGroupAtomicOperation.class);
 
   private final UpsertAliCloudSecurityGroupDescription description;
 
@@ -61,9 +64,7 @@ public class UpsertAliCloudSecurityGroupAtomicOperation implements AtomicOperati
   public Void operate(List priorOutputs) {
     IAcsClient client =
         clientFactory.createClient(
-            description.getRegion(),
-            description.getCredentials().getAccessKeyId(),
-            description.getCredentials().getAccessSecretKey());
+            description.getRegion(), description.getCredentials().getCredentialsProvider());
     DescribeSecurityGroupsRequest describeSecurityGroupsRequest =
         new DescribeSecurityGroupsRequest();
     describeSecurityGroupsRequest.setSecurityGroupName(description.getSecurityGroupName());
@@ -95,8 +96,7 @@ public class UpsertAliCloudSecurityGroupAtomicOperation implements AtomicOperati
     return null;
   }
 
-  private void buildIngressRule(IAcsClient client, String securityGroupId)
-      throws ClientException, ServerException {
+  private void buildIngressRule(IAcsClient client, String securityGroupId) throws ClientException {
     DescribeSecurityGroupAttributeRequest securityGroupAttributeRequest =
         new DescribeSecurityGroupAttributeRequest();
     securityGroupAttributeRequest.setSecurityGroupId(securityGroupId);

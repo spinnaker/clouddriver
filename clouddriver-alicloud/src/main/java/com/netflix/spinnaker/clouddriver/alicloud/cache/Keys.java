@@ -53,7 +53,11 @@ public class Keys implements KeyParser {
   public static final String SEPARATOR = ":";
 
   public static String getLoadBalancerKey(
-      String loadBalancerName, String account, String region, String vpcId) {
+      String loadBalancerName,
+      String account,
+      String region,
+      String vpcId,
+      String loadBalancerType) {
     String key =
         ID
             + SEPARATOR
@@ -63,10 +67,11 @@ public class Keys implements KeyParser {
             + SEPARATOR
             + region
             + SEPARATOR
-            + loadBalancerName;
-    if (!StringUtils.isEmpty(vpcId)) {
-      key = key + SEPARATOR + vpcId;
-    }
+            + loadBalancerName
+            + SEPARATOR
+            + (vpcId == null ? "" : vpcId)
+            + SEPARATOR
+            + (loadBalancerType == null ? "" : loadBalancerType);
     return key;
   }
 

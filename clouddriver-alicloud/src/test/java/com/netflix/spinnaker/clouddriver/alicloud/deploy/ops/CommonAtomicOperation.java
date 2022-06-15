@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,11 +15,13 @@
  */
 package com.netflix.spinnaker.clouddriver.alicloud.deploy.ops;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.aliyuncs.IAcsClient;
+import com.aliyuncs.auth.AlibabaCloudCredentials;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -43,9 +45,20 @@ public class CommonAtomicOperation {
 
   static {
     when(credentials.getName()).thenReturn(ACCOUNT);
-    when(credentials.getAccessKeyId()).thenReturn("test-ak");
-    when(credentials.getAccessSecretKey()).thenReturn("test-sk");
-    when(clientFactory.createClient(anyString(), anyString(), anyString())).thenReturn(client);
+    when(credentials.getCredentials())
+        .thenReturn(
+            new AlibabaCloudCredentials() {
+              @Override
+              public String getAccessKeyId() {
+                return "test-ak";
+              }
+
+              @Override
+              public String getAccessKeySecret() {
+                return "test-sk";
+              }
+            });
+    when(clientFactory.createClient(anyString(), any())).thenReturn(client);
   }
 
   @Subject

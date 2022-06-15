@@ -15,14 +15,22 @@
  */
 package com.netflix.spinnaker.clouddriver.alicloud.security;
 
+import com.aliyuncs.auth.AlibabaCloudCredentialsProvider;
+import com.aliyuncs.auth.BasicCredentials;
+import com.aliyuncs.auth.EnvironmentVariableCredentialsProvider;
+import com.aliyuncs.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.aliyuncs.auth.StaticCredentialsProvider;
+import com.aliyuncs.profile.DefaultProfile;
+import com.aliyuncs.utils.AuthUtils;
 import com.netflix.spinnaker.clouddriver.alicloud.security.config.AliCloudAccountConfig;
+import com.netflix.spinnaker.clouddriver.alicloud.security.config.AliCloudAccountConfig.Account;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -40,20 +48,61 @@ public class AliCloudCredentialsInitializer implements CredentialsInitializerSyn
   @Bean
   List synchronizeAliCloudAccounts(
       AliCloudAccountConfig aliCloudAccountConfig,
-      AccountCredentialsRepository accountCredentialsRepository,
-      ApplicationContext applicationContext) {
+      AccountCredentialsRepository accountCredentialsRepository) {
     List<AliCloudCredentials> aliCloudCredentialsList = new ArrayList<>();
+
+    if (StringUtils.isNotBlank(aliCloudAccountConfig.getAccessKeyId())
+        && StringUtils.isNotBlank(aliCloudAccountConfig.getAccessSecretKey())) {
+      AuthUtils.setEnvironmentAccessKeyId(aliCloudAccountConfig.getAccessKeyId());
+      AuthUtils.setEnvironmentAccessKeySecret(aliCloudAccountConfig.getAccessSecretKey());
+    }
+
     aliCloudAccountConfig.getAccounts().stream()
         .forEach(
             account -> {
-              AliCloudCredentials aliCloudCredentials = new AliCloudCredentials();
-              aliCloudCredentials.setName(account.getName());
-              aliCloudCredentials.setAccessSecretKey(account.getAccessSecretKey());
-              aliCloudCredentials.setAccessKeyId(account.getAccessKeyId());
-              aliCloudCredentials.setRegions(account.getRegions());
+              AlibabaCloudCredentialsProvider provider =
+                  buildProvider(account, aliCloudAccountConfig.getDefaultRegion());
+
+              AliCloudCredentials aliCloudCredentials =
+                  new AliCloudCredentials(
+                      account.getName(),
+                      account.getEnvironment(),
+                      account.getAccountType(),
+                      account.getRegions(),
+                      account.getRequiredGroupMembership(),
+                      provider);
               accountCredentialsRepository.save(account.getName(), aliCloudCredentials);
               aliCloudCredentialsList.add(aliCloudCredentials);
             });
     return aliCloudCredentialsList;
+  }
+
+  private AlibabaCloudCredentialsProvider buildProvider(Account account, String defaultRegion) {
+    AlibabaCloudCredentialsProvider provider = new EnvironmentVariableCredentialsProvider();
+
+    if (StringUtils.isNotBlank(account.getAssumeRole())) {
+
+      String roleArn =
+          String.format("acs:ram::%s:%s", account.getAccountId(), account.getAssumeRole());
+
+      if (StringUtils.isNotBlank(account.getAccessKeyId())
+          && StringUtils.isNotBlank(account.getAccessSecretKey())) {
+        return new STSAssumeRoleSessionCredentialsProvider(
+            new StaticCredentialsProvider(
+                new BasicCredentials(account.getAccessKeyId(), account.getAccessSecretKey())),
+            roleArn,
+            DefaultProfile.getProfile(defaultRegion));
+      } else {
+        return new STSAssumeRoleSessionCredentialsProvider(
+            provider, roleArn, DefaultProfile.getProfile(defaultRegion));
+      }
+    } else {
+      if (StringUtils.isNotBlank(account.getAccessKeyId())
+          && StringUtils.isNotBlank(account.getAccessSecretKey())) {
+        return new StaticCredentialsProvider(
+            new BasicCredentials(account.getAccessKeyId(), account.getAccessSecretKey()));
+      }
+    }
+    return provider;
   }
 }

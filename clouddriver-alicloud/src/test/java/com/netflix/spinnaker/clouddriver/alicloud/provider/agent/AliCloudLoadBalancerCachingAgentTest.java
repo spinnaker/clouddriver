@@ -33,6 +33,7 @@ import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
+import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudLoadBalancerType;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudClientProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentialsProvider;
@@ -83,7 +84,8 @@ public class AliCloudLoadBalancerCachingAgentTest extends CommonCachingAgentTest
             account,
             client);
     CacheResult result = agent.loadData(providerCache);
-    String key = Keys.getLoadBalancerKey(NAME, ACCOUNT, REGION, null);
+    String key =
+        Keys.getLoadBalancerKey(NAME, ACCOUNT, REGION, null, AliCloudLoadBalancerType.CLB.ns);
     List<CacheData> LoadBalancers = (List) result.getCacheResults().get(LOAD_BALANCERS.ns);
     assertTrue(LoadBalancers.size() == 1);
     assertTrue(key.equals(LoadBalancers.get(0).getId()));

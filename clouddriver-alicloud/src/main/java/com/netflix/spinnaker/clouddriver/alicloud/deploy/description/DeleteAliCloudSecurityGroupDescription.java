@@ -18,7 +18,9 @@ package com.netflix.spinnaker.clouddriver.alicloud.deploy.description;
 
 import java.util.List;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class DeleteAliCloudSecurityGroupDescription extends BaseAliCloudDescription {
 
