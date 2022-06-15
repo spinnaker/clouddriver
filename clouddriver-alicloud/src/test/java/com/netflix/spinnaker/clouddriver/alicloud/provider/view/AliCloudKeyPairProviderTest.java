@@ -1,11 +1,11 @@
 /*
- * Copyright 2019 Alibaba Group.
+ * Copyright 2022 Alibaba Group.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,18 +22,18 @@ import static org.mockito.Mockito.when;
 
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
-import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudSecurityGroup;
+import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudKeyPair;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-public class AliCloudSecurityGroupProviderTest extends CommonProvider {
+public class AliCloudKeyPairProviderTest extends CommonProvider {
 
   @Before
   public void testBefore() {
@@ -42,18 +42,17 @@ public class AliCloudSecurityGroupProviderTest extends CommonProvider {
   }
 
   @Test
-  public void testGetAllByAccount() {
-    AliCloudSecurityGroupProvider provider =
-        new AliCloudSecurityGroupProvider(objectMapper, cacheView);
-    Collection<AliCloudSecurityGroup> allByAccounts = provider.getAllByAccount(true, ACCOUNT);
-    assertEquals(1, allByAccounts.size());
+  public void testGetAll() {
+    AliCloudKeyPairProvider provider = new AliCloudKeyPairProvider(objectMapper, cacheView);
+    Set<AliCloudKeyPair> all = provider.getAll();
+    assertEquals(1, all.size());
   }
 
   private class FilterAnswer implements Answer<List<String>> {
     @Override
     public List<String> answer(InvocationOnMock invocation) throws Throwable {
       List<String> list = new ArrayList<>();
-      list.add("alicloud:securityGroups:sg-test:sg-test:cn-hangzhou:test-account:vpc-test");
+      list.add("alicloud:keyPairs:test-keyPair:test-account:cn-hangzhou");
       return list;
     }
   }
@@ -65,21 +64,11 @@ public class AliCloudSecurityGroupProviderTest extends CommonProvider {
       Map<String, Object> attributes = new HashMap<>();
       attributes.put("account", ACCOUNT);
       attributes.put("regionId", REGION);
-      attributes.put("securityGroupId", "sg-test");
-      attributes.put("securityGroupName", "sg-test");
-      attributes.put("description", "des");
-      attributes.put("vpcId", "vpc-test");
-      List<Map<String, Object>> permissions = new ArrayList<>();
-      Map<String, Object> permission1 = new HashMap<>();
-      permission1.put("ipProtocol", "tcp");
-      permission1.put("portRange", "1/200");
-      permissions.add(permission1);
-      attributes.put("permissions", permissions);
+      attributes.put("keyPairName", "kpName");
+      attributes.put("keyPairFingerPrint", "kpFingerPrint");
       CacheData cacheData1 =
           new DefaultCacheData(
-              "alicloud:securityGroups:sg-test:sg-test:cn-hangzhou:test-account:vpc-test",
-              attributes,
-              null);
+              "alicloud:keyPairs:test-keyPair:test-account:cn-hangzhou", attributes, null);
       cacheDatas.add(cacheData1);
       return cacheDatas;
     }

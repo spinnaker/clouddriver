@@ -1,0 +1,20 @@
+{
+  "aclStatus": "off",
+  "backendServerPort": 6443,
+  "bandwidth": -1,
+  "establishedTimeout": 900,
+  "healthCheck": "on",
+  "healthCheckConnectTimeout": 5,
+  "healthCheckDomain": "",
+  "healthCheckHttpCode": "",
+  "healthCheckInterval": 2,
+  "healthCheckType": "tcp",
+  "healthCheckURI": "",
+  "healthyThreshold": 3,
+  "listenerPort": 6443,
+  "persistenceTimeout": 0,
+  "requestId": "392A1C98-980B-5F4A-96AA-F03CCFAFA25A",
+  "scheduler": "wrr",
+  "status": "running",
+  "unhealthyThreshold": 3
+}

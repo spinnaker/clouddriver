@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,13 +21,11 @@ import static org.mockito.Mockito.when;
 import com.aliyuncs.IAcsClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
+import com.netflix.spinnaker.clouddriver.alicloud.BaseTest;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import spock.lang.Subject;
 
-public class CommonCachingAgentTest {
-
-  static final String ACCOUNT = "test-account";
-  static final String REGION = "cn-test";
+public class CommonCachingAgentTest extends BaseTest {
 
   @Subject ObjectMapper objectMapper = new ObjectMapper();
 

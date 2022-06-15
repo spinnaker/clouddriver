@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@Data
+@EqualsAndHashCode
 public class AliCloudLoadBalancer implements LoadBalancer {
 
   String account;
@@ -41,6 +45,7 @@ public class AliCloudLoadBalancer implements LoadBalancer {
   String vpcId;
 
   Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
+  Set<String> securityGroups;
 
   Map<String, String> labels = new HashMap<>();
 
@@ -51,51 +56,5 @@ public class AliCloudLoadBalancer implements LoadBalancer {
     this.name = name;
     this.vpcId = vpcId;
     this.loadBalancerId = loadBalancerId;
-  }
-
-  @Override
-  public String getName() {
-    return name;
-  }
-
-  @Override
-  public String getType() {
-    return type;
-  }
-
-  @Override
-  public String getCloudProvider() {
-    return cloudProvider;
-  }
-
-  @Override
-  public String getAccount() {
-    return account;
-  }
-
-  @Override
-  public Set<LoadBalancerServerGroup> getServerGroups() {
-    return serverGroups;
-  }
-
-  @Override
-  public Map<String, String> getLabels() {
-    return labels;
-  }
-
-  public String getRegion() {
-    return region;
-  }
-
-  public String getVpcId() {
-    return vpcId;
-  }
-
-  public String getLoadBalancerId() {
-    return loadBalancerId;
-  }
-
-  public void setServerGroups(Set<LoadBalancerServerGroup> serverGroups) {
-    this.serverGroups = serverGroups;
   }
 }

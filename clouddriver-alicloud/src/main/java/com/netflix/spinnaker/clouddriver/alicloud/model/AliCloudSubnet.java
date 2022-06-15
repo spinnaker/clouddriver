@@ -38,6 +38,8 @@ public class AliCloudSubnet implements Subnet {
 
   private String type;
 
+  private String vpcName;
+
   public AliCloudSubnet() {}
 
   public AliCloudSubnet(
@@ -48,7 +50,8 @@ public class AliCloudSubnet implements Subnet {
       String vSwitchName,
       String vpcId,
       String zoneId,
-      String type) {
+      String type,
+      String vpcName) {
     this.account = account;
     this.region = region;
     this.status = status;
@@ -57,6 +60,7 @@ public class AliCloudSubnet implements Subnet {
     this.vpcId = vpcId;
     this.zoneId = zoneId;
     this.type = type;
+    this.vpcName = vpcName;
   }
 
   @Override

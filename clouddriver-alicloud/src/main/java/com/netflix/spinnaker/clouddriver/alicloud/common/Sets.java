@@ -1,11 +1,11 @@
 /*
- * Copyright 2019 Alibaba Group.
+ * Copyright 2022 Alibaba Group.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,24 +14,15 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.alicloud.model.alienum;
+package com.netflix.spinnaker.clouddriver.alicloud.common;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public enum ListenerType {
-  HTTP,
-  HTTPS,
-  TCP,
-  UDP;
-
-  @JsonCreator
-  public static ListenerType forName(String name) {
-    for (ListenerType l : values()) {
-      if (l.name().equals(name)) {
-        return l;
-      }
-    }
-
-    return null;
+public class Sets {
+  public static Set<String> ofModifiable(String... arr) {
+    return Stream.of(arr).collect(Collectors.toCollection(HashSet::new));
   }
 }

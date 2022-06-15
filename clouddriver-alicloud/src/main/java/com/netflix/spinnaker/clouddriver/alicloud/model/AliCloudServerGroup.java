@@ -23,8 +23,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode
 public class AliCloudServerGroup implements ServerGroup, Serializable {
 
   private String name;
@@ -133,24 +135,21 @@ public class AliCloudServerGroup implements ServerGroup, Serializable {
 
   @Override
   public ImagesSummary getImagesSummary() {
-    return new ImagesSummary() {
-      @Override
-      public List<? extends ImageSummary> getSummaries() {
-        List<ImageSummary> list = new ArrayList<>();
-        InnSum innSum = new InnSum(image, buildInfo, name);
-        list.add(innSum);
-        return list;
-      }
+    return () -> {
+      List<ImageSummary> list = new ArrayList<>();
+      InnerSummary summary = new InnerSummary(image, buildInfo, name);
+      list.add(summary);
+      return list;
     };
   }
 
-  public class InnSum implements ImageSummary {
+  public class InnerSummary implements ServerGroup.ImageSummary {
 
     private Map<String, Object> i;
     private Map bi;
     private String serverGroupName;
 
-    public InnSum(Map<String, Object> i, Map bi, String serverGroupName) {
+    public InnerSummary(Map<String, Object> i, Map bi, String serverGroupName) {
       this.i = i;
       this.bi = bi;
       this.serverGroupName = serverGroupName;

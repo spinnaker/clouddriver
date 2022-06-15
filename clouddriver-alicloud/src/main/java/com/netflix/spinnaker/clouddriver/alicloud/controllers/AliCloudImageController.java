@@ -24,9 +24,13 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
 import com.netflix.spinnaker.kork.web.exceptions.InvalidRequestException;
 import groovy.util.logging.Slf4j;
+import java.io.Serializable;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.servlet.http.HttpServletRequest;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,7 +52,7 @@ public class AliCloudImageController {
   @RequestMapping(value = "/find", method = RequestMethod.GET)
   List<Image> list(LookupOptions lookupOptions, HttpServletRequest request) {
     String glob = lookupOptions.getQ();
-    if (StringUtils.isAllBlank(glob) && glob.length() < 3) {
+    if (StringUtils.isAllBlank(glob) || glob.length() < 3) {
       throw new InvalidRequestException("Lost search condition or length less 3");
     }
     glob = "*" + glob + "*";
@@ -63,8 +67,7 @@ public class AliCloudImageController {
         Keys.getNamedImageKey(
             StringUtils.isAllBlank(lookupOptions.account) ? "*" : lookupOptions.account, glob);
     Collection<String> nameImageIdentifiers = cacheView.filterIdentifiers(NAMED_IMAGES.ns, nameKey);
-    Collection<CacheData> nameImages =
-        cacheView.getAll(NAMED_IMAGES.ns, nameImageIdentifiers, null);
+    Collection<CacheData> nameImages = cacheView.getAll(NAMED_IMAGES.ns, nameImageIdentifiers);
     return filter(render(nameImages, images), extractTagFilters(request));
   }
 
@@ -80,25 +83,6 @@ public class AliCloudImageController {
     }
     return filter;
   }
-
-  /*  private static boolean checkInclude(Image image, Map<String, String> tagFilters) {
-    boolean flag = false;
-    List<Map> tags = (List) image.getAttributes().get("tags");
-    if (tags != null) {
-      for (Map tag : tags) {
-        String tagKey = tag.get("tagKey").toString();
-        String tagValue = tag.get("tagValue").toString();
-        if (StringUtils.isNotEmpty(tagFilters.get(tagKey))
-          && tagFilters.get(tagKey).equalsIgnoreCase(tagValue)) {
-          flag = true;
-        } else {
-          flag = false;
-          break;
-        }
-      }
-    }
-    return flag;
-  }*/
 
   private static boolean checkInclude(Image image, Map<String, String> tagFilters) {
     boolean flag = false;
@@ -122,17 +106,15 @@ public class AliCloudImageController {
   }
 
   private List<Image> render(Collection<CacheData> namedImages, Collection<CacheData> images) {
-    List<Image> list = new ArrayList<>();
-    for (CacheData image : images) {
-      Map<String, Object> attributes = image.getAttributes();
-      list.add(new Image(String.valueOf(attributes.get("imageName")), attributes));
-    }
-
-    for (CacheData nameImage : namedImages) {
-      Map<String, Object> attributes = nameImage.getAttributes();
-      list.add(new Image(String.valueOf(attributes.get("imageName")), attributes));
-    }
-    return list;
+    return Stream.of(namedImages.stream(), images.stream())
+        .flatMap(s -> s)
+        .map(
+            cache -> {
+              Map<String, Object> attributes = cache.getAttributes();
+              return new Image(String.valueOf(attributes.get("imageName")), attributes);
+            })
+        .distinct()
+        .collect(Collectors.toList());
   }
 
   private static Map<String, String> extractTagFilters(HttpServletRequest request) {
@@ -150,7 +132,8 @@ public class AliCloudImageController {
   }
 
   @Data
-  public static class Image {
+  @EqualsAndHashCode
+  public static class Image implements Serializable {
     public Image(String imageName, Map<String, Object> attributes) {
       this.imageName = imageName;
       this.attributes = attributes;

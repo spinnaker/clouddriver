@@ -68,8 +68,7 @@ public class AliCloudScalingActivitiesController {
     }
     AliCloudCredentials aliCloudCredentials = (AliCloudCredentials) credentials;
     IAcsClient client =
-        clientFactory.createClient(
-            region, aliCloudCredentials.getAccessKeyId(), aliCloudCredentials.getAccessSecretKey());
+        clientFactory.createClient(region, aliCloudCredentials.getCredentialsProvider());
     DescribeScalingGroupsRequest describeScalingGroupsRequest = new DescribeScalingGroupsRequest();
     describeScalingGroupsRequest.setScalingGroupName(serverGroupName);
     describeScalingGroupsRequest.setPageSize(50);

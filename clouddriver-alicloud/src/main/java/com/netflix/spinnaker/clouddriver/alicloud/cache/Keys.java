@@ -22,6 +22,7 @@ import com.google.common.base.CaseFormat;
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.alicloud.model.AliCloudServerGroup;
 import com.netflix.spinnaker.clouddriver.cache.KeyParser;
+import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
@@ -292,15 +293,33 @@ public class Keys implements KeyParser {
           result.put("region", parts[3]);
           result.put("account", parts[2]);
           result.put("vpcId", parts[6]);
+          return result;
         } else {
           return null;
         }
-        break;
+      case "clusters":
+        if (parts.length >= 5) {
+          result.put("application", parts[2]);
+          result.put("account", parts[3]);
+          result.put("clusterName", parts[4]);
+          return result;
+        } else {
+          return null;
+        }
+
+      case "health":
+        if (parts.length >= 8) {
+          result.put("loadBalancerId", parts[2]);
+          result.put("instanceId", parts[3]);
+          result.put("port", parts[4]);
+          result.put("account", parts[5]);
+          return result;
+        } else {
+          return null;
+        }
       default:
         return null;
     }
-
-    return result;
   }
 
   @Override

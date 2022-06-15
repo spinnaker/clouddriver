@@ -18,15 +18,16 @@ package com.netflix.spinnaker.clouddriver.alicloud.common;
 
 import com.aliyuncs.DefaultAcsClient;
 import com.aliyuncs.IAcsClient;
+import com.aliyuncs.auth.AlibabaCloudCredentialsProvider;
 import com.aliyuncs.profile.DefaultProfile;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ClientFactory {
 
-  public IAcsClient createClient(String region, String accessKeyId, String accessSecretKey) {
-    DefaultProfile profile = DefaultProfile.getProfile(region, accessKeyId, accessSecretKey);
-    DefaultAcsClient defaultAcsClient = new DefaultAcsClient(profile);
+  public IAcsClient createClient(String region, AlibabaCloudCredentialsProvider credentials) {
+    DefaultProfile profile = DefaultProfile.getProfile(region);
+    DefaultAcsClient defaultAcsClient = new DefaultAcsClient(profile, credentials);
     defaultAcsClient.appendUserAgent("Spinnaker", "Clouddriver v1.0");
     return defaultAcsClient;
   }

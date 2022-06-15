@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.alicloud.provider;
 
+import com.aliyuncs.IAcsClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.Agent;
@@ -52,10 +53,7 @@ public class AliProviderConfig {
       AliCloudProvider aliCloudProvider,
       ApplicationContext ctx,
       ClientFactory clientFactory) {
-    AliProvider provider =
-        new AliProvider(
-            accountCredentialsRepository,
-            Collections.newSetFromMap(new ConcurrentHashMap<Agent, Boolean>()));
+    AliProvider provider = new AliProvider(Collections.newSetFromMap(new ConcurrentHashMap<>()));
     synchronizeAliProvider(
         provider,
         accountCredentialsRepository,
@@ -93,6 +91,9 @@ public class AliProviderConfig {
 
         for (String region : credentials.getRegions()) {
           if (!scheduledAccounts.contains(credentials.getName())) {
+            IAcsClient client =
+                clientFactory.createClient(region, credentials.getCredentialsProvider());
+
             newAgents.add(
                 new AliCloudLoadBalancerCachingAgent(
                     aliProvider,
@@ -103,23 +104,23 @@ public class AliProviderConfig {
                     objectMapper,
                     registry,
                     credentials,
-                    clientFactory.createClient(
-                        region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
+                    client));
+            newAgents.add(
+                new AliCloudSubnetCachingAgent(credentials, region, objectMapper, client));
+            newAgents.add(new AliCloudImageCachingAgent(credentials, region, objectMapper, client));
+            newAgents.add(
+                new AliCloudInstanceTypeCachingAgent(credentials, region, objectMapper, client));
+            newAgents.add(
+                new AliCloudSecurityGroupCachingAgent(credentials, region, objectMapper, client));
+            newAgents.add(
+                new AliCloudKeyPairCachingAgent(credentials, region, objectMapper, client));
+            newAgents.add(
+                new AliCloudClusterCachingAgent(credentials, region, objectMapper, client));
+            newAgents.add(
+                new AliCloudInstanceCachingAgent(credentials, region, objectMapper, client));
             newAgents.add(
                 new AliCloudLoadBalancerInstanceStateCachingAgent(
-                    ctx,
-                    credentials,
-                    region,
-                    objectMapper,
-                    clientFactory.createClient(
-                        region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
-            newAgents.add(
-                new AliCloudSecurityGroupCachingAgent(
-                    credentials,
-                    region,
-                    objectMapper,
-                    clientFactory.createClient(
-                        region, credentials.getAccessKeyId(), credentials.getAccessSecretKey())));
+                    ctx, credentials, region, objectMapper, client));
           }
         }
       }
