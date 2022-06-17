@@ -201,13 +201,35 @@ public class AzureComputeClient extends AzureBaseClient {
   Boolean waitForScaleSetHealthy(String resourceGroupName, String serverGroupName, long timeoutMillis) {
     def now = System.nanoTime()
     def currentTime = System.nanoTime()
+
+    def sleepTimeSeconds;
+    def lb = azure
+      .loadBalancers()
+      .getByResourceGroup(
+        resourceGroupName,
+        getServerGroup(resourceGroupName, serverGroupName).getLoadBalancerName()
+      )
+
+    def httpProbes = lb.httpProbes().entrySet()
+    def httpsProbes = lb.httpsProbes().entrySet()
+
+    if (httpProbes.size() > 0) {
+      sleepTimeSeconds = httpProbes.iterator().next().getValue().intervalInSeconds();
+    } else if (httpsProbes.size() > 0) {
+      sleepTimeSeconds = httpsProbes.iterator().next().getValue().intervalInSeconds();
+    } else {
+      sleepTimeSeconds = 5;
+    }
+
     while (currentTime - now < timeoutMillis * 1000000) {
       def instances = getServerGroupInstances(resourceGroupName, serverGroupName)
       if (!instances.any { it.healthState != HealthState.Up }) {
         return true
       }
-      Thread.sleep(100)
+
+      Thread.sleep(sleepTimeSeconds * 1000)
       currentTime = System.nanoTime()
+      instances
     }
 
     false
