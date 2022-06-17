@@ -14,11 +14,15 @@ dependencies {
   testAnnotationProcessor "org.projectlombok:lombok"
 
   implementation 'com.yandex.cloud:java-sdk-services:2.1.1'
-  compile("io.opencensus:opencensus-api:0.21.0") {
-    force = true
+  implementation("io.opencensus:opencensus-api") {
+    version {
+      strictly "0.21.0"
+    }
   }
-  compile("io.opencensus:opencensus-contrib-grpc-metrics:0.21.0") {
-    force = true
+  implementation("io.opencensus:opencensus-contrib-grpc-metrics") {
+    version {
+      strictly "0.21.0"
+    }
   }
   implementation "org.codehaus.groovy:groovy-all"
   implementation "org.apache.commons:commons-lang3"
