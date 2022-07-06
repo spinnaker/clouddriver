@@ -122,4 +122,7 @@ public final class AtomicOperations {
 
   // AppEngine Config operations
   public static final String DEPLOY_APPENGINE_CONFIG = "deployAppengineConfiguration";
+
+  // Cloudrun Config operations
+  public static final String DEPLOY_CLOUDRUN_CONFIG = "deployCloudrunConfiguration";
 }
