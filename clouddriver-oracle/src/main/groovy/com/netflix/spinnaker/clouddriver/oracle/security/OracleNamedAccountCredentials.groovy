@@ -17,10 +17,17 @@ import com.oracle.bmc.auth.SimpleAuthenticationDetailsProvider
 import com.oracle.bmc.auth.SimplePrivateKeySupplier
 import com.oracle.bmc.core.ComputeClient
 import com.oracle.bmc.core.VirtualNetworkClient
+import com.oracle.bmc.http.ClientConfigurator
 import com.oracle.bmc.identity.IdentityClient
 import com.oracle.bmc.identity.requests.ListAvailabilityDomainsRequest
 import com.oracle.bmc.loadbalancer.LoadBalancerClient
 import com.oracle.bmc.objectstorage.ObjectStorageClient
+
+import javax.ws.rs.client.Client
+import javax.ws.rs.client.ClientBuilder
+import javax.ws.rs.client.ClientRequestContext
+import javax.ws.rs.client.ClientRequestFilter
+import javax.ws.rs.core.HttpHeaders
 
 class OracleNamedAccountCredentials extends AbstractAccountCredentials<Object> {
 
@@ -78,15 +85,20 @@ class OracleNamedAccountCredentials extends AbstractAccountCredentials<Object> {
       .tenantId(this.tenancyId)
       .build()
 
-    this.computeClient = new ComputeClient(provider)
+    this.computeClient = ComputeClient.builder()
+      .additionalClientConfigurator(userAgentClientConfigurator).build(provider)
     this.computeClient.setRegion(desiredRegion)
-    this.networkClient = new VirtualNetworkClient(provider)
+    this.networkClient = VirtualNetworkClient.builder()
+      .additionalClientConfigurator(userAgentClientConfigurator).build(provider)
     this.networkClient.setRegion(desiredRegion)
-    this.objectStorageClient = new ObjectStorageClient(provider)
+    this.objectStorageClient = ObjectStorageClient.builder()
+      .additionalClientConfigurator(userAgentClientConfigurator).build(provider)
     this.objectStorageClient.setRegion(desiredRegion)
-    this.identityClient = new IdentityClient(provider)
+    this.identityClient = IdentityClient.builder()
+      .additionalClientConfigurator(userAgentClientConfigurator).build(provider)
     this.identityClient.setRegion(desiredRegion)
-    this.loadBalancerClient = new LoadBalancerClient(provider)
+    this.loadBalancerClient = LoadBalancerClient.builder()
+      .additionalClientConfigurator(userAgentClientConfigurator).build(provider)
     this.loadBalancerClient.setRegion(desiredRegion)
     this.regions = [new OracleRegion(name: desiredRegion.regionId,
       availabilityZones: this.identityClient.listAvailabilityDomains(ListAvailabilityDomainsRequest.builder()
@@ -184,4 +196,23 @@ class OracleNamedAccountCredentials extends AbstractAccountCredentials<Object> {
     String name
     List<String> availabilityZones
   }
+
+   static class UserAgentHeaderFilter implements ClientRequestFilter {
+    @Override
+     void filter(ClientRequestContext requestContext) throws IOException {
+      requestContext.getHeaders().putSingle(HttpHeaders.USER_AGENT, "spinnaker-oci")
+    }
+  }
+
+  ClientConfigurator userAgentClientConfigurator = new ClientConfigurator() {
+    @Override
+    void customizeBuilder(ClientBuilder builder) {
+    }
+
+    @Override
+    void customizeClient(Client client) {
+      client.register(UserAgentHeaderFilter.class)
+    }
+  }
+
 }
