@@ -1,7 +1,7 @@
 apply plugin: "com.google.protobuf"
 
 ext {
-  protobufVersion = '[3.2.0,3.17.3]'
+  protobufVersion = '3.19.4'
   grpcVersion = '1.37.1'
 }
 
