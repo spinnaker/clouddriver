@@ -94,77 +94,78 @@ public class AmazonInstanceTypeCachingAgent implements CachingAgent, AccountAwar
     cacheResults.put(getAgentType(), Collections.singleton(metadata));
 
     // cache instance types info
-    if (instanceTypesInfo != null && !instanceTypesInfo.isEmpty()) {
-      List<CacheData> instanceTypeData =
-          instanceTypesInfo.stream()
-              .map(
-                  i -> {
-                    Map<String, Object> attributes = objectMapper.convertValue(i, ATTRIBUTES);
-                    attributes.put("account", account.getName());
-                    attributes.put("region", region);
-                    attributes.put("name", i.getInstanceType());
-                    attributes.put("defaultVCpus", i.getVCpuInfo().getDefaultVCpus());
-                    attributes.put("memoryInGiB", i.getMemoryInfo().getSizeInMiB() / 1024);
-                    attributes.put(
-                        "supportedArchitectures", i.getProcessorInfo().getSupportedArchitectures());
-
-                    if (i.getInstanceStorageInfo() != null) {
-                      InstanceStorageInfo info = i.getInstanceStorageInfo();
-                      Map<String, Object> instanceStorageAttributes = new HashMap<>();
-
-                      instanceStorageAttributes.put("totalSizeInGB", info.getTotalSizeInGB());
-                      if (info.getDisks() != null && info.getDisks().size() > 0) {
-                        instanceStorageAttributes.put(
-                            "storageTypes",
-                            info.getDisks().stream()
-                                .map(d -> d.getType())
-                                .collect(Collectors.joining(",")));
-                      }
-                      if (info.getNvmeSupport() != null) {
-                        instanceStorageAttributes.put("nvmeSupport", info.getNvmeSupport());
-                      }
-                      attributes.put("instanceStorageInfo", instanceStorageAttributes);
-                    }
-
-                    if (i.getGpuInfo() != null) {
-                      GpuInfo info = i.getGpuInfo();
-                      Map<String, Object> gpuInfoAttributes = new HashMap<>();
-
-                      if (info.getTotalGpuMemoryInMiB() != null) {
-                        gpuInfoAttributes.put("totalGpuMemoryInMiB", info.getTotalGpuMemoryInMiB());
-                      }
-                      if (info.getGpus() != null) {
-                        gpuInfoAttributes.put(
-                            "gpus",
-                            info.getGpus().stream()
-                                .map(
-                                    g -> {
-                                      Map<String, Object> gpuDeviceInfo = new HashMap<>();
-                                      gpuDeviceInfo.put("name", g.getName());
-                                      gpuDeviceInfo.put("manufacturer", g.getManufacturer());
-                                      gpuDeviceInfo.put("count", g.getCount());
-                                      gpuDeviceInfo.put(
-                                          "gpuSizeInMiB", g.getMemoryInfo().getSizeInMiB());
-                                      return gpuDeviceInfo;
-                                    })
-                                .collect(Collectors.toList()));
-                      }
-                      attributes.put("gpuInfo", gpuInfoAttributes);
-                    }
-
-                    if (i.getNetworkInfo() != null) {
-                      attributes.put("ipv6Supported", i.getNetworkInfo().getIpv6Supported());
-                    }
-
-                    return new DefaultCacheData(
-                        Keys.getInstanceTypeKey(i.getInstanceType(), region, account.getName()),
-                        attributes,
-                        Collections.emptyMap());
-                  })
-              .collect(Collectors.toList());
-
-      cacheResults.put(Keys.Namespace.INSTANCE_TYPES.getNs(), instanceTypeData);
+    if (instanceTypesInfo == null || instanceTypesInfo.isEmpty()) {
+      return new DefaultCacheResult(cacheResults);
     }
+
+    List<CacheData> instanceTypeData =
+        instanceTypesInfo.stream()
+            .map(
+                i -> {
+                  Map<String, Object> attributes = objectMapper.convertValue(i, ATTRIBUTES);
+                  attributes.put("account", account.getName());
+                  attributes.put("region", region);
+                  attributes.put("name", i.getInstanceType());
+                  attributes.put("defaultVCpus", i.getVCpuInfo().getDefaultVCpus());
+                  attributes.put("memoryInGiB", i.getMemoryInfo().getSizeInMiB() / 1024);
+                  attributes.put(
+                      "supportedArchitectures", i.getProcessorInfo().getSupportedArchitectures());
+
+                  if (i.getInstanceStorageInfo() != null) {
+                    InstanceStorageInfo info = i.getInstanceStorageInfo();
+                    Map<String, Object> instanceStorageAttributes = new HashMap<>();
+
+                    instanceStorageAttributes.put("totalSizeInGB", info.getTotalSizeInGB());
+                    if (info.getDisks() != null && info.getDisks().size() > 0) {
+                      instanceStorageAttributes.put(
+                          "storageTypes",
+                          info.getDisks().stream()
+                              .map(d -> d.getType())
+                              .collect(Collectors.joining(",")));
+                    }
+                    if (info.getNvmeSupport() != null) {
+                      instanceStorageAttributes.put("nvmeSupport", info.getNvmeSupport());
+                    }
+                    attributes.put("instanceStorageInfo", instanceStorageAttributes);
+                  }
+
+                  if (i.getGpuInfo() != null) {
+                    GpuInfo info = i.getGpuInfo();
+                    Map<String, Object> gpuInfoAttributes = new HashMap<>();
+
+                    if (info.getTotalGpuMemoryInMiB() != null) {
+                      gpuInfoAttributes.put("totalGpuMemoryInMiB", info.getTotalGpuMemoryInMiB());
+                    }
+                    if (info.getGpus() != null) {
+                      gpuInfoAttributes.put(
+                          "gpus",
+                          info.getGpus().stream()
+                              .map(
+                                  g -> {
+                                    Map<String, Object> gpuDeviceInfo = new HashMap<>();
+                                    gpuDeviceInfo.put("name", g.getName());
+                                    gpuDeviceInfo.put("manufacturer", g.getManufacturer());
+                                    gpuDeviceInfo.put("count", g.getCount());
+                                    gpuDeviceInfo.put(
+                                        "gpuSizeInMiB", g.getMemoryInfo().getSizeInMiB());
+                                    return gpuDeviceInfo;
+                                  })
+                              .collect(Collectors.toList()));
+                    }
+                    attributes.put("gpuInfo", gpuInfoAttributes);
+                  }
+
+                  if (i.getNetworkInfo() != null) {
+                    attributes.put("ipv6Supported", i.getNetworkInfo().getIpv6Supported());
+                  }
+
+                  return new DefaultCacheData(
+                      Keys.getInstanceTypeKey(i.getInstanceType(), region, account.getName()),
+                      attributes,
+                      Collections.emptyMap());
+                })
+            .collect(Collectors.toList());
+    cacheResults.put(Keys.Namespace.INSTANCE_TYPES.getNs(), instanceTypeData);
 
     return new DefaultCacheResult(cacheResults);
   }
@@ -208,7 +209,7 @@ public class AmazonInstanceTypeCachingAgent implements CachingAgent, AccountAwar
 
   @Override
   public String getAgentType() {
-    return String.format("%s/%s/%s", getClass().getSimpleName(), account.getName(), region);
+    return String.format("%s/%s/%s", account.getName(), region, getClass().getSimpleName());
   }
 
   @Override
