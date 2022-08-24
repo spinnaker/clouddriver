@@ -17,8 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.config;
 
+import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Strings;
-import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
+import com.netflix.spinnaker.clouddriver.security.AccessControlledAccountDefinition;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +51,8 @@ public class KubernetesAccountProperties {
   private static final int DEFAULT_CACHE_THREADS = 1;
 
   @Data
-  public static class ManagedAccount implements CredentialsDefinition {
+  @JsonTypeName("kubernetes")
+  public static class ManagedAccount implements AccessControlledAccountDefinition {
     private String name;
     private String environment;
     private String accountType;

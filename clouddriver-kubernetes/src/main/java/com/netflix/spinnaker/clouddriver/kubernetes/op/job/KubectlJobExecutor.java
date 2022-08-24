@@ -72,7 +72,7 @@ public class KubectlJobExecutor {
   private final Optional<RetryRegistry> retryRegistry;
 
   @Autowired
-  KubectlJobExecutor(
+  public KubectlJobExecutor(
       JobExecutor jobExecutor,
       @Value("${kubernetes.kubectl.executable:kubectl}") String executable,
       @Value("${kubernetes.o-auth.executable:oauth2l}") String oAuthExecutable,
@@ -150,17 +150,12 @@ public class KubectlJobExecutor {
     // spinnaker generally accepts deletes of resources that don't exist
     command.add("--ignore-not-found=true");
 
-    if (deleteOptions.getOrphanDependents() != null) {
-      command.add("--cascade=" + !deleteOptions.getOrphanDependents());
+    if (deleteOptions.getPropagationPolicy() != null) {
+      command.add("--cascade=" + deleteOptions.getPropagationPolicy());
     }
 
     if (deleteOptions.getGracePeriodSeconds() != null) {
       command.add("--grace-period=" + deleteOptions.getGracePeriodSeconds());
-    }
-
-    if (!Strings.isNullOrEmpty(deleteOptions.getPropagationPolicy())) {
-      throw new IllegalArgumentException(
-          "Propagation policy is not yet supported as a delete option");
     }
 
     String id;
@@ -458,8 +453,14 @@ public class KubectlJobExecutor {
             parseManifestList());
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
-      throw new KubectlException(
-          "Failed to read " + kinds + " from " + namespace + ": " + status.getError());
+      boolean permissionError =
+          org.apache.commons.lang3.StringUtils.containsIgnoreCase(status.getError(), "forbidden");
+      if (permissionError) {
+        log.warn(status.getError());
+      } else {
+        throw new KubectlException(
+            "Failed to read " + kinds + " from " + namespace + ": " + status.getError());
+      }
     }
 
     if (status.getError().contains("No resources found")) {

@@ -421,6 +421,13 @@ public class Applications {
             ? emptyMap()
             : applicationEnv.getEnvironmentJson();
 
+    // filter out environment variables that aren't Spinnaker metadata
+    // as these could contain secrets
+    environmentVars =
+        environmentVars.entrySet().stream()
+            .filter(e -> ServerGroupMetaDataEnvVar.contains(e.getKey()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
     final CloudFoundryBuildInfo buildInfo = getBuildInfoFromEnvVars(environmentVars);
     final ArtifactInfo artifactInfo = getArtifactInfoFromEnvVars(environmentVars);
     final String pipelineId =
@@ -649,8 +656,11 @@ public class Applications {
                     "Cloud Foundry signaled that package upload succeeded but failed to provide a response."));
   }
 
-  public String createBuild(String packageGuid) throws CloudFoundryApiException {
-    return safelyCall(() -> api.createBuild(new CreateBuild(packageGuid)))
+  public String createBuild(
+      String packageGuid, @Nullable Integer memoryAmount, @Nullable Integer diskSizeAmount)
+      throws CloudFoundryApiException {
+    return safelyCall(
+            () -> api.createBuild(new CreateBuild(packageGuid, memoryAmount, diskSizeAmount)))
         .map(Build::getGuid)
         .orElseThrow(
             () ->

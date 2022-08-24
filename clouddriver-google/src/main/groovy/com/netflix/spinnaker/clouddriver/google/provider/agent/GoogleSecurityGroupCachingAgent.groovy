@@ -147,7 +147,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
   }
 
   @Override
-  Collection<Map<String, ?>> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     def keyOwnedByThisAgent = { Map<String, String> parsedKey ->
       parsedKey && parsedKey.account == accountName && parsedKey.region == "global"
     }
@@ -205,13 +205,6 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
     } else {
       List<Firewall> firewalls = timeExecute(compute.firewalls().list(project),
                                              "compute.firewalls.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
-
-      if (xpnHostProject) {
-        List<Firewall> hostFirewalls = timeExecute(compute.firewalls().list(xpnHostProject),
-                                                   "compute.firewalls.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
-
-        firewalls = (firewalls ?: []) + (hostFirewalls ?: [])
-      }
 
       return firewalls
     }

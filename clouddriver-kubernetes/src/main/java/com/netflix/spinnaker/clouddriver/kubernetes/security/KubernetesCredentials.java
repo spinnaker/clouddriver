@@ -141,7 +141,7 @@ public class KubernetesCredentials {
           this::namespaceSupplier, NAMESPACE_EXPIRY_SECONDS, TimeUnit.SECONDS);
   @Getter private final Namer<KubernetesManifest> namer;
 
-  private KubernetesCredentials(
+  public KubernetesCredentials(
       Registry registry,
       KubectlJobExecutor jobExecutor,
       ManagedAccount managedAccount,
@@ -260,7 +260,7 @@ public class KubernetesCredentials {
     }
   }
 
-  private boolean isValidKind(@Nonnull KubernetesKind kind) {
+  public boolean isValidKind(@Nonnull KubernetesKind kind) {
     return getKindStatus(kind) == KubernetesKindStatus.VALID;
   }
 

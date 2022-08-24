@@ -24,6 +24,7 @@ dependencies {
   implementation project(":clouddriver-event")
 
   implementation "io.spinnaker.kork:kork-core"
+  implementation "io.spinnaker.kork:kork-secrets"
   implementation "io.spinnaker.kork:kork-sql"
   implementation "io.spinnaker.kork:kork-telemetry"
   implementation "de.huxhorn.sulky:de.huxhorn.sulky.ulid"
@@ -31,6 +32,7 @@ dependencies {
   implementation "org.hibernate.validator:hibernate-validator"
   implementation "com.fasterxml.jackson.core:jackson-annotations"
   implementation "com.fasterxml.jackson.core:jackson-databind"
+  implementation "javax.validation:validation-api"
 
   testImplementation project(":clouddriver-core-tck")
 

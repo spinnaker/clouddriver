@@ -34,6 +34,9 @@ import retrofit2.Call;
 import retrofit2.Response;
 
 public final class CloudFoundryClientUtils {
+  // https://github.com/cloudfoundry/cloud_controller_ng/blob/main/app/models/services/service_binding.rb#L53
+  private static final String BINDING_NAME_INVALID_CHARACTER_PATTERN = "[^\\w-]+";
+
   private static final ObjectMapper mapper =
       new ObjectMapper()
           .setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE)
@@ -111,5 +114,9 @@ public final class CloudFoundryClientUtils {
 
   public static ObjectMapper getMapper() {
     return mapper;
+  }
+
+  public static String convertToValidServiceBindingName(final String name) {
+    return name.replaceAll(BINDING_NAME_INVALID_CHARACTER_PATTERN, "-");
   }
 }

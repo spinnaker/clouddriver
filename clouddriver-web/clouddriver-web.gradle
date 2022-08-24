@@ -14,10 +14,6 @@ configurations.all {
   exclude group: "org.slf4j", module: "slf4j-log4j12"
 }
 
-repositories {
-  maven { url "https://adxsnapshots.azurewebsites.net" }
-}
-
 dependencies {
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-api")
@@ -59,8 +55,10 @@ dependencies {
     runtimeOnly project(":clouddriver-configserver")
   }
 
+  testImplementation "io.spinnaker.kork:kork-test"
   testImplementation "org.springframework.boot:spring-boot-starter-test"
   testImplementation "org.spockframework:spock-core"
+  testImplementation "io.kubernetes:client-java:$kubernetesClientVersion"
 
   // Add each included cloud provider project as a runtime dependency
   gradle.includedCloudProviderProjects.each {

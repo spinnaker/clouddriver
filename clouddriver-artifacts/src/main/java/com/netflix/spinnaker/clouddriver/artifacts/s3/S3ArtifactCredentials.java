@@ -18,14 +18,17 @@ package com.netflix.spinnaker.clouddriver.artifacts.s3;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.PredefinedClientConfigurations;
+import com.amazonaws.Request;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.S3Object;
 import com.google.common.collect.ImmutableList;
+import com.netflix.spectator.aws.SpectatorRequestMetricCollector;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
@@ -50,22 +53,31 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
   private final String awsSecretAccessKey;
   private final String signerOverride;
   private final Optional<S3ArtifactValidator> s3ArtifactValidator;
+  private final S3ArtifactProviderProperties s3ArtifactProviderProperties;
+  private final S3ArtifactRequestHandler s3ArtifactRequestHandler;
 
   private AmazonS3 amazonS3;
 
   S3ArtifactCredentials(
-      S3ArtifactAccount account, Optional<S3ArtifactValidator> s3ArtifactValidator) {
-    this(account, s3ArtifactValidator, null);
+      S3ArtifactAccount account,
+      Optional<S3ArtifactValidator> s3ArtifactValidator,
+      S3ArtifactProviderProperties s3ArtifactProviderProperties) {
+    this(account, s3ArtifactValidator, null, s3ArtifactProviderProperties);
   }
 
-  S3ArtifactCredentials(S3ArtifactAccount account, @Nullable AmazonS3 amazonS3) {
-    this(account, Optional.empty(), amazonS3);
+  S3ArtifactCredentials(
+      S3ArtifactAccount account,
+      @Nullable AmazonS3 amazonS3,
+      S3ArtifactProviderProperties s3ArtifactProviderProperties) {
+    this(account, Optional.empty(), amazonS3, s3ArtifactProviderProperties);
   }
 
   S3ArtifactCredentials(
       S3ArtifactAccount account,
       Optional<S3ArtifactValidator> s3ArtifactValidator,
-      @Nullable AmazonS3 amazonS3) {
+      @Nullable AmazonS3 amazonS3,
+      S3ArtifactProviderProperties s3ArtifactProviderProperties)
+      throws IllegalArgumentException {
     name = account.getName();
     apiEndpoint = account.getApiEndpoint();
     apiRegion = account.getApiRegion();
@@ -75,6 +87,8 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
     signerOverride = account.getSignerOverride();
     this.s3ArtifactValidator = s3ArtifactValidator;
     this.amazonS3 = amazonS3;
+    this.s3ArtifactProviderProperties = s3ArtifactProviderProperties;
+    s3ArtifactRequestHandler = new S3ArtifactRequestHandler(name);
   }
 
   private AmazonS3 getS3Client() {
@@ -83,11 +97,9 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
     }
 
     AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
-    if (!signerOverride.isEmpty()) {
-      ClientConfiguration configuration = PredefinedClientConfigurations.defaultConfig();
-      configuration.setSignerOverride(signerOverride);
-      builder.setClientConfiguration(configuration);
-    }
+    builder.setClientConfiguration(getClientConfiguration());
+    builder.setRequestHandlers(s3ArtifactRequestHandler);
+
     if (!apiEndpoint.isEmpty()) {
       AwsClientBuilder.EndpointConfiguration endpoint =
           new AwsClientBuilder.EndpointConfiguration(apiEndpoint, apiRegion);
@@ -151,5 +163,64 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
   @Override
   public String getType() {
     return CREDENTIALS_TYPE;
+  }
+
+  private ClientConfiguration getClientConfiguration() {
+    ClientConfiguration configuration =
+        configuration = PredefinedClientConfigurations.defaultConfig();
+
+    if (!signerOverride.isEmpty()) {
+      configuration.setSignerOverride(signerOverride);
+    }
+
+    if (s3ArtifactProviderProperties.getClientExecutionTimeout() != null) {
+      configuration.setClientExecutionTimeout(
+          s3ArtifactProviderProperties.getClientExecutionTimeout());
+    }
+    if (s3ArtifactProviderProperties.getConnectionMaxIdleMillis() != null) {
+      configuration.setConnectionMaxIdleMillis(
+          s3ArtifactProviderProperties.getConnectionMaxIdleMillis());
+    }
+    if (s3ArtifactProviderProperties.getConnectionTimeout() != null) {
+      configuration.setConnectionTimeout(s3ArtifactProviderProperties.getConnectionTimeout());
+    }
+    if (s3ArtifactProviderProperties.getConnectionTTL() != null) {
+      configuration.setConnectionTTL(s3ArtifactProviderProperties.getConnectionTTL());
+    }
+    if (s3ArtifactProviderProperties.getMaxConnections() != null) {
+      configuration.setMaxConnections(s3ArtifactProviderProperties.getMaxConnections());
+    }
+    if (s3ArtifactProviderProperties.getRequestTimeout() != null) {
+      configuration.setRequestTimeout(s3ArtifactProviderProperties.getRequestTimeout());
+    }
+    if (s3ArtifactProviderProperties.getSocketTimeout() != null) {
+      configuration.setSocketTimeout(s3ArtifactProviderProperties.getSocketTimeout());
+    }
+    if (s3ArtifactProviderProperties.getValidateAfterInactivityMillis() != null) {
+      configuration.setValidateAfterInactivityMillis(
+          s3ArtifactProviderProperties.getValidateAfterInactivityMillis());
+    }
+    return configuration;
+  }
+
+  @NonnullByDefault
+  static class S3ArtifactRequestHandler extends RequestHandler2 {
+
+    private final String value;
+
+    S3ArtifactRequestHandler(String value) {
+      this.value = value;
+    }
+
+    @Override
+    public void beforeRequest(Request<?> request) {
+      // To get connection pool metrics, differentiate our client from others.
+      // Use SpectatorRequestMetricCollector.DEFAULT_HANDLER_CONTEXT_KEY to
+      // match what SpectatorRequestMetricCollector uses.  See
+      // https://github.com/Netflix/spectator/blob/v1.0.6/spectator-ext-aws/src/main/java/com/netflix/spectator/aws/SpectatorRequestMetricCollector.java#L108
+      // and
+      // https://github.com/Netflix/spectator/blob/v1.0.6/spectator-ext-aws/src/main/java/com/netflix/spectator/aws/SpectatorRequestMetricCollector.java#L177-L186.
+      request.addHandlerContext(SpectatorRequestMetricCollector.DEFAULT_HANDLER_CONTEXT_KEY, value);
+    }
   }
 }
