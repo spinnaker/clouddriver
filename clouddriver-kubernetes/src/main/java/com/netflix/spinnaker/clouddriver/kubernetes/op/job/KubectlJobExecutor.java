@@ -62,7 +62,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -74,8 +73,6 @@ public class KubectlJobExecutor {
   private static final String KUBECTL_COMMAND_OPTION_CONTEXT = "--context=";
 
   private final JobExecutor jobExecutor;
-  private final String executable;
-  private final String oAuthExecutable;
 
   private final Gson gson = new Gson();
 
@@ -89,13 +86,9 @@ public class KubectlJobExecutor {
   @Autowired
   KubectlJobExecutor(
       JobExecutor jobExecutor,
-      @Value("${kubernetes.kubectl.executable:kubectl}") String executable,
-      @Value("${kubernetes.o-auth.executable:oauth2l}") String oAuthExecutable,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
       @Nullable MeterRegistry meterRegistry) {
     this.jobExecutor = jobExecutor;
-    this.executable = executable;
-    this.oAuthExecutable = oAuthExecutable;
     this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
     this.meterRegistry = meterRegistry;
 
@@ -105,10 +98,8 @@ public class KubectlJobExecutor {
 
   KubectlJobExecutor(
       JobExecutor jobExecutor,
-      @Value("${kubernetes.kubectl.executable:kubectl}") String executable,
-      @Value("${kubernetes.o-auth.executable:oauth2l}") String oAuthExecutable,
       KubernetesConfigurationProperties kubernetesConfigurationProperties) {
-    this(jobExecutor, executable, oAuthExecutable, kubernetesConfigurationProperties, null);
+    this(jobExecutor, kubernetesConfigurationProperties, null);
   }
 
   public String logs(
@@ -588,7 +579,7 @@ public class KubectlJobExecutor {
     if (!Strings.isNullOrEmpty(credentials.getKubectlExecutable())) {
       command.add(credentials.getKubectlExecutable());
     } else {
-      command.add(executable);
+      command.add(this.kubernetesConfigurationProperties.getKubectl().getExecutable());
     }
 
     if (credentials.getKubectlRequestTimeoutSeconds() != null) {
@@ -663,7 +654,7 @@ public class KubectlJobExecutor {
 
   private String getOAuthToken(KubernetesCredentials credentials) {
     List<String> command = new ArrayList<>();
-    command.add(oAuthExecutable);
+    command.add(this.kubernetesConfigurationProperties.getOAuth().getExecutable());
     command.add("fetch");
     command.add("--json");
     command.add(credentials.getOAuthServiceAccount());

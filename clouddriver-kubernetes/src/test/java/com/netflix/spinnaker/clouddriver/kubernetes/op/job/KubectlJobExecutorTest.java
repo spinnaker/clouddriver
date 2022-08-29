@@ -93,11 +93,7 @@ final class KubectlJobExecutorTest {
 
     KubectlJobExecutor kubectlJobExecutor =
         new KubectlJobExecutor(
-            jobExecutor,
-            "kubectl",
-            "oauth2l",
-            kubernetesConfigurationProperties,
-            new SimpleMeterRegistry());
+            jobExecutor, kubernetesConfigurationProperties, new SimpleMeterRegistry());
     Collection<KubernetesPodMetric> podMetrics =
         kubectlJobExecutor.topPod(mockKubernetesCredentials(), "test", "");
     assertThat(podMetrics).isEmpty();
@@ -137,11 +133,7 @@ final class KubectlJobExecutorTest {
 
     KubectlJobExecutor kubectlJobExecutor =
         new KubectlJobExecutor(
-            jobExecutor,
-            "kubectl",
-            "oauth2l",
-            new KubernetesConfigurationProperties(),
-            new SimpleMeterRegistry());
+            jobExecutor, new KubernetesConfigurationProperties(), new SimpleMeterRegistry());
     Collection<KubernetesPodMetric> podMetrics =
         kubectlJobExecutor.topPod(mockKubernetesCredentials(), NAMESPACE, "");
     assertThat(podMetrics).hasSize(2);
@@ -198,11 +190,7 @@ final class KubectlJobExecutorTest {
 
     KubectlJobExecutor kubectlJobExecutor =
         new KubectlJobExecutor(
-            jobExecutor,
-            "kubectl",
-            "oauth2l",
-            kubernetesConfigurationProperties,
-            new SimpleMeterRegistry());
+            jobExecutor, kubernetesConfigurationProperties, new SimpleMeterRegistry());
 
     // then
     KubectlJobExecutor.KubectlException thrown =
@@ -254,11 +242,7 @@ final class KubectlJobExecutorTest {
 
     KubectlJobExecutor kubectlJobExecutor =
         new KubectlJobExecutor(
-            jobExecutor,
-            "kubectl",
-            "oauth2l",
-            kubernetesConfigurationProperties,
-            new SimpleMeterRegistry());
+            jobExecutor, kubernetesConfigurationProperties, new SimpleMeterRegistry());
 
     for (int i = 1; i <= numberOfThreads; i++) {
       futures.add(
@@ -367,11 +351,7 @@ final class KubectlJobExecutorTest {
 
     KubectlJobExecutor kubectlJobExecutor =
         new KubectlJobExecutor(
-            jobExecutor,
-            "kubectl",
-            "oauth2l",
-            kubernetesConfigurationProperties,
-            new SimpleMeterRegistry());
+            jobExecutor, kubernetesConfigurationProperties, new SimpleMeterRegistry());
 
     for (int i = 1; i <= numberOfThreads; i++) {
       futures.add(
@@ -460,11 +440,7 @@ final class KubectlJobExecutorTest {
 
     KubectlJobExecutor kubectlJobExecutor =
         new KubectlJobExecutor(
-            jobExecutor,
-            "kubectl",
-            "oauth2l",
-            kubernetesConfigurationProperties,
-            new SimpleMeterRegistry());
+            jobExecutor, kubernetesConfigurationProperties, new SimpleMeterRegistry());
 
     Collection<KubernetesPodMetric> podMetrics =
         kubectlJobExecutor.topPod(mockKubernetesCredentials(), NAMESPACE, "test-pod");
@@ -561,11 +537,7 @@ final class KubectlJobExecutorTest {
 
     KubectlJobExecutor kubectlJobExecutor =
         new KubectlJobExecutor(
-            jobExecutor,
-            "kubectl",
-            "oauth2l",
-            kubernetesConfigurationProperties,
-            new SimpleMeterRegistry());
+            jobExecutor, kubernetesConfigurationProperties, new SimpleMeterRegistry());
 
     JobExecutionException thrown =
         assertThrows(

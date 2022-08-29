@@ -35,6 +35,9 @@ public class KubernetesConfigurationProperties {
 
   private Cache cache = new Cache();
 
+  private KubectlProperties kubectl = new KubectlProperties();
+  private OAuthProperties oAuth = new OAuthProperties();
+
   @Data
   public static class KubernetesJobExecutorProperties {
     private Retries retries = new Retries();
@@ -104,5 +107,17 @@ public class KubernetesConfigurationProperties {
      * Cache#cacheKinds}
      */
     private List<String> cacheOmitKinds = null;
+  }
+
+  /** kubectl configuration properties */
+  @Data
+  public static class KubectlProperties {
+    private String executable = "kubectl";
+  }
+
+  /** oAuth configuration properties */
+  @Data
+  public static class OAuthProperties {
+    private String executable = "oauth2l";
   }
 }
