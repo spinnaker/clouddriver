@@ -40,13 +40,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.params.SetParams;
 
 public class ClusteredAgentScheduler extends CatsModuleAware
     implements AgentScheduler<AgentLock>, Runnable {
-  private static enum Status {
+  private enum Status {
     SUCCESS,
     FAILURE
   }
@@ -59,11 +60,33 @@ public class ClusteredAgentScheduler extends CatsModuleAware
   private final ExecutorService agentExecutionPool;
   private final Pattern enabledAgentPattern;
 
+  /**
+   * this contains all the known agents (from all cloud providers) that are candidates for execution
+   */
+  @Getter // visible for tests
   private final Map<String, AgentExecutionAction> agents = new ConcurrentHashMap<>();
+
+  /** This contains all the agents that are currently scheduled for execution */
+  @Getter // visible for tests
   private final Map<String, NextAttempt> activeAgents = new ConcurrentHashMap<>();
+
   private final NodeStatusProvider nodeStatusProvider;
   private final DynamicConfigService dynamicConfigService;
   private final ShardingFilter shardingFilter;
+
+  private static final long MIN_TTL_THRESHOLD = 500L;
+  private static final String SET_IF_NOT_EXIST = "NX";
+  private static final String SET_EXPIRE_TIME_MILLIS = "PX";
+  private static final String SUCCESS_RESPONSE = "OK";
+  private static final Long DEL_SUCCESS = 1L;
+
+  @Getter // visible for tests
+  private static final String DELETE_LOCK_KEY =
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+
+  @Getter // visible for tests
+  private static final String TTL_LOCK_KEY =
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('set', KEYS[1], ARGV[1], 'PX', ARGV[2], 'XX') else return nil end";
 
   public ClusteredAgentScheduler(
       RedisClientDelegate redisClientDelegate,
@@ -170,22 +193,15 @@ public class ClusteredAgentScheduler extends CatsModuleAware
   private void runAgents() {
     Map<String, NextAttempt> thisRun = acquire();
     activeAgents.putAll(thisRun);
+    logger.debug(
+        "scheduling {} new agents, total number of active agents: {}",
+        thisRun.size(),
+        activeAgents.size());
     for (final Map.Entry<String, NextAttempt> toRun : thisRun.entrySet()) {
       final AgentExecutionAction exec = agents.get(toRun.getKey());
       agentExecutionPool.submit(new AgentJob(toRun.getValue(), exec, this));
     }
   }
-
-  private static final long MIN_TTL_THRESHOLD = 500L;
-  private static final String SET_IF_NOT_EXIST = "NX";
-  private static final String SET_EXPIRE_TIME_MILLIS = "PX";
-  private static final String SUCCESS_RESPONSE = "OK";
-  private static final Long DEL_SUCCESS = 1L;
-
-  private static final String DELETE_LOCK_KEY =
-      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
-  private static final String TTL_LOCK_KEY =
-      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('set', KEYS[1], ARGV[1], 'PX', ARGV[2], 'XX') else return nil end";
 
   private boolean acquireRunKey(String agentType, long timeout) {
     return redisClientDelegate.withCommandsClient(
@@ -271,10 +287,34 @@ public class ClusteredAgentScheduler extends CatsModuleAware
     agents.put(agent.getAgentType(), agentExecutionAction);
   }
 
+  /**
+   *
+   *
+   * <pre>
+   * Removes an agent from redis, {@link #agents} and {@link #activeAgents} maps.
+   *
+   * NOTE: we are explicitly removing the agent from the {@link #activeAgents} map. Normally, the agent is
+   * removed from it when {@link #agentCompleted(String, long)} is called after it executes via
+   * {@link AgentJob#run()}. But if for some reason that thread is killed before
+   * {@link #agentCompleted(String, long)} is executed, then this agent is not removed from the
+   * {@link #activeAgents} map, and that means it won't be executed again if this agent is scheduled
+   * again in future.
+   *
+   * PS: if accounts are not updated/deleted dynamically, this method will not be invoked, so the
+   *     agent can still remain in the {@link #activeAgents} map
+   * </pre>
+   *
+   * @param agent agent under consideration
+   */
   @Override
   public void unschedule(Agent agent) {
-    releaseRunKey(agent.getAgentType(), 0); // Delete lock key now.
-    agents.remove(agent.getAgentType());
+    try {
+      releaseRunKey(agent.getAgentType(), 0); // Delete lock key now.
+    } finally {
+      agents.remove(agent.getAgentType());
+      // explicitly remove it from the active agents map
+      activeAgents.remove(agent.getAgentType());
+    }
   }
 
   private static class NextAttempt {
