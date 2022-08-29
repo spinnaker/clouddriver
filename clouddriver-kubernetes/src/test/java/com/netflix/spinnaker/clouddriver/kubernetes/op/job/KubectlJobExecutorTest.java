@@ -110,7 +110,7 @@ final class KubectlJobExecutorTest {
       assertTrue(kubectlJobExecutor.getRetryRegistry().isPresent());
       RetryRegistry retryRegistry = kubectlJobExecutor.getRetryRegistry().get();
       assertThat(retryRegistry.getAllRetries().size()).isEqualTo(1);
-      assertThat(retryRegistry.getAllRetries().get(0).getName()).isEqualTo("mock-account.topPod.");
+      assertThat(retryRegistry.getAllRetries().get(0).getName()).isEqualTo("mock-account");
 
       // verify retry metrics
       Retry.Metrics retryMetrics = retryRegistry.getAllRetries().get(0).getMetrics();
@@ -294,8 +294,7 @@ final class KubectlJobExecutorTest {
     assertTrue(kubectlJobExecutor.getRetryRegistry().isPresent());
     RetryRegistry retryRegistry = kubectlJobExecutor.getRetryRegistry().get();
     assertThat(retryRegistry.getAllRetries().size()).isEqualTo(1);
-    assertThat(retryRegistry.getAllRetries().get(0).getName())
-        .isEqualTo("mock-account.topPod.test-pod");
+    assertThat(retryRegistry.getAllRetries().get(0).getName()).isEqualTo("mock-account");
 
     // verify retry metrics
     Retry.Metrics retryMetrics = retryRegistry.getAllRetries().get(0).getMetrics();
@@ -314,12 +313,16 @@ final class KubectlJobExecutorTest {
                     iLoggingEvent
                         .getFormattedMessage()
                         .contains(
-                            "Action: mock-account.topPod.test-pod failed after "
+                            "Kubectl command for mock-account failed after "
                                 + kubernetesConfigurationProperties
                                     .getJobExecutor()
                                     .getRetries()
                                     .getMaxAttempts()
-                                + " attempts"))
+                                + " attempts. Exception: com.netflix.spinnaker.clouddriver.kubernetes.op."
+                                + "job.KubectlJobExecutor$KubectlException: command: 'kubectl "
+                                + "--request-timeout=0 --namespace=test-namespace top po test-pod "
+                                + "--containers' in account: mock-account failed. Error: Unable to "
+                                + "connect to the server: net/http: TLS handshake timeout"))
             .collect(Collectors.toList());
 
     // we should only see 1 failed retry attempt message per thread
@@ -396,8 +399,7 @@ final class KubectlJobExecutorTest {
     assertTrue(kubectlJobExecutor.getRetryRegistry().isPresent());
     RetryRegistry retryRegistry = kubectlJobExecutor.getRetryRegistry().get();
     assertThat(retryRegistry.getAllRetries().size()).isEqualTo(1);
-    assertThat(retryRegistry.getAllRetries().get(0).getName())
-        .isEqualTo("mock-account.topPod.test-pod");
+    assertThat(retryRegistry.getAllRetries().get(0).getName()).isEqualTo("mock-account");
 
     // verify retry metrics
     Retry.Metrics retryMetrics = retryRegistry.getAllRetries().get(0).getMetrics();
@@ -417,7 +419,9 @@ final class KubectlJobExecutorTest {
                     iLoggingEvent
                         .getFormattedMessage()
                         .contains(
-                            "mock-account.topPod.test-pod will not be retried as retries are not enabled for error: un-retryable error"))
+                            "Not retrying command: 'kubectl --request-timeout=0 --namespace=test-namespace"
+                                + " top po test-pod --containers' in account: mock-account as retries are not"
+                                + " enabled for error: un-retryable error"))
             .collect(Collectors.toList());
 
     // we should only see 1 failed retry attempt message per thread
@@ -475,8 +479,7 @@ final class KubectlJobExecutorTest {
     assertTrue(kubectlJobExecutor.getRetryRegistry().isPresent());
     RetryRegistry retryRegistry = kubectlJobExecutor.getRetryRegistry().get();
     assertThat(retryRegistry.getAllRetries().size()).isEqualTo(1);
-    assertThat(retryRegistry.getAllRetries().get(0).getName())
-        .isEqualTo("mock-account.topPod.test-pod");
+    assertThat(retryRegistry.getAllRetries().get(0).getName()).isEqualTo("mock-account");
 
     // verify retry metrics
     Retry.Metrics retryMetrics = retryRegistry.getAllRetries().get(0).getMetrics();
@@ -495,7 +498,12 @@ final class KubectlJobExecutorTest {
                     iLoggingEvent
                         .getFormattedMessage()
                         .contains(
-                            "Action: mock-account.topPod.test-pod succeeded after 1 retry attempt(s)"))
+                            "Kubectl command for mock-account is now successful in attempt #2. Last "
+                                + "attempt had failed with exception: com.netflix.spinnaker.clouddriver"
+                                + ".kubernetes.op.job.KubectlJobExecutor$KubectlException: command: "
+                                + "'kubectl --request-timeout=0 --namespace=test-namespace top po test-pod"
+                                + " --containers' in account: mock-account failed. Error: Unable to connect to"
+                                + " the server: net/http: TLS handshake timeout"))
             .collect(Collectors.toList());
 
     // we should only see 1 succeeded retry attempt message

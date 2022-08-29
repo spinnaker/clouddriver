@@ -44,6 +44,7 @@ import io.github.resilience4j.retry.RetryRegistry;
 import io.github.resilience4j.retry.event.RetryEvent;
 import io.github.resilience4j.retry.event.RetryOnErrorEvent;
 import io.github.resilience4j.retry.event.RetryOnIgnoredErrorEvent;
+import io.github.resilience4j.retry.event.RetryOnRetryEvent;
 import io.github.resilience4j.retry.event.RetryOnSuccessEvent;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -68,6 +69,10 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class KubectlJobExecutor {
   private static final String NOT_FOUND_STRING = "(NotFound)";
+  private static final String KUBECTL_COMMAND_OPTION_TOKEN = "--token=";
+  private static final String KUBECTL_COMMAND_OPTION_KUBECONFIG = "--kubeconfig=";
+  private static final String KUBECTL_COMMAND_OPTION_CONTEXT = "--context=";
+
   private final JobExecutor jobExecutor;
   private final String executable;
   private final String oAuthExecutable;
@@ -82,7 +87,7 @@ public class KubectlJobExecutor {
   @Nullable private final MeterRegistry meterRegistry;
 
   @Autowired
-  public KubectlJobExecutor(
+  KubectlJobExecutor(
       JobExecutor jobExecutor,
       @Value("${kubernetes.kubectl.executable:kubectl}") String executable,
       @Value("${kubernetes.o-auth.executable:oauth2l}") String oAuthExecutable,
@@ -113,20 +118,14 @@ public class KubectlJobExecutor {
     command.add(podName);
     command.add("-c=" + containerName);
 
+    String resource = podName + "/" + containerName;
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".logs." + podName, new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
-          "Failed to get logs from "
-              + podName
-              + "/"
-              + containerName
-              + " in "
-              + namespace
-              + ": "
-              + status.getError());
+          "Failed to get logs from " + resource + " in " + namespace + ": " + status.getError());
     }
 
     return status.getOutput();
@@ -135,17 +134,18 @@ public class KubectlJobExecutor {
   public String jobLogs(
       KubernetesCredentials credentials, String namespace, String jobName, String containerName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+    String resource = "job/" + jobName;
     command.add("logs");
-    command.add("job/" + jobName);
+    command.add(resource);
     command.add("-c=" + containerName);
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".jobLogs." + jobName, new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
-          "Failed to get logs from job/" + jobName + " in " + namespace + ": " + status.getError());
+          "Failed to get logs from " + resource + " in " + namespace + ": " + status.getError());
     }
 
     return status.getOutput();
@@ -183,7 +183,8 @@ public class KubectlJobExecutor {
     }
 
     JobResult<String> status =
-        executeKubectlJob(credentials.getAccountName() + ".delete." + id, new JobRequest(command));
+        executeKubectlJob(
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
@@ -214,14 +215,14 @@ public class KubectlJobExecutor {
     command = kubectlLookupInfo(command, kind, name, null);
     command.add("--replicas=" + replicas);
 
+    String resource = kind + "/" + name;
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".scale." + kind.toString() + "/" + name,
-            new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
-          "Failed to scale " + kind + "/" + name + " from " + namespace + ": " + status.getError());
+          "Failed to scale " + resource + " from " + namespace + ": " + status.getError());
     }
 
     return null;
@@ -230,22 +231,19 @@ public class KubectlJobExecutor {
   public List<Integer> historyRollout(
       KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
-
+    String resource = kind + "/" + name;
     command.add("rollout");
     command.add("history");
-    command.add(kind.toString() + "/" + name);
+    command.add(resource);
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".historyRollout." + kind.toString() + "/" + name,
-            new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
           "Failed to get rollout history of "
-              + kind
-              + "/"
-              + name
+              + resource
               + " from "
               + namespace
               + ": "
@@ -287,26 +285,19 @@ public class KubectlJobExecutor {
       int revision) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
+    String resource = kind + "/" + name;
     command.add("rollout");
     command.add("undo");
-    command.add(kind.toString() + "/" + name);
+    command.add(resource);
     command.add("--to-revision=" + revision);
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".undoRollout." + kind.toString() + "/" + name,
-            new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
-          "Failed to undo rollout "
-              + kind
-              + "/"
-              + name
-              + " from "
-              + namespace
-              + ": "
-              + status.getError());
+          "Failed to undo rollout " + resource + " from " + namespace + ": " + status.getError());
     }
 
     return null;
@@ -316,25 +307,18 @@ public class KubectlJobExecutor {
       KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
+    String resource = kind + "/" + name;
     command.add("rollout");
     command.add("pause");
-    command.add(kind.toString() + "/" + name);
+    command.add(resource);
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".pauseRollout." + kind.toString() + "/" + name,
-            new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
-          "Failed to pause rollout "
-              + kind
-              + "/"
-              + name
-              + " from "
-              + namespace
-              + ": "
-              + status.getError());
+          "Failed to pause rollout " + resource + " from " + namespace + ": " + status.getError());
     }
 
     return null;
@@ -344,25 +328,18 @@ public class KubectlJobExecutor {
       KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
+    String resource = kind + "/" + name;
     command.add("rollout");
     command.add("resume");
-    command.add(kind.toString() + "/" + name);
+    command.add(resource);
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".resumeRollout." + kind.toString() + "/" + name,
-            new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
-          "Failed to resume rollout "
-              + kind
-              + "/"
-              + name
-              + " from "
-              + namespace
-              + ": "
-              + status.getError());
+          "Failed to resume rollout " + resource + " from " + namespace + ": " + status.getError());
     }
 
     return null;
@@ -372,21 +349,19 @@ public class KubectlJobExecutor {
       KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
+    String resource = kind + "/" + name;
     command.add("rollout");
     command.add("restart");
-    command.add(kind.toString() + "/" + name);
+    command.add(resource);
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".rollingRestart." + kind.toString() + "/" + name,
-            new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
           "Failed to complete rolling restart of "
-              + kind
-              + "/"
-              + name
+              + resource
               + " from "
               + namespace
               + ": "
@@ -404,8 +379,7 @@ public class KubectlJobExecutor {
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".get." + kind.toString() + "/" + name,
-            new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       if (status.getError().contains(NOT_FOUND_STRING)) {
@@ -434,15 +408,21 @@ public class KubectlJobExecutor {
             "involvedObject.name=%s,involvedObject.kind=%s",
             name, StringUtils.capitalize(kind.toString())));
 
+    String resource = kind + "/" + name;
     JobResult<ImmutableList<KubernetesManifest>> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".eventsFor." + kind.toString() + "/" + name,
+            new KubectlActionIdentifier(credentials, command),
             new JobRequest(command),
             parseManifestList());
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
-          "Failed to read events from " + namespace + ": " + status.getError());
+          "Failed to read events for: "
+              + resource
+              + " from "
+              + namespace
+              + ": "
+              + status.getError());
     }
 
     if (status.getError().contains("No resources found")) {
@@ -463,9 +443,10 @@ public class KubectlJobExecutor {
       command.add("-l=" + selectors.toString());
     }
 
+    String resource = kinds.stream().map(KubernetesKind::toString).collect(Collectors.joining(","));
     JobResult<ImmutableList<KubernetesManifest>> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".list." + kinds + "." + namespace,
+            new KubectlActionIdentifier(credentials, command),
             new JobRequest(command),
             parseManifestList());
 
@@ -476,7 +457,7 @@ public class KubectlJobExecutor {
         log.warn(status.getError());
       } else {
         throw new KubectlException(
-            "Failed to read " + kinds + " from " + namespace + ": " + status.getError());
+            "Failed to read " + resource + " from " + namespace + ": " + status.getError());
       }
     }
 
@@ -488,6 +469,7 @@ public class KubectlJobExecutor {
   }
 
   public KubernetesManifest deploy(KubernetesCredentials credentials, KubernetesManifest manifest) {
+    log.info("Deploying manifest {}", manifest.getFullResourceName());
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -501,24 +483,25 @@ public class KubectlJobExecutor {
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".deploy." + manifest.getFullResourceName(),
+            new KubectlActionIdentifier(credentials, command, manifest),
             new JobRequest(
                 command,
                 new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
-      throw new KubectlException("Deploy failed: " + status.getError());
+      throw new KubectlException(
+          "Deploy failed for manifest: "
+              + manifest.getFullResourceName()
+              + ". Error: "
+              + status.getError());
     }
 
-    try {
-      return gson.fromJson(status.getOutput(), KubernetesManifest.class);
-    } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
-    }
+    return getKubernetesManifestFromJobResult(status, manifest);
   }
 
   public KubernetesManifest replace(
       KubernetesCredentials credentials, KubernetesManifest manifest) {
+    log.info("Replacing manifest {}", manifest.getFullResourceName());
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -532,26 +515,31 @@ public class KubectlJobExecutor {
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".replace." + manifest.getFullResourceName(),
+            new KubectlActionIdentifier(credentials, command, manifest),
             new JobRequest(
                 command,
                 new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       if (status.getError().contains(NOT_FOUND_STRING)) {
-        throw new KubectlNotFoundException("Replace failed: " + status.getError());
+        throw new KubectlNotFoundException(
+            "Replace failed for manifest: "
+                + manifest.getFullResourceName()
+                + ". Error: "
+                + status.getError());
       }
-      throw new KubectlException("Replace failed: " + status.getError());
+      throw new KubectlException(
+          "Replace failed for manifest: "
+              + manifest.getFullResourceName()
+              + ". Error: "
+              + status.getError());
     }
 
-    try {
-      return gson.fromJson(status.getOutput(), KubernetesManifest.class);
-    } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
-    }
+    return getKubernetesManifestFromJobResult(status, manifest);
   }
 
   public KubernetesManifest create(KubernetesCredentials credentials, KubernetesManifest manifest) {
+    log.info("Creating manifest {}", manifest.getName());
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -565,19 +553,33 @@ public class KubectlJobExecutor {
 
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".create." + manifest.getFullResourceName(),
+            new KubectlActionIdentifier(credentials, command, manifest),
             new JobRequest(
                 command,
                 new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
-      throw new KubectlException("Create failed: " + status.getError());
+      throw new KubectlException(
+          "Create failed for manifest: "
+              + manifest.getFullResourceName()
+              + ". Error: "
+              + status.getError());
     }
 
+    return getKubernetesManifestFromJobResult(status, manifest);
+  }
+
+  private KubernetesManifest getKubernetesManifestFromJobResult(
+      JobResult<String> status, KubernetesManifest inputManifest) {
     try {
       return gson.fromJson(status.getOutput(), KubernetesManifest.class);
     } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
+      throw new KubectlException(
+          "Failed to parse kubectl output for manifest: "
+              + inputManifest.getName()
+              + ". Error: "
+              + e.getMessage(),
+          e);
     }
   }
 
@@ -601,17 +603,17 @@ public class KubectlJobExecutor {
     if (!credentials.isServiceAccount()) {
       if (credentials.getOAuthServiceAccount() != null
           && !credentials.getOAuthServiceAccount().isEmpty()) {
-        command.add("--token=" + getOAuthToken(credentials));
+        command.add(KUBECTL_COMMAND_OPTION_TOKEN + getOAuthToken(credentials));
       }
 
       String kubeconfigFile = credentials.getKubeconfigFile();
       if (!Strings.isNullOrEmpty(kubeconfigFile)) {
-        command.add("--kubeconfig=" + kubeconfigFile);
+        command.add(KUBECTL_COMMAND_OPTION_KUBECONFIG + kubeconfigFile);
       }
 
       String context = credentials.getContext();
       if (!Strings.isNullOrEmpty(context)) {
-        command.add("--context=" + context);
+        command.add(KUBECTL_COMMAND_OPTION_CONTEXT + context);
       }
     }
 
@@ -668,7 +670,8 @@ public class KubectlJobExecutor {
     command.addAll(credentials.getOAuthScopes());
 
     JobResult<String> status =
-        executeKubectlJob(credentials.getAccountName() + ".getOAuthToken", new JobRequest(command));
+        executeKubectlJob(
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException("Could not fetch OAuth token: " + status.getError());
@@ -685,10 +688,9 @@ public class KubectlJobExecutor {
       command.add(pod);
     }
     command.add("--containers");
-
     JobResult<String> status =
-        executeKubectlJob(credentials.getAccountName() + ".topPod." + pod, new JobRequest(command));
-
+        executeKubectlJob(
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
     if (status.getResult() != JobResult.Result.SUCCESS) {
       if (status.getError().toLowerCase().contains("not available")
           || status.getError().toLowerCase().contains("not found")) {
@@ -760,10 +762,10 @@ public class KubectlJobExecutor {
     command.add("--patch");
     command.add(patchBody);
 
+    String resource = kind + "/" + name;
     JobResult<String> status =
         executeKubectlJob(
-            credentials.getAccountName() + ".patch." + kind.toString() + "/" + name,
-            new JobRequest(command));
+            new KubectlActionIdentifier(credentials, command), new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       String errMsg = status.getError();
@@ -775,7 +777,8 @@ public class KubectlJobExecutor {
         return null;
       }
 
-      throw new KubectlException("Patch failed: " + errMsg);
+      throw new KubectlException(
+          "Patch failed for: " + name + " in namespace: " + namespace + ": " + errMsg);
     }
 
     return null;
@@ -855,21 +858,19 @@ public class KubectlJobExecutor {
           .onEntryAdded(
               entryAddedEvent -> {
                 Retry addedRetry = entryAddedEvent.getAddedEntry();
-                log.info("Kubectl retry context: {} added", addedRetry.getName());
+                log.info("Kubectl retries configured for: {}", addedRetry.getName());
               })
           .onEntryRemoved(
               entryRemovedEvent -> {
                 Retry removedRetry = entryRemovedEvent.getRemovedEntry();
-                log.info("Kubectl retry context: {} removed", removedRetry.getName());
+                log.info("Kubectl retries removed for: {}", removedRetry.getName());
               })
           .onEntryReplaced(
               entryReplacedEvent -> {
                 Retry oldEntry = entryReplacedEvent.getOldEntry();
                 Retry newEntry = entryReplacedEvent.getNewEntry();
                 log.info(
-                    "Kubectl retry context: {} replaced with: {}",
-                    oldEntry.getName(),
-                    newEntry.getName());
+                    "Kubectl retry: {} updated to: {}", oldEntry.getName(), newEntry.getName());
               });
 
       // defining an event consumer once for the entire registry as mentioned here:
@@ -884,15 +885,22 @@ public class KubectlJobExecutor {
           retryEvent -> {
             if (retryEvent instanceof RetryOnErrorEvent) {
               log.error(
-                  "Action: {} failed after {} attempts. Exception: {}",
+                  "Kubectl command for {} failed after {} attempts. Exception: {}",
                   retryEvent.getName(),
                   retryEvent.getNumberOfRetryAttempts(),
                   retryEvent.getLastThrowable().toString());
             } else if (retryEvent instanceof RetryOnSuccessEvent) {
               log.info(
-                  "Action: {} succeeded after {} retry attempt(s)",
+                  "Kubectl command for {} is now successful in attempt #{}. Last attempt had failed with exception: {}",
                   retryEvent.getName(),
-                  retryEvent.getNumberOfRetryAttempts());
+                  retryEvent.getNumberOfRetryAttempts() + 1,
+                  retryEvent.getLastThrowable().toString());
+            } else if (retryEvent instanceof RetryOnRetryEvent) {
+              log.info(
+                  "Retrying Kubectl command for {}. Attempt #{} failed with exception: {}",
+                  retryEvent.getName(),
+                  retryEvent.getNumberOfRetryAttempts(),
+                  retryEvent.getLastThrowable().toString());
             } else if (!(retryEvent instanceof RetryOnIgnoredErrorEvent)) {
               // don't log anything for Ignored exceptions as it just leads to noise in the logs
               log.info(retryEvent.toString());
@@ -936,20 +944,20 @@ public class KubectlJobExecutor {
         .getRetryableErrorMessages()
         .stream()
         .anyMatch(errorMessage -> result.getError().contains(errorMessage))) {
-      return new KubectlException(result.getError());
+      return new KubectlException(identifier + " failed. Error: " + result.getError());
     }
 
     // even though the error is not explicitly configured to be retryable, the job was killed -
     // hence, we should retry
     if (result.isKilled()) {
-      String message = "retrying " + identifier + " since the job " + result + " was killed";
-      log.warn(message);
-      return new KubectlException(message);
+      return new KubectlException(
+          "retrying " + identifier + " since the job " + result + " was killed");
     }
 
     String message =
-        identifier
-            + " will not be retried as retries are not enabled for error: "
+        "Not retrying "
+            + identifier
+            + " as retries are not enabled for error: "
             + result.getError();
     log.warn(message);
     // we want to let the retry library know that such errors should not be retried.
@@ -962,12 +970,13 @@ public class KubectlJobExecutor {
    * This method ends up running the actual kubectl command and determines if it needs to run the
    * command with retries.
    *
-   * @param identifier - only applicable if retries are enabled. This identifies which retry
-   *     instance should be used from the global retry registry
-   * @param jobRequest - the actual kubectl command to be performed
+   * @param identifier only applicable if retries are enabled. This identifies which retry instance
+   *     should be used from the global retry registry
+   * @param jobRequest the actual kubectl command to be performed
    * @return - the result of the kubectl command
    */
-  private JobResult<String> executeKubectlJob(String identifier, JobRequest jobRequest) {
+  private JobResult<String> executeKubectlJob(
+      KubectlActionIdentifier identifier, JobRequest jobRequest) {
     // retry registry is empty if retries are not enabled.
     if (retryRegistry.isEmpty()) {
       return jobExecutor.runJob(jobRequest);
@@ -975,7 +984,7 @@ public class KubectlJobExecutor {
 
     // capture the original result obtained from the jobExecutor.runJob(jobRequest) call.
     JobResult.JobResultBuilder<String> finalResult = JobResult.builder();
-    Retry retryContext = retryRegistry.get().retry(identifier);
+    Retry retryContext = retryRegistry.get().retry(identifier.getRetryMetricName());
     try {
       return retryContext.executeSupplier(
           () -> {
@@ -997,7 +1006,7 @@ public class KubectlJobExecutor {
             // Since Kubectl binary doesn't throw any exceptions by default, we need to
             // check the result to see if retries are needed. Resilience.4j needs an exception to be
             // thrown to decide if retries are needed and also, to capture retry metrics correctly.
-            throw convertKubectlJobResultToException(identifier, result);
+            throw convertKubectlJobResultToException(identifier.getRetryLogName(), result);
           });
     } catch (KubectlException | NoRetryException e) {
       // the caller functions expect any failures to be defined in a JobResult object and not in
@@ -1020,7 +1029,7 @@ public class KubectlJobExecutor {
    * @return - the result of the kubectl command
    */
   private <T> JobResult<T> executeKubectlJob(
-      String identifier, JobRequest jobRequest, ReaderConsumer<T> readerConsumer) {
+      KubectlActionIdentifier identifier, JobRequest jobRequest, ReaderConsumer<T> readerConsumer) {
     // retry registry is empty if retries are not enabled.
     if (retryRegistry.isEmpty()) {
       return jobExecutor.runJob(jobRequest, readerConsumer);
@@ -1029,7 +1038,7 @@ public class KubectlJobExecutor {
     // capture the original result obtained from the jobExecutor.runJob(jobRequest, readerConsumer)
     // call.
     JobResult.JobResultBuilder<T> finalResult = JobResult.builder();
-    Retry retryContext = retryRegistry.get().retry(identifier);
+    Retry retryContext = retryRegistry.get().retry(identifier.getRetryMetricName());
     try {
       return retryContext.executeSupplier(
           () -> {
@@ -1051,7 +1060,7 @@ public class KubectlJobExecutor {
             // Since Kubectl binary doesn't throw any exceptions by default, we need to
             // check the result to see if retries are needed. Resilience.4j needs an exception to be
             // thrown to decide if retries are needed and also, to capture retry metrics correctly.
-            throw convertKubectlJobResultToException(identifier, result);
+            throw convertKubectlJobResultToException(identifier.getRetryLogName(), result);
           });
     } catch (KubectlException | NoRetryException e) {
       // the caller functions expect any failures to be defined in a JobResult object and not in
@@ -1085,6 +1094,82 @@ public class KubectlJobExecutor {
   static class NoRetryException extends RuntimeException {
     NoRetryException(String message) {
       super(message);
+    }
+  }
+
+  /** helper class to identify the kubectl command in logs and metrics when retries are enabled */
+  static class KubectlActionIdentifier {
+    KubernetesCredentials credentials;
+    List<String> command;
+    String namespace;
+    String resource;
+
+    public KubectlActionIdentifier(KubernetesCredentials credentials, List<String> command) {
+      this(credentials, command, "", "");
+    }
+
+    public KubectlActionIdentifier(
+        KubernetesCredentials credentials,
+        List<String> command,
+        KubernetesManifest kubernetesManifest) {
+      this(
+          credentials,
+          command,
+          kubernetesManifest.getNamespace(),
+          kubernetesManifest.getFullResourceName());
+    }
+
+    public KubectlActionIdentifier(
+        KubernetesCredentials credentials,
+        List<String> command,
+        String namespace,
+        String resource) {
+      this.credentials = credentials;
+      this.command = command;
+      this.namespace = namespace;
+      this.resource = resource;
+    }
+
+    /**
+     * this returns a name that is used to log which kubectl call was attempted when retries are
+     * enabled
+     *
+     * @return - the descriptive name indicating the kubectl call that was attempted
+     */
+    public String getRetryLogName() {
+      // no need to display everything in a kubectl command
+      List<String> commandToLog =
+          command.stream()
+              .filter(
+                  s ->
+                      !(s.contains(KUBECTL_COMMAND_OPTION_TOKEN)
+                          || s.contains(KUBECTL_COMMAND_OPTION_KUBECONFIG)
+                          || s.contains(KUBECTL_COMMAND_OPTION_CONTEXT)))
+              .collect(Collectors.toList());
+
+      String identifier =
+          "command: '"
+              + String.join(" ", commandToLog)
+              + "' in account: "
+              + this.credentials.getAccountName();
+
+      if (!namespace.isEmpty()) {
+        identifier += " in namespace: " + namespace;
+      }
+
+      if (!resource.isEmpty()) {
+        identifier += " for resource: " + resource;
+      }
+      return identifier;
+    }
+
+    /**
+     * this returns a name which uniquely identifies a retry instance when capturing retry metrics.
+     *
+     * @return - the metric name to be used to uniquely identify a retry instance
+     */
+    public String getRetryMetricName() {
+      return this.credentials.getAccountName();
     }
   }
 }
