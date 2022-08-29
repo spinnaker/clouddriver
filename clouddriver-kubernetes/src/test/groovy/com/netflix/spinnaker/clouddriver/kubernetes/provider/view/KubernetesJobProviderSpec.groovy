@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.provider.view
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesManifestContainer
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest
+import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -65,10 +66,52 @@ class KubernetesJobProviderSpec extends Specification {
     logResult == result
 
     where:
-    logs                               | result
-    "SPINNAKER_PROPERTY_a=b"           | [a: 'b']
-    "Spinnaker_Property_a=b"           | [:]
-    'SPINNAKER_CONFIG_JSON={"a": "b"}' | [a: 'b']
-    'SPINNAKER_CONFIG_JSON={"a": "b}'  | null
+    logs                                  | result
+    "SPINNAKER_PROPERTY_a=b"              | [a: 'b']
+    "Spinnaker_Property_a=b"              | [:]
+    'SPINNAKER_CONFIG_JSON={"a": "b"}'    | [a: 'b']
+    'SPINNAKER_CONFIG_JSON={"a": "b}'     | null
+    'SPINNAKER_CONFIG_JSON=syntax error'  | null
+    "doesn't contain any magic strings"   | [:]
+  }
+
+  def "if getFileContents throws an exception, then logResult == null"() {
+    given:
+    def mockCredentials = Mock(KubernetesCredentials) {
+      jobLogs(*_) >> {
+        throw new KubectlJobExecutor.KubectlException("some exception while getting logs", new Exception())
+      }
+    }
+
+    def mockAccountCredentialsProvider = Mock(AccountCredentialsProvider) {
+      getCredentials(*_) >> Mock(AccountCredentials) {
+        getCredentials(*_) >> mockCredentials
+      }
+    }
+
+    def testManifest = new KubernetesManifest()
+    testManifest.putAll([
+      apiVersion: 'batch/v1',
+      kind: 'Job',
+      metadata: [
+        name: 'a',
+        namespace: 'b',
+      ]
+    ])
+
+    def mockManifestProvider = Mock(KubernetesManifestProvider) {
+      getManifest(*_) >> KubernetesManifestContainer.builder()
+        .account("a")
+        .name("a")
+        .manifest(testManifest)
+        .build()
+    }
+
+    when:
+    def provider = new KubernetesJobProvider(mockAccountCredentialsProvider, mockManifestProvider)
+    def logResult = provider.getFileContents("a", "b", "c", "d")
+
+    then:
+    logResult == null
   }
 }

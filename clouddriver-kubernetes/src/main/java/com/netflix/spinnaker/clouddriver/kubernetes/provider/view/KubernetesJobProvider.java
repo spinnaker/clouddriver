@@ -123,14 +123,34 @@ public class KubernetesJobProvider implements JobProvider<KubernetesJobStatus> {
     return getKubernetesJob(account, location, id)
         .map(
             job -> {
+              String logContents;
               try {
-                String logContents =
+                logContents =
                     credentials.jobLogs(location, job.getMetadata().getName(), containerName);
-                return PropertyParser.extractPropertiesFromLog(logContents);
-              } catch (Exception e) {
-                log.error("Couldn't parse properties for account {} at {}", account, location);
+              } catch (Exception jobLogsException) {
+                log.error(
+                    "Failed to get logs from job: {}, container: {} in namespace: {} for account: {}. Error: ",
+                    id,
+                    containerName,
+                    location,
+                    account,
+                    jobLogsException);
                 return null;
               }
+              try {
+                if (logContents != null) {
+                  return PropertyParser.extractPropertiesFromLog(logContents);
+                }
+              } catch (Exception e) {
+                log.error(
+                    "Couldn't parse properties for job: {}, container: {} in namespace: {} for account: {}. Error: ",
+                    id,
+                    containerName,
+                    location,
+                    account,
+                    e);
+              }
+              return null;
             })
         .orElse(null);
   }
