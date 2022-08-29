@@ -33,20 +33,25 @@ import ch.qos.logback.core.read.ListAppender;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.io.Resources;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.gson.Gson;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutionException;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobResult;
 import com.netflix.spinnaker.clouddriver.jobs.JobResult.Result;
+import com.netflix.spinnaker.clouddriver.jobs.local.JobExecutorLocal;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric.ContainerMetric;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ManifestFetcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -58,6 +63,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
+import org.apache.commons.exec.CommandLine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -119,15 +125,12 @@ final class KubectlJobExecutorTest {
   }
 
   @Test
-  void topPodMultipleContainers() throws Exception {
+  void topPodMultipleContainers() {
     when(jobExecutor.runJob(any(JobRequest.class)))
         .thenReturn(
             JobResult.<String>builder()
                 .result(Result.SUCCESS)
-                .output(
-                    Resources.toString(
-                        KubectlJobExecutor.class.getResource("top-pod.txt"),
-                        StandardCharsets.UTF_8))
+                .output(ManifestFetcher.getResource(KubectlJobExecutorTest.class, "top-pod.txt"))
                 .error("")
                 .build());
 
@@ -409,7 +412,7 @@ final class KubectlJobExecutorTest {
   }
 
   @Test
-  void kubectlRetryHandlingForConfiguredErrorsThatSucceedAfterAFewRetries() throws IOException {
+  void kubectlRetryHandlingForConfiguredErrorsThatSucceedAfterAFewRetries() {
     // setup
     kubernetesConfigurationProperties.getJobExecutor().getRetries().setEnabled(true);
 
@@ -431,10 +434,7 @@ final class KubectlJobExecutorTest {
         .thenReturn(
             JobResult.<String>builder()
                 .result(Result.SUCCESS)
-                .output(
-                    Resources.toString(
-                        KubectlJobExecutor.class.getResource("top-pod.txt"),
-                        StandardCharsets.UTF_8))
+                .output(ManifestFetcher.getResource(KubectlJobExecutorTest.class, "top-pod.txt"))
                 .error("")
                 .build());
 
@@ -555,11 +555,91 @@ final class KubectlJobExecutorTest {
     assertTrue(thrown.getMessage().contains("unknown exception"));
   }
 
+  @DisplayName(
+      "test to verify that subsequent retries for kubectl commands continue reading data from stdin. The"
+          + "test simulates a failure case where every retry attempt fails, but it checks that the data was still available"
+          + " from stdin")
+  @Test
+  void kubectlRetryHandlingForKubectlCallsThatUseStdin() {
+    // setup
+    kubernetesConfigurationProperties.getJobExecutor().getRetries().setEnabled(true);
+
+    // fetch a test manifest
+    KubernetesManifest kubernetesManifest =
+        ManifestFetcher.getManifest(KubectlJobExecutorTest.class, "job.yml").get(0);
+    String manifestAsJson = new Gson().toJson(kubernetesManifest);
+
+    // use real job executor as we are simulating the call `kubectl apply -f -` by substituting
+    // kubectl with a script that accepts stdin
+    File testFile = new File("src/test/scripts/mock-kubectl-stdin-error-generating-script.sh");
+    KubectlJobExecutor kubectlJobExecutor =
+        new KubectlJobExecutor(
+            new JobExecutorLocal(1), kubernetesConfigurationProperties, new SimpleMeterRegistry());
+
+    // executeCustomJobExecutorCommand runs the testFile instead of kubectl commands
+    JobResult<String> status =
+        executeCustomJobExecutorCommand(
+            kubectlJobExecutor,
+            mockKubernetesCredentials(),
+            new CommandLine(testFile),
+            kubernetesManifest);
+
+    // even after retries occur, the inputStream should not empty. This is verified by
+    // checking the stdout generated from the script
+    assertThat(status.getOutput()).contains(manifestAsJson);
+  }
+
   /** Returns a mock KubernetesCredentials object */
   private static KubernetesCredentials mockKubernetesCredentials() {
     KubernetesCredentials credentials = mock(KubernetesCredentials.class);
     when(credentials.getAccountName()).thenReturn("mock-account");
     when(credentials.getKubectlExecutable()).thenReturn("");
     return credentials;
+  }
+
+  /**
+   * This is a helper function that is meant to execute a custom command instead of kubectl
+   * commands. Only meant to be used in tests where mocking kubectl calls prove tricky. This is
+   * currently used in tests that verify retry behavior for such calls.
+   *
+   * @param jobExecutor instance of a job executor that can run commands. We use the
+   *     KubectlJobExecutor here since that supports retries.
+   * @param credentials credentials which will be used for running the commands
+   * @param commandLine custom script that is executed in place of the default kubectl commands
+   * @param manifest kubernetes manifest under consideration
+   * @return the result of executing the commandLine script using the provided manifest, credentials
+   *     and job executor
+   */
+  private JobResult<String> executeCustomJobExecutorCommand(
+      KubectlJobExecutor jobExecutor,
+      KubernetesCredentials credentials,
+      CommandLine commandLine,
+      KubernetesManifest manifest) {
+    // capture the original result obtained from the jobExecutor.runJob(jobRequest) call.
+    JobResult.JobResultBuilder<String> finalResult = JobResult.builder();
+    KubectlJobExecutor.KubectlActionIdentifier identifier =
+        new KubectlJobExecutor.KubectlActionIdentifier(
+            credentials, commandLine, Optional.of(manifest));
+    assertTrue(jobExecutor.getRetryRegistry().isPresent());
+    Retry retryContext =
+        jobExecutor.getRetryRegistry().get().retry(identifier.getRetryInstanceName());
+    try {
+      String manifestAsJson = new Gson().toJson(manifest);
+      return retryContext.executeSupplier(
+          () -> {
+            JobRequest jobRequest =
+                new JobRequest(
+                    commandLine,
+                    new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8)));
+            JobResult<String> result = jobExecutor.getJobExecutor().runJob(jobRequest);
+            return jobExecutor.processJobResult(identifier, result, finalResult);
+          });
+    } catch (KubectlJobExecutor.KubectlException | KubectlJobExecutor.NoRetryException e) {
+      // the caller functions expect any failures to be defined in a JobResult object and not in
+      // the form of an exception. Hence, we need to translate the above exceptions back into a
+      // JobResult object - but we only need to do it for KubectlException and NoRetryException (
+      // since these are the ones explicitly thrown above) and not for any other ones.
+      return finalResult.build();
+    }
   }
 }
