@@ -978,7 +978,7 @@ public class KubectlJobExecutor {
   JobRequest createJobRequest(List<String> command, Optional<KubernetesManifest> manifest) {
     // depending on the presence of the manifest, an appropriate job request is created
     if (manifest.isPresent()) {
-      String manifestAsJson = gson.toJson(manifest);
+      String manifestAsJson = gson.toJson(manifest.get());
       return new JobRequest(
           command, new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8)));
     }
