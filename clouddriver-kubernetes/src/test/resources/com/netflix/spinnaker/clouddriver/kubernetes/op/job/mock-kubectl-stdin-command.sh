@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2021 Salesforce.com, Inc.
+# Copyright 2021 Netflix, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,12 +19,16 @@
 # This script is meant to mock kubectl apply -f - commands in unit tests. The functionality
 # being tested is simply the fact that the retry attempts for such calls continue to read
 # data from stdin. To simulate retries, we exit the script with an error that is configured
-# to be retryable
-echo "########################"
-echo " printing data read from stdin"
+# to be retryable as long as $1 != "success"
 input=`cat -`
-echo $input
-echo "########################"
 # simulate error case
-echo "TLS handshake timeout" >&2
-exit 1
+if [[ "$1" != "success" ]]
+then
+  echo "\n########################" >&2
+  echo "data received from stdin: $input" >&2
+  echo "Error: TLS handshake timeout" >&2
+  echo "########################" >&2
+  exit 1
+else
+  echo $input
+fi

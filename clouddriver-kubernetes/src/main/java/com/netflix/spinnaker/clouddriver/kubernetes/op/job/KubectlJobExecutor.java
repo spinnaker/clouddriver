@@ -61,7 +61,6 @@ import javax.annotation.Nullable;
 import javax.annotation.WillClose;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.exec.CommandLine;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -975,7 +974,8 @@ public class KubectlJobExecutor {
    * @param manifest the manifest to be used by the command. This is optional.
    * @return a job request object
    */
-  private JobRequest createJobRequest(List<String> command, Optional<KubernetesManifest> manifest) {
+  @VisibleForTesting
+  JobRequest createJobRequest(List<String> command, Optional<KubernetesManifest> manifest) {
     // depending on the presence of the manifest, an appropriate job request is created
     if (manifest.isPresent()) {
       String manifestAsJson = gson.toJson(manifest);
@@ -1121,13 +1121,6 @@ public class KubectlJobExecutor {
         this.namespace = manifest.get().getNamespace();
         this.resource = manifest.get().getFullResourceName();
       }
-    }
-
-    public KubectlActionIdentifier(
-        KubernetesCredentials credentials,
-        CommandLine commandLine,
-        Optional<KubernetesManifest> manifest) {
-      this(credentials, Arrays.asList(commandLine.toStrings()), manifest);
     }
 
     /**
