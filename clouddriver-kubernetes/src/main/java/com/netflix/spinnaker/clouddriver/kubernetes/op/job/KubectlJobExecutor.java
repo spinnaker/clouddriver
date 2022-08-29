@@ -897,7 +897,6 @@ public class KubectlJobExecutor {
       // create a new meterRegistry and bind retry registry to it.
       MeterRegistry meterRegistry = new SimpleMeterRegistry();
       TaggedRetryMetrics.ofRetryRegistry(retryRegistry).bindTo(meterRegistry);
-
       return Optional.of(retryRegistry);
     } else {
       log.info("kubectl retries are disabled");
@@ -908,14 +907,16 @@ public class KubectlJobExecutor {
   /**
    * this method is meant to be invoked only for those JobResults which are unsuccessful. It
    * determines if the error contained in the JobResult should be retried or not. If the error needs
-   * to be retried, then KubectlException is thrown. Otherwise, NoRetryException is thrown.
+   * to be retried, then KubectlException is returned. Otherwise, NoRetryException is returned.
    *
-   * @param identifier - used to log which action's job result is being processed
-   * @param result - the job result which needs to be checked to see if it has an error that can be
+   * @param identifier used to log which action's job result is being processed
+   * @param result the job result which needs to be checked to see if it has an error that can be
    *     retried
-   * @param <T> - job result generic type
+   * @param <T> job result generic type
+   * @return - Either KubectlException or NoRetryException
    */
-  private <T> void convertKubectlJobResultToException(String identifier, JobResult<T> result) {
+  private <T> RuntimeException convertKubectlJobResultToException(
+      String identifier, JobResult<T> result) {
     // the error matches the configured list of retryable errors.
     if (this.kubernetesConfigurationProperties
         .getJobExecutor()
@@ -923,7 +924,7 @@ public class KubectlJobExecutor {
         .getRetryableErrorMessages()
         .stream()
         .anyMatch(errorMessage -> result.getError().contains(errorMessage))) {
-      throw new KubectlException(result.getError());
+      return new KubectlException(result.getError());
     }
 
     // even though the error is not explicitly configured to be retryable, the job was killed -
@@ -931,7 +932,7 @@ public class KubectlJobExecutor {
     if (result.isKilled()) {
       String message = "retrying " + identifier + " since the job " + result + " was killed";
       log.warn(message);
-      throw new KubectlException(message);
+      return new KubectlException(message);
     }
 
     String message =
@@ -939,10 +940,10 @@ public class KubectlJobExecutor {
             + " will not be retried as retries are not enabled for error: "
             + result.getError();
     log.warn(message);
-    // ideally, this should not be thrown. But we want to let the retry library know that
-    // such cases should not be retried. Since we have configured the global retry registry
-    // to ignore errors of type NoRetryException, we throw this here
-    throw new NoRetryException(message);
+    // we want to let the retry library know that such errors should not be retried.
+    // Since we have configured the global retry registry to ignore errors of type
+    // NoRetryException, we return this here
+    return new NoRetryException(message);
   }
 
   /**
@@ -967,27 +968,24 @@ public class KubectlJobExecutor {
       return retryContext.executeSupplier(
           () -> {
             JobResult<String> result = jobExecutor.runJob(jobRequest);
+            if (result.getResult() == JobResult.Result.SUCCESS) {
+              return result;
+            }
+
+            // save the result as it'll be needed later on when we are done with retries
+            finalResult
+                .error(result.getError())
+                .killed(result.isKilled())
+                .output(result.getOutput())
+                .result(result.getResult());
 
             // if result is not successful, that means we need to determine if we should retry
             // or not.
             //
             // Since Kubectl binary doesn't throw any exceptions by default, we need to
-            // check the result to see if retries are needed. To force resilience.4j library to
-            // capture metrics correctly, we need to throw an exception. And finally, to enable
-            // it to decide if retries are needed, we convert this result into an appropriate
-            // exception.
-            if (result.getResult() != JobResult.Result.SUCCESS) {
-              // save the result as it'll be needed later on when we are done with retries
-              finalResult
-                  .error(result.getError())
-                  .killed(result.isKilled())
-                  .output(result.getOutput())
-                  .result(result.getResult());
-
-              convertKubectlJobResultToException(identifier, result);
-            }
-
-            return result;
+            // check the result to see if retries are needed. Resilience.4j needs an exception to be
+            // thrown to decide if retries are needed and also, to capture retry metrics correctly.
+            throw convertKubectlJobResultToException(identifier, result);
           });
     } catch (KubectlException | NoRetryException e) {
       // the caller functions expect any failures to be defined in a JobResult object and not in
@@ -1024,27 +1022,24 @@ public class KubectlJobExecutor {
       return retryContext.executeSupplier(
           () -> {
             JobResult<T> result = jobExecutor.runJob(jobRequest, readerConsumer);
+            if (result.getResult() == JobResult.Result.SUCCESS) {
+              return result;
+            }
+
+            // save the result as it'll be needed later on when we are done with retries
+            finalResult
+                .error(result.getError())
+                .killed(result.isKilled())
+                .output(result.getOutput())
+                .result(result.getResult());
 
             // if result is not successful, that means we need to determine if we should retry
             // or not.
             //
             // Since Kubectl binary doesn't throw any exceptions by default, we need to
-            // check the result to see if retries are needed. To force resilience.4j library to
-            // capture metrics correctly, we need to throw an exception. And finally, to enable
-            // it to decide if retries are needed, we convert this result into an appropriate
-            // exception.
-            if (result.getResult() != JobResult.Result.SUCCESS) {
-              // save the result as it'll be needed later on when we are done with retries
-              finalResult
-                  .error(result.getError())
-                  .killed(result.isKilled())
-                  .output(result.getOutput())
-                  .result(result.getResult());
-
-              convertKubectlJobResultToException(identifier, result);
-            }
-
-            return result;
+            // check the result to see if retries are needed. Resilience.4j needs an exception to be
+            // thrown to decide if retries are needed and also, to capture retry metrics correctly.
+            throw convertKubectlJobResultToException(identifier, result);
           });
     } catch (KubectlException | NoRetryException e) {
       // the caller functions expect any failures to be defined in a JobResult object and not in
@@ -1075,8 +1070,8 @@ public class KubectlJobExecutor {
    * this exception is only meant to be used in cases where we want resilience4j to not retry
    * kubectl calls. It should not be used anywhere else.
    */
-  public static class NoRetryException extends RuntimeException {
-    public NoRetryException(String message) {
+  static class NoRetryException extends RuntimeException {
+    NoRetryException(String message) {
       super(message);
     }
   }

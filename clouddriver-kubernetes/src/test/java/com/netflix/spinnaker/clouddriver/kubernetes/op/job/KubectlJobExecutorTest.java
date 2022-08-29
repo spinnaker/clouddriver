@@ -99,6 +99,22 @@ final class KubectlJobExecutorTest {
 
     // should only be called once as no retries are performed
     verify(jobExecutor).runJob(any(JobRequest.class));
+
+    if (retriesEnabled) {
+      // verify retry registry
+      assertTrue(kubectlJobExecutor.getRetryRegistry().isPresent());
+      RetryRegistry retryRegistry = kubectlJobExecutor.getRetryRegistry().get();
+      assertThat(retryRegistry.getAllRetries().size()).isEqualTo(1);
+      assertThat(retryRegistry.getAllRetries().get(0).getName()).isEqualTo("mock-account.topPod.");
+
+      // verify retry metrics
+      Retry.Metrics retryMetrics = retryRegistry.getAllRetries().get(0).getMetrics();
+      assertThat(retryMetrics.getNumberOfSuccessfulCallsWithRetryAttempt()).isEqualTo(0);
+      // in this test, the action succeeded without retries. So number of unique calls == 1.
+      assertThat(retryMetrics.getNumberOfSuccessfulCallsWithoutRetryAttempt()).isEqualTo(1);
+      assertThat(retryMetrics.getNumberOfFailedCallsWithRetryAttempt()).isEqualTo(0);
+      assertThat(retryMetrics.getNumberOfFailedCallsWithoutRetryAttempt()).isEqualTo(0);
+    }
   }
 
   @Test
