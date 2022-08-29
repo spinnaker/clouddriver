@@ -47,7 +47,6 @@ import io.github.resilience4j.retry.event.RetryOnIgnoredErrorEvent;
 import io.github.resilience4j.retry.event.RetryOnSuccessEvent;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.EOFException;
@@ -80,19 +79,31 @@ public class KubectlJobExecutor {
   // @Getter is required so that this can be used in tests
   @Getter private final Optional<RetryRegistry> retryRegistry;
 
+  @Nullable private final MeterRegistry meterRegistry;
+
   @Autowired
   public KubectlJobExecutor(
       JobExecutor jobExecutor,
       @Value("${kubernetes.kubectl.executable:kubectl}") String executable,
       @Value("${kubernetes.o-auth.executable:oauth2l}") String oAuthExecutable,
-      KubernetesConfigurationProperties kubernetesConfigurationProperties) {
+      KubernetesConfigurationProperties kubernetesConfigurationProperties,
+      @Nullable MeterRegistry meterRegistry) {
     this.jobExecutor = jobExecutor;
     this.executable = executable;
     this.oAuthExecutable = oAuthExecutable;
     this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
+    this.meterRegistry = meterRegistry;
 
     this.retryRegistry =
         initializeRetryRegistry(kubernetesConfigurationProperties.getJobExecutor().getRetries());
+  }
+
+  KubectlJobExecutor(
+      JobExecutor jobExecutor,
+      @Value("${kubernetes.kubectl.executable:kubectl}") String executable,
+      @Value("${kubernetes.o-auth.executable:oauth2l}") String oAuthExecutable,
+      KubernetesConfigurationProperties kubernetesConfigurationProperties) {
+    this(jobExecutor, executable, oAuthExecutable, kubernetesConfigurationProperties, null);
   }
 
   public String logs(
@@ -894,9 +905,10 @@ public class KubectlJobExecutor {
           .getEventPublisher()
           .onEntryAdded(event -> event.getAddedEntry().getEventPublisher().onEvent(eventConsumer));
 
-      // create a new meterRegistry and bind retry registry to it.
-      MeterRegistry meterRegistry = new SimpleMeterRegistry();
-      TaggedRetryMetrics.ofRetryRegistry(retryRegistry).bindTo(meterRegistry);
+      if (meterRegistry != null) {
+        TaggedRetryMetrics.ofRetryRegistry(retryRegistry).bindTo(meterRegistry);
+      }
+
       return Optional.of(retryRegistry);
     } else {
       log.info("kubectl retries are disabled");
