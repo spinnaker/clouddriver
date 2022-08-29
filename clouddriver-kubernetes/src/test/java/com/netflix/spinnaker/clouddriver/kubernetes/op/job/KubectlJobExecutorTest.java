@@ -705,7 +705,7 @@ final class KubectlJobExecutorTest {
             commandLine, new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8)));
       }
 
-      return new JobRequest(commandLine);
+      return new JobRequest(commandLine, new ByteArrayInputStream(new byte[0]));
     }
   }
 }

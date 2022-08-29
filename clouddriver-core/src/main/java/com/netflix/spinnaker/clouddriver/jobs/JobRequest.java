@@ -70,10 +70,6 @@ public class JobRequest {
     this.workingDir = workingDir;
   }
 
-  public JobRequest(CommandLine commandLine) {
-    this(commandLine, new ByteArrayInputStream(new byte[0]));
-  }
-
   public JobRequest(CommandLine commandLine, InputStream inputStream) {
     this.tokenizedCommand = new ArrayList<>();
     this.commandLine = commandLine;
