@@ -72,7 +72,8 @@ public class KubectlJobExecutor {
   private static final String KUBECTL_COMMAND_OPTION_KUBECONFIG = "--kubeconfig=";
   private static final String KUBECTL_COMMAND_OPTION_CONTEXT = "--context=";
 
-  private final JobExecutor jobExecutor;
+  // @Getter is required so that the clouddriver-extensions implementation can use this job executor
+  @Getter private final JobExecutor jobExecutor;
 
   private final Gson gson = new Gson();
 
