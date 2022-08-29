@@ -108,8 +108,63 @@ class KubernetesJobProviderSpec extends Specification {
     }
 
     when:
-    def provider = new KubernetesJobProvider(mockAccountCredentialsProvider, mockManifestProvider)
+    def provider = new KubernetesJobProvider(mockAccountCredentialsProvider, mockManifestProvider, true)
     def logResult = provider.getFileContents("a", "b", "c", "d")
+
+    then:
+    logResult == null
+  }
+
+  def "getFileContentsFromPod should return a map with properties if there are no errors"() {
+    given:
+    def mockCredentials = Mock(KubernetesCredentials) {
+      logs(*_) >> podLogs
+    }
+
+    def mockAccountCredentialsProvider = Mock(AccountCredentialsProvider) {
+      getCredentials(*_) >> Mock(AccountCredentials) {
+        getCredentials(*_) >> mockCredentials
+      }
+    }
+
+    def mockManifestProvider = Mock(KubernetesManifestProvider)
+
+    when:
+    def provider = new KubernetesJobProvider(mockAccountCredentialsProvider, mockManifestProvider, true)
+    def logResult = provider.getFileContentsFromPod("a", "b", "c", "d")
+
+    then:
+    logResult == result
+
+    where:
+    podLogs                               | result
+    "SPINNAKER_PROPERTY_a=b"              | [a: 'b']
+    "Spinnaker_Property_a=b"              | [:]
+    'SPINNAKER_CONFIG_JSON={"a": "b"}'    | [a: 'b']
+    'SPINNAKER_CONFIG_JSON={"a": "b}'     | null
+    'SPINNAKER_CONFIG_JSON=syntax error'  | null
+    "doesn't contain any magic strings"   | [:]
+  }
+
+  def "if getFileContentsFromPod throws an exception, then logResult == null"() {
+    given:
+    def mockCredentials = Mock(KubernetesCredentials) {
+      logs(*_) >> {
+        throw new KubectlJobExecutor.KubectlException("some exception while getting logs", new Exception())
+      }
+    }
+
+    def mockAccountCredentialsProvider = Mock(AccountCredentialsProvider) {
+      getCredentials(*_) >> Mock(AccountCredentials) {
+        getCredentials(*_) >> mockCredentials
+      }
+    }
+
+    def mockManifestProvider = Mock(KubernetesManifestProvider)
+
+    when:
+    def provider = new KubernetesJobProvider(mockAccountCredentialsProvider, mockManifestProvider, true)
+    def logResult = provider.getFileContentsFromPod("a", "b", "c", "d")
 
     then:
     logResult == null

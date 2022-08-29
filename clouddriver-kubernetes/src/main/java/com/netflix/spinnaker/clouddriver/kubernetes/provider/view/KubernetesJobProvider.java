@@ -155,6 +155,53 @@ public class KubernetesJobProvider implements JobProvider<KubernetesJobStatus> {
         .orElse(null);
   }
 
+  /**
+   * This method queries a pod for logs, from which it extracts properties which it returns as a map
+   * to the caller. This is needed in cases where a pod needs to be queried directly for logs, and
+   * getFileContents() doesn't give us all the required information.
+   *
+   * @param account - account to which the pod belongs
+   * @param namespace - namespace in which the pod runs in
+   * @param podName - pod to query the logs
+   * @param containerName - containerName in the pod from which logs should be queried
+   * @return map of property file contents
+   */
+  @Nullable
+  public Map<String, Object> getFileContentsFromPod(
+      String account, String namespace, String podName, String containerName) {
+    Map<String, Object> props = null;
+    String logContents = null;
+    KubernetesCredentials credentials =
+        (KubernetesCredentials) accountCredentialsProvider.getCredentials(account).getCredentials();
+    try {
+      logContents = credentials.logs(namespace, podName, containerName);
+    } catch (Exception podLogsException) {
+      log.error(
+          "Failed to get logs from pod: {}, container: {} in namespace: {} for account: {}. Error: ",
+          podName,
+          containerName,
+          namespace,
+          account,
+          podLogsException);
+    }
+
+    try {
+      if (logContents != null) {
+        props = PropertyParser.extractPropertiesFromLog(logContents);
+      }
+    } catch (Exception e) {
+      log.error(
+          "Couldn't parse properties from pod: {}, container: {} in namespace: {} for account: {}. Error: ",
+          podName,
+          containerName,
+          namespace,
+          account,
+          e);
+    }
+
+    return props;
+  }
+
   @Override
   public void cancelJob(String account, String location, String id) {
     throw new NotImplementedException("cancelJob is not implemented for the Kubernetes provider");
