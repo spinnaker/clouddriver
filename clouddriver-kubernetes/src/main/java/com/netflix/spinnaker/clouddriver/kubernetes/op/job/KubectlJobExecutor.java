@@ -974,7 +974,7 @@ public class KubectlJobExecutor {
 
     // capture the original result obtained from the jobExecutor.runJob(jobRequest) call.
     JobResult.JobResultBuilder<String> finalResult = JobResult.builder();
-    Retry retryContext = retryRegistry.get().retry(identifier.getRetryMetricName());
+    Retry retryContext = retryRegistry.get().retry(identifier.getRetryInstanceName());
     try {
       return retryContext.executeSupplier(
           () -> {
@@ -996,7 +996,7 @@ public class KubectlJobExecutor {
             // Since Kubectl binary doesn't throw any exceptions by default, we need to
             // check the result to see if retries are needed. Resilience.4j needs an exception to be
             // thrown to decide if retries are needed and also, to capture retry metrics correctly.
-            throw convertKubectlJobResultToException(identifier.getRetryLogName(), result);
+            throw convertKubectlJobResultToException(identifier.getKubectlAction(), result);
           });
     } catch (KubectlException | NoRetryException e) {
       // the caller functions expect any failures to be defined in a JobResult object and not in
@@ -1028,7 +1028,7 @@ public class KubectlJobExecutor {
     // capture the original result obtained from the jobExecutor.runJob(jobRequest, readerConsumer)
     // call.
     JobResult.JobResultBuilder<T> finalResult = JobResult.builder();
-    Retry retryContext = retryRegistry.get().retry(identifier.getRetryMetricName());
+    Retry retryContext = retryRegistry.get().retry(identifier.getRetryInstanceName());
     try {
       return retryContext.executeSupplier(
           () -> {
@@ -1050,7 +1050,7 @@ public class KubectlJobExecutor {
             // Since Kubectl binary doesn't throw any exceptions by default, we need to
             // check the result to see if retries are needed. Resilience.4j needs an exception to be
             // thrown to decide if retries are needed and also, to capture retry metrics correctly.
-            throw convertKubectlJobResultToException(identifier.getRetryLogName(), result);
+            throw convertKubectlJobResultToException(identifier.getKubectlAction(), result);
           });
     } catch (KubectlException | NoRetryException e) {
       // the caller functions expect any failures to be defined in a JobResult object and not in
@@ -1121,12 +1121,12 @@ public class KubectlJobExecutor {
     }
 
     /**
-     * this returns a name that is used to log which kubectl call was attempted when retries are
-     * enabled
+     * this returns the sanitized kubectl command. This can be used to log the command during retry
+     * attempts, among other things.
      *
-     * @return - the descriptive name indicating the kubectl call that was attempted
+     * @return - the sanitized kubectl command
      */
-    public String getRetryLogName() {
+    public String getKubectlAction() {
       // no need to display everything in a kubectl command
       List<String> commandToLog =
           command.stream()
@@ -1154,11 +1154,13 @@ public class KubectlJobExecutor {
     }
 
     /**
-     * this returns a name which uniquely identifies a retry instance when capturing retry metrics.
+     * this returns a name which uniquely identifies a retry instance. This name shows up in the
+     * logs when each retry event is logged. Also, when capturing the retry metrics, the 'name' tag
+     * in the metric corresponds to this.
      *
-     * @return - the metric name to be used to uniquely identify a retry instance
+     * @return - the name to be used to uniquely identify a retry instance
      */
-    public String getRetryMetricName() {
+    public String getRetryInstanceName() {
       return this.credentials.getAccountName();
     }
   }
