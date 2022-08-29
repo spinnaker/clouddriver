@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.controllers
 
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonCluster
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonServerGroup
 import com.netflix.spinnaker.clouddriver.model.*
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
@@ -326,5 +328,42 @@ class ClusterControllerSpec extends Specification {
     [a, c, b].stream().sorted(OLDEST_TO_NEWEST).collect(Collectors.toList()) == [a, b, c]
     [a, c, b].stream().sorted(OLDEST_TO_NEWEST.reversed()).collect(Collectors.toList()) == [c, b, a]
     [a, c, b].stream().sorted(BIGGEST_TO_SMALLEST).collect(Collectors.toList()) == [b, a, c]
+  }
+
+  void "test getForAccountAndNameAndType when multiple cluster providers are present"() {
+    setup:
+    def serverGroupController = Mock(ServerGroupController)
+
+    def clusterProvider1 = Mock(ClusterProvider)
+    clusterProvider1.getCloudProviderId() >> { return "aws" }
+    def clusterProvider2 = Mock(ClusterProvider)
+    clusterProvider2.getCloudProviderId() >> { return "some-other-type" }
+    clusterController.clusterProviders = [clusterProvider1, clusterProvider2]
+    clusterController.serverGroupController = serverGroupController
+
+    def serverGroup = [getName: { "clusterName-v001" }, getRegion: { "us-west-2" }] as ServerGroup
+
+    when:
+    def result = clusterController.getForAccountAndNameAndType("app", "account", "clusterName", "aws", true)
+
+    then: "expect that both cluster providers will try to get Cluster"
+    1 * clusterProvider1.getCluster("app", "account", "clusterName", true) >> {
+      def cluster = new AmazonCluster()
+      cluster.type = "aws"
+      cluster.getServerGroups().add(serverGroup)
+      cluster
+    }
+
+    // even though type is provided to the method getForAccountAndNameAndType(), it ends up going through
+    // all cluster providers before considering the type
+    1 * clusterProvider2.getCluster("app", "account", "clusterName", true) >> {
+      def cluster = Mock(Cluster)
+      cluster.getType() >> "some-other-type"
+      cluster
+    }
+
+    result.getServerGroups().size() == 1
+    result.type == "aws"
+    result.getServerGroups()[0] == serverGroup
   }
 }
