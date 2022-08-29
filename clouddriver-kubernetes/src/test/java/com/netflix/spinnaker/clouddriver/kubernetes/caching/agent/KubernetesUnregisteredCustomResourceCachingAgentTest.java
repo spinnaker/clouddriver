@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.NoopRegistry;
+import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
@@ -35,6 +36,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
+import org.springframework.lang.Nullable;
 
 @RunWith(JUnitPlatform.class)
 public class KubernetesUnregisteredCustomResourceCachingAgentTest {
@@ -54,7 +56,7 @@ public class KubernetesUnregisteredCustomResourceCachingAgentTest {
     configurationProperties.getCache().setCacheAll(false);
     configurationProperties.getCache().setCacheKinds(Arrays.asList("deployment", CRD_NAME));
     KubernetesUnregisteredCustomResourceCachingAgent cachingAgent =
-        createCachingAgent(getNamedAccountCredentials(), configurationProperties);
+        createCachingAgent(getNamedAccountCredentials(), configurationProperties, null);
 
     List<KubernetesKind> filteredPrimaryKinds = cachingAgent.filteredPrimaryKinds();
 
@@ -79,7 +81,8 @@ public class KubernetesUnregisteredCustomResourceCachingAgentTest {
 
   private static KubernetesUnregisteredCustomResourceCachingAgent createCachingAgent(
       KubernetesNamedAccountCredentials credentials,
-      KubernetesConfigurationProperties configurationProperties) {
+      KubernetesConfigurationProperties configurationProperties,
+      @Nullable Front50Service front50Service) {
     return new KubernetesUnregisteredCustomResourceCachingAgent(
         credentials,
         objectMapper,
@@ -88,6 +91,7 @@ public class KubernetesUnregisteredCustomResourceCachingAgentTest {
         1,
         10L,
         configurationProperties,
-        new KubernetesSpinnakerKindMap(new ArrayList<>()));
+        new KubernetesSpinnakerKindMap(new ArrayList<>()),
+        front50Service);
   }
 }

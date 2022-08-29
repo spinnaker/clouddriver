@@ -24,10 +24,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import org.springframework.lang.Nullable;
 
 public class CustomKubernetesCachingAgentFactory {
   public static KubernetesCachingAgent create(
@@ -39,7 +41,8 @@ public class CustomKubernetesCachingAgentFactory {
       int agentCount,
       Long agentInterval,
       KubernetesConfigurationProperties configurationProperties,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+      @Nullable Front50Service front50Service) {
     return new Agent(
         kind,
         namedAccountCredentials,
@@ -49,7 +52,8 @@ public class CustomKubernetesCachingAgentFactory {
         agentCount,
         agentInterval,
         configurationProperties,
-        kubernetesSpinnakerKindMap);
+        kubernetesSpinnakerKindMap,
+        front50Service);
   }
 
   /**
@@ -71,7 +75,8 @@ public class CustomKubernetesCachingAgentFactory {
         int agentCount,
         Long agentInterval,
         KubernetesConfigurationProperties configurationProperties,
-        KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
+        KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+        @Nullable Front50Service front50Service) {
       super(
           namedAccountCredentials,
           objectMapper,
@@ -80,7 +85,8 @@ public class CustomKubernetesCachingAgentFactory {
           agentCount,
           agentInterval,
           configurationProperties,
-          kubernetesSpinnakerKindMap);
+          kubernetesSpinnakerKindMap,
+          front50Service);
       this.kind = kind;
     }
 

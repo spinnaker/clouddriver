@@ -25,11 +25,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import org.springframework.lang.Nullable;
 
 /**
  * Instances of this class cache CRDs for one particular account at regular intervals.
@@ -49,7 +51,8 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
       int agentCount,
       Long agentInterval,
       KubernetesConfigurationProperties configurationProperties,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+      @Nullable Front50Service front50Service) {
     super(
         namedAccountCredentials,
         objectMapper,
@@ -58,7 +61,8 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
         agentCount,
         agentInterval,
         configurationProperties,
-        kubernetesSpinnakerKindMap);
+        kubernetesSpinnakerKindMap,
+        front50Service);
   }
 
   @Override

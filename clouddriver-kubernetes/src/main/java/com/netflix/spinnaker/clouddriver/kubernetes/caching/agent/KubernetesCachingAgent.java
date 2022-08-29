@@ -29,6 +29,7 @@ import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
+import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
@@ -44,7 +45,17 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import java.util.*;
+import com.netflix.spinnaker.clouddriver.model.Front50Application;
+import com.netflix.spinnaker.moniker.Namer;
+import com.netflix.spinnaker.security.AuthenticatedRequest;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -53,6 +64,7 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.lang.Nullable;
 
 /**
  * A kubernetes caching agent is a class that caches part of the kubernetes infrastructure. Every
@@ -87,6 +99,7 @@ public abstract class KubernetesCachingAgent
   protected final KubernetesConfigurationProperties configurationProperties;
 
   protected final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+  @Nullable private final Front50Service front50Service;
 
   protected KubernetesCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
@@ -96,7 +109,8 @@ public abstract class KubernetesCachingAgent
       int agentCount,
       Long agentInterval,
       KubernetesConfigurationProperties configurationProperties,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+      @Nullable Front50Service front50Service) {
     this.accountName = namedAccountCredentials.getName();
     this.credentials = namedAccountCredentials.getCredentials();
     this.objectMapper = objectMapper;
@@ -106,6 +120,7 @@ public abstract class KubernetesCachingAgent
     this.agentInterval = agentInterval;
     this.configurationProperties = configurationProperties;
     this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
+    this.front50Service = front50Service;
   }
 
   protected Map<String, Object> defaultIntrospectionDetails() {
@@ -270,10 +285,45 @@ public abstract class KubernetesCachingAgent
     return buildCacheResult(ImmutableMap.of(resource.getKind(), ImmutableList.of(resource)));
   }
 
-  private Predicate<KubernetesManifest> removeIgnored(boolean onlySpinnakerManaged) {
+  /**
+   * method that determines if the provided manifest should be cached or not. It makes that
+   * determination based on the following rules:
+   *
+   * <p>- if a manifest's caching properties has ignore == true, then it will not be cached.
+   *
+   * <p>- Otherwise, if account is configured to be "onlySpinnakerManaged", and
+   * "moniker.spinnaker.io/application" annotation is empty, then it will not be cached.
+   *
+   * <p>- if {@link KubernetesConfigurationProperties#isCheckApplicationInFront50()} is true, and
+   * the application name obtained from the manifest is not known to front50, then it will not be
+   * cached.
+   *
+   * <p>- If none of the above criteria is satisfied, then the manifest will be cached.
+   *
+   * @param onlySpinnakerManaged account specific config knob to decide if a manifest should be
+   *     cached or not. Only applicable when a manifest's caching properties has ignore == false
+   * @param namer entity that helps in retrieving the application name from the manifest
+   * @param applicationsKnownToFront50 set of applications known to front50
+   * @return true, if manifest should be cached, false otherwise
+   */
+  private Predicate<KubernetesManifest> shouldCacheManifest(
+      boolean onlySpinnakerManaged,
+      Namer<KubernetesManifest> namer,
+      Set<String> applicationsKnownToFront50) {
     return m -> {
       KubernetesCachingProperties props = KubernetesManifestAnnotater.getCachingProperties(m);
-      return !props.isIgnore() && !(onlySpinnakerManaged && props.getApplication().isEmpty());
+      if (props.isIgnore()) {
+        return false;
+      }
+
+      if (onlySpinnakerManaged && props.getApplication().isEmpty()) {
+        return false;
+      }
+
+      if (this.configurationProperties.isCheckApplicationInFront50()) {
+        return applicationsKnownToFront50.contains(namer.deriveMoniker(m).getApp());
+      }
+      return true;
     };
   }
 
@@ -291,7 +341,11 @@ public abstract class KubernetesCachingAgent
                     .get(m.getKind())
                     .getHandler()
                     .removeSensitiveKeys(m))
-        .filter(removeIgnored(credentials.isOnlySpinnakerManaged()))
+        .filter(
+            shouldCacheManifest(
+                credentials.isOnlySpinnakerManaged(),
+                credentials.getNamer(),
+                getApplicationsFromFront50()))
         .forEach(
             rs -> {
               try {
@@ -352,5 +406,42 @@ public abstract class KubernetesCachingAgent
   public String getAgentType() {
     return String.format(
         "%s/%s[%d/%d]", accountName, this.getClass().getSimpleName(), agentIndex + 1, agentCount);
+  }
+
+  /**
+   * gets all applications from front50. We do this instead of getting individual applications one
+   * by one in downstream methods because:
+   *
+   * <p>1. we don't have to make a separate call for each individual application. This can get out
+   * of hand if we have a large number of applications.
+   *
+   * <p>2. get around the authentication issue as those individual calls require an authenticated
+   * user.
+   *
+   * @return set of application names obtained from front50
+   */
+  private Set<String> getApplicationsFromFront50() {
+    if (configurationProperties.isCheckApplicationInFront50()) {
+      // if front50 is not enabled, then we have no way to verify if the application exists. This is
+      // going to affect caching of these resources.
+      log.info("getting all applications known to front50");
+      if (this.front50Service != null) {
+        try {
+          Set<Front50Application> response =
+              AuthenticatedRequest.allowAnonymous(front50Service::getAllApplicationsUnrestricted);
+          Set<String> applicationsKnownToFront50 =
+              response.stream()
+                  .map(Front50Application::getName)
+                  .map(String::toLowerCase)
+                  .collect(Collectors.toSet());
+          log.info("received {} applications from front50", applicationsKnownToFront50.size());
+          return applicationsKnownToFront50;
+        } catch (Exception e) {
+          log.error("could not obtain any applications from front50. Error: ", e);
+        }
+      }
+    }
+
+    return Collections.emptySet();
   }
 }

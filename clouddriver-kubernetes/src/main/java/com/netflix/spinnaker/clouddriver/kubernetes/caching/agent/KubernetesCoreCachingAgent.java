@@ -23,6 +23,7 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
@@ -32,6 +33,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAcco
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
+import org.springframework.lang.Nullable;
 
 /**
  * Instances of this class cache kubernetes core kinds for one particular account at regular
@@ -51,7 +53,8 @@ public class KubernetesCoreCachingAgent extends KubernetesCachingAgent {
       int agentCount,
       Long agentInterval,
       KubernetesConfigurationProperties configurationProperties,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+      @Nullable Front50Service front50Service) {
     super(
         namedAccountCredentials,
         objectMapper,
@@ -60,7 +63,8 @@ public class KubernetesCoreCachingAgent extends KubernetesCachingAgent {
         agentCount,
         agentInterval,
         configurationProperties,
-        kubernetesSpinnakerKindMap);
+        kubernetesSpinnakerKindMap,
+        front50Service);
   }
 
   @Override

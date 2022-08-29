@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Registry;
+import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.ReplaceResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
@@ -42,6 +43,7 @@ import java.util.*;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 
 public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatch {
   protected static final ObjectMapper objectMapper = new ObjectMapper();
@@ -110,7 +112,8 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
       int agentCount,
       Long agentInterval,
       KubernetesConfigurationProperties configurationProperties,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+      @Nullable Front50Service front50Service) {
     return cachingAgentFactory()
         .buildCachingAgent(
             namedAccountCredentials,
@@ -120,7 +123,8 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
             agentCount,
             agentInterval,
             configurationProperties,
-            kubernetesSpinnakerKindMap);
+            kubernetesSpinnakerKindMap,
+            front50Service);
   }
 
   // used for stripping sensitive values
