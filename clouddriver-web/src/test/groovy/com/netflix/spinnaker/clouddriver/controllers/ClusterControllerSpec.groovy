@@ -68,13 +68,15 @@ class ClusterControllerSpec extends Specification {
   void "should throw exception when looking for specific cluster that doesnt exist"() {
     setup:
       def clusterProvider1 = Mock(ClusterProvider)
+      clusterProvider1.getCloudProviderId() >> { "aws" }
       clusterController.clusterProviders = [clusterProvider1]
 
     when:
       clusterController.getForAccountAndNameAndType("app", "test", "cluster", "aws", true)
 
     then:
-      thrown NotFoundException
+      def e = thrown(NotFoundException)
+      e.getMessage() == "No clusters found (application: app, account: test, type: aws)"
   }
 
   void "should throw exception when no cluster provider exists for the cluster"() {
@@ -368,11 +370,7 @@ class ClusterControllerSpec extends Specification {
     }
 
     // the second cluster provider shouldn't be asked to look for the cluster
-    0 * clusterProvider2.getCluster("app", "account", "clusterName", true) >> {
-      def cluster = Mock(Cluster)
-      cluster.getType() >> "some-other-type"
-      cluster
-    }
+    0 * clusterProvider2.getCluster("app", "account", "clusterName", true)
 
     result.getServerGroups().size() == 1
     result.type == "aws"
