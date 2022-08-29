@@ -99,6 +99,114 @@ public class KubectlJobExecutor {
         initializeRetryRegistry(kubernetesConfigurationProperties.getJobExecutor().getRetries());
   }
 
+  /**
+   * This is used to initialize a RetryRegistry. RetryRegistry acts as a global store for all retry
+   * instances. There retry instances will be shared for various kubectl actions. A retry instance
+   * can usually be identified by the account name, action, and namespace.
+   *
+   * @param retriesConfig - kubectl job retries configuration
+   * @return - If retries are enabled, it returns an Optional that contains a RetryRegistry,
+   *     otherwise it returns an empty Optional
+   */
+  private Optional<RetryRegistry> initializeRetryRegistry(
+      KubernetesConfigurationProperties.KubernetesJobExecutorProperties.Retries retriesConfig) {
+    if (retriesConfig.isEnabled()) {
+      log.info("kubectl retries are enabled");
+
+      // this config will be applied to all retry instances created from the registry
+      RetryConfig.Builder<Object> retryConfig =
+          RetryConfig.custom().maxAttempts(retriesConfig.getMaxAttempts());
+      if (retriesConfig.isExponentialBackoffEnabled()) {
+        retryConfig.intervalFunction(
+            IntervalFunction.ofExponentialBackoff(
+                Duration.ofMillis(retriesConfig.getExponentialBackOffIntervalMs()),
+                retriesConfig.getExponentialBackoffMultiplier()));
+      } else {
+        retryConfig.waitDuration(Duration.ofMillis(retriesConfig.getBackOffInMs()));
+      }
+
+      // retry on all exceptions except NoRetryException
+      retryConfig.ignoreExceptions(NoRetryException.class);
+
+      // create the retry registry
+      RetryRegistry retryRegistry = RetryRegistry.of(retryConfig.build());
+
+      // logging whenever a new retry instance is added, removed or replaced from the registry
+      retryRegistry
+          .getEventPublisher()
+          .onEntryAdded(
+              entryAddedEvent -> {
+                Retry addedRetry = entryAddedEvent.getAddedEntry();
+                log.info("Kubectl retries configured for: {}", addedRetry.getName());
+              })
+          .onEntryRemoved(
+              entryRemovedEvent -> {
+                Retry removedRetry = entryRemovedEvent.getRemovedEntry();
+                log.info("Kubectl retries removed for: {}", removedRetry.getName());
+              })
+          .onEntryReplaced(
+              entryReplacedEvent -> {
+                Retry oldEntry = entryReplacedEvent.getOldEntry();
+                Retry newEntry = entryReplacedEvent.getNewEntry();
+                log.info(
+                    "Kubectl retry: {} updated to: {}", oldEntry.getName(), newEntry.getName());
+              });
+
+      // defining an event consumer once for the entire registry as mentioned here:
+      // https://github.com/resilience4j/resilience4j/issues/974#issuecomment-619956673
+      // If we don't do this once, but add it for each individual retry instance, and if
+      // that retry instance is invoked by multiple threads, then there is a lot of log duplication.
+      // For example, if 10 threads invoke an action to get the top pod, and it is
+      // configured to use the retry instance with the identifier "mock-account.topPod.test-pod",
+      // then we will see 10*10 log lines showing up for each retry event instead of just 10 that
+      // we expect.
+      EventConsumer<RetryEvent> eventConsumer =
+          retryEvent -> {
+            if (retryEvent instanceof RetryOnErrorEvent) {
+              log.error(
+                  "Kubectl command for {} failed after {} attempts. Exception: {}",
+                  retryEvent.getName(),
+                  retryEvent.getNumberOfRetryAttempts(),
+                  retryEvent.getLastThrowable().toString());
+            } else if (retryEvent instanceof RetryOnSuccessEvent) {
+              log.info(
+                  "Kubectl command for {} is now successful in attempt #{}. Last attempt had failed with exception: {}",
+                  retryEvent.getName(),
+                  retryEvent.getNumberOfRetryAttempts() + 1,
+                  retryEvent.getLastThrowable().toString());
+            } else if (retryEvent instanceof RetryOnRetryEvent) {
+              log.info(
+                  "Retrying Kubectl command for {}. Attempt #{} failed with exception: {}",
+                  retryEvent.getName(),
+                  retryEvent.getNumberOfRetryAttempts(),
+                  retryEvent.getLastThrowable().toString());
+            } else if (!(retryEvent instanceof RetryOnIgnoredErrorEvent)) {
+              // don't log anything for Ignored exceptions as it just leads to noise in the logs
+              log.info(retryEvent.toString());
+            }
+          };
+      retryRegistry
+          .getAllRetries()
+          .forEach(retry -> retry.getEventPublisher().onEvent(eventConsumer));
+      retryRegistry
+          .getEventPublisher()
+          .onEntryAdded(event -> event.getAddedEntry().getEventPublisher().onEvent(eventConsumer));
+
+      if (this.kubernetesConfigurationProperties
+          .getJobExecutor()
+          .getRetries()
+          .getMetrics()
+          .isEnabled()) {
+        TaggedRetryMetrics.ofRetryRegistry(retryRegistry).bindTo(meterRegistry);
+      }
+
+      return Optional.of(retryRegistry);
+    } else {
+      log.info("kubectl retries are disabled");
+      return Optional.empty();
+    }
+  }
+
   public String logs(
       KubernetesCredentials credentials, String namespace, String podName, String containerName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
@@ -772,156 +880,6 @@ public class KubectlJobExecutor {
   }
 
   /**
-   * This is used to initialize a RetryRegistry. RetryRegistry acts as a global store for all retry
-   * instances. There retry instances will be shared for various kubectl actions. A retry instance
-   * can usually be identified by the account name, action, and namespace.
-   *
-   * @param retriesConfig - kubectl job retries configuration
-   * @return - If retries are enabled, it returns an Optional that contains a RetryRegistry,
-   *     otherwise it returns an empty Optional
-   */
-  private Optional<RetryRegistry> initializeRetryRegistry(
-      KubernetesConfigurationProperties.KubernetesJobExecutorProperties.Retries retriesConfig) {
-    if (retriesConfig.isEnabled()) {
-      log.info("kubectl retries are enabled");
-
-      // this config will be applied to all retry instances created from the registry
-      RetryConfig.Builder<Object> retryConfig =
-          RetryConfig.custom().maxAttempts(retriesConfig.getMaxAttempts());
-      if (retriesConfig.isExponentialBackoffEnabled()) {
-        retryConfig.intervalFunction(
-            IntervalFunction.ofExponentialBackoff(
-                Duration.ofMillis(retriesConfig.getExponentialBackOffIntervalMs()),
-                retriesConfig.getExponentialBackoffMultiplier()));
-      } else {
-        retryConfig.waitDuration(Duration.ofMillis(retriesConfig.getBackOffInMs()));
-      }
-
-      // retry on all exceptions except NoRetryException
-      retryConfig.ignoreExceptions(NoRetryException.class);
-
-      // create the retry registry
-      RetryRegistry retryRegistry = RetryRegistry.of(retryConfig.build());
-
-      // logging whenever a new retry instance is added, removed or replaced from the registry
-      retryRegistry
-          .getEventPublisher()
-          .onEntryAdded(
-              entryAddedEvent -> {
-                Retry addedRetry = entryAddedEvent.getAddedEntry();
-                log.info("Kubectl retries configured for: {}", addedRetry.getName());
-              })
-          .onEntryRemoved(
-              entryRemovedEvent -> {
-                Retry removedRetry = entryRemovedEvent.getRemovedEntry();
-                log.info("Kubectl retries removed for: {}", removedRetry.getName());
-              })
-          .onEntryReplaced(
-              entryReplacedEvent -> {
-                Retry oldEntry = entryReplacedEvent.getOldEntry();
-                Retry newEntry = entryReplacedEvent.getNewEntry();
-                log.info(
-                    "Kubectl retry: {} updated to: {}", oldEntry.getName(), newEntry.getName());
-              });
-
-      // defining an event consumer once for the entire registry as mentioned here:
-      // https://github.com/resilience4j/resilience4j/issues/974#issuecomment-619956673
-      // If we don't do this once, but add it for each individual retry instance, and if
-      // that retry instance is invoked by multiple threads, then there is a lot of log duplication.
-      // For example, if 10 threads invoke an action to get the top pod, and it is
-      // configured to use the retry instance with the identifier "mock-account.topPod.test-pod",
-      // then we will see 10*10 log lines showing up for each retry event instead of just 10 that
-      // we expect.
-      EventConsumer<RetryEvent> eventConsumer =
-          retryEvent -> {
-            if (retryEvent instanceof RetryOnErrorEvent) {
-              log.error(
-                  "Kubectl command for {} failed after {} attempts. Exception: {}",
-                  retryEvent.getName(),
-                  retryEvent.getNumberOfRetryAttempts(),
-                  retryEvent.getLastThrowable().toString());
-            } else if (retryEvent instanceof RetryOnSuccessEvent) {
-              log.info(
-                  "Kubectl command for {} is now successful in attempt #{}. Last attempt had failed with exception: {}",
-                  retryEvent.getName(),
-                  retryEvent.getNumberOfRetryAttempts() + 1,
-                  retryEvent.getLastThrowable().toString());
-            } else if (retryEvent instanceof RetryOnRetryEvent) {
-              log.info(
-                  "Retrying Kubectl command for {}. Attempt #{} failed with exception: {}",
-                  retryEvent.getName(),
-                  retryEvent.getNumberOfRetryAttempts(),
-                  retryEvent.getLastThrowable().toString());
-            } else if (!(retryEvent instanceof RetryOnIgnoredErrorEvent)) {
-              // don't log anything for Ignored exceptions as it just leads to noise in the logs
-              log.info(retryEvent.toString());
-            }
-          };
-      retryRegistry
-          .getAllRetries()
-          .forEach(retry -> retry.getEventPublisher().onEvent(eventConsumer));
-      retryRegistry
-          .getEventPublisher()
-          .onEntryAdded(event -> event.getAddedEntry().getEventPublisher().onEvent(eventConsumer));
-
-      if (this.kubernetesConfigurationProperties
-          .getJobExecutor()
-          .getRetries()
-          .getMetrics()
-          .isEnabled()) {
-        TaggedRetryMetrics.ofRetryRegistry(retryRegistry).bindTo(meterRegistry);
-      }
-
-      return Optional.of(retryRegistry);
-    } else {
-      log.info("kubectl retries are disabled");
-      return Optional.empty();
-    }
-  }
-
-  /**
-   * this method is meant to be invoked only for those JobResults which are unsuccessful. It
-   * determines if the error contained in the JobResult should be retried or not. If the error needs
-   * to be retried, then KubectlException is returned. Otherwise, NoRetryException is returned.
-   *
-   * @param identifier used to log which action's job result is being processed
-   * @param result the job result which needs to be checked to see if it has an error that can be
-   *     retried
-   * @param <T> job result generic type
-   * @return - Either KubectlException or NoRetryException
-   */
-  private <T> RuntimeException convertKubectlJobResultToException(
-      String identifier, JobResult<T> result) {
-    // the error matches the configured list of retryable errors.
-    if (this.kubernetesConfigurationProperties
-        .getJobExecutor()
-        .getRetries()
-        .getRetryableErrorMessages()
-        .stream()
-        .anyMatch(errorMessage -> result.getError().contains(errorMessage))) {
-      return new KubectlException(identifier + " failed. Error: " + result.getError());
-    }
-
-    // even though the error is not explicitly configured to be retryable, the job was killed -
-    // hence, we should retry
-    if (result.isKilled()) {
-      return new KubectlException(
-          "retrying " + identifier + " since the job " + result + " was killed");
-    }
-
-    String message =
-        "Not retrying "
-            + identifier
-            + " as retries are not enabled for error: "
-            + result.getError();
-    log.warn(message);
-    // we want to let the retry library know that such errors should not be retried.
-    // Since we have configured the global retry registry to ignore errors of type
-    // NoRetryException, we return this here
-    return new NoRetryException(message);
-  }
-
-  /**
    * This method executes the actual kubectl command and determines if retries are required, on
    * failure.
    *
@@ -1062,6 +1020,48 @@ public class KubectlJobExecutor {
     // check the result to see if retries are needed. Resilience.4j needs an exception to be
     // thrown to decide if retries are needed and also, to capture retry metrics correctly.
     throw convertKubectlJobResultToException(identifier.getKubectlAction(), result);
+  }
+
+  /**
+   * this method is meant to be invoked only for those JobResults which are unsuccessful. It
+   * determines if the error contained in the JobResult should be retried or not. If the error needs
+   * to be retried, then KubectlException is returned. Otherwise, NoRetryException is returned.
+   *
+   * @param identifier used to log which action's job result is being processed
+   * @param result the job result which needs to be checked to see if it has an error that can be
+   *     retried
+   * @param <T> job result generic type
+   * @return - Either KubectlException or NoRetryException
+   */
+  private <T> RuntimeException convertKubectlJobResultToException(
+      String identifier, JobResult<T> result) {
+    // the error matches the configured list of retryable errors.
+    if (this.kubernetesConfigurationProperties
+        .getJobExecutor()
+        .getRetries()
+        .getRetryableErrorMessages()
+        .stream()
+        .anyMatch(errorMessage -> result.getError().contains(errorMessage))) {
+      return new KubectlException(identifier + " failed. Error: " + result.getError());
+    }
+
+    // even though the error is not explicitly configured to be retryable, the job was killed -
+    // hence, we should retry
+    if (result.isKilled()) {
+      return new KubectlException(
+          "retrying " + identifier + " since the job " + result + " was killed");
+    }
+
+    String message =
+        "Not retrying "
+            + identifier
+            + " as retries are not enabled for error: "
+            + result.getError();
+    log.warn(message);
+    // we want to let the retry library know that such errors should not be retried.
+    // Since we have configured the global retry registry to ignore errors of type
+    // NoRetryException, we return this here
+    return new NoRetryException(message);
   }
 
   public static class KubectlException extends RuntimeException {
