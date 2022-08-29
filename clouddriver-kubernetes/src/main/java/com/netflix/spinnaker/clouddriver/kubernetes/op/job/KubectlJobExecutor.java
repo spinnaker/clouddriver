@@ -82,7 +82,7 @@ public class KubectlJobExecutor {
   // @Getter is required so that this can be used in tests
   @Getter private final Optional<RetryRegistry> retryRegistry;
 
-  @Nullable private final MeterRegistry meterRegistry;
+  private final MeterRegistry meterRegistry;
 
   @Autowired
   KubectlJobExecutor(
@@ -95,12 +95,6 @@ public class KubectlJobExecutor {
 
     this.retryRegistry =
         initializeRetryRegistry(kubernetesConfigurationProperties.getJobExecutor().getRetries());
-  }
-
-  KubectlJobExecutor(
-      JobExecutor jobExecutor,
-      KubernetesConfigurationProperties kubernetesConfigurationProperties) {
-    this(jobExecutor, kubernetesConfigurationProperties, null);
   }
 
   public String logs(
@@ -905,7 +899,11 @@ public class KubectlJobExecutor {
           .getEventPublisher()
           .onEntryAdded(event -> event.getAddedEntry().getEventPublisher().onEvent(eventConsumer));
 
-      if (meterRegistry != null) {
+      if (this.kubernetesConfigurationProperties
+          .getJobExecutor()
+          .getRetries()
+          .getMetrics()
+          .isEnabled()) {
         TaggedRetryMetrics.ofRetryRegistry(retryRegistry).bindTo(meterRegistry);
       }
 
