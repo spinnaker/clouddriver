@@ -569,11 +569,11 @@ final class KubectlJobExecutorTest {
         ManifestFetcher.getManifest(KubectlJobExecutorTest.class, "job.yml").get(0);
 
     KubectlJobExecutor kubectlJobExecutor =
-        new TestJobExecutor(
+        new TestScriptJobExecutor(
             new JobExecutorLocal(/* timeoutMinutes */ 1),
             kubernetesConfigurationProperties,
             new SimpleMeterRegistry(),
-            TestJobExecutor.RetryBehavior.SUCCESS_AFTER_INITIAL_FAILURE);
+            TestScriptJobExecutor.RetryBehavior.SUCCESS_AFTER_INITIAL_FAILURE);
 
     // We are using a real job executor. Therefore, we can simulate the call `kubectl apply -f -`
     // by substituting kubectl with a test script that accepts stdin
@@ -604,11 +604,11 @@ final class KubectlJobExecutorTest {
         ManifestFetcher.getManifest(KubectlJobExecutorTest.class, "job.yml").get(0);
 
     KubectlJobExecutor kubectlJobExecutor =
-        new TestJobExecutor(
+        new TestScriptJobExecutor(
             new JobExecutorLocal(/* timeoutMinutes */ 1),
             kubernetesConfigurationProperties,
             new SimpleMeterRegistry(),
-            TestJobExecutor.RetryBehavior.FAILED);
+            TestScriptJobExecutor.RetryBehavior.FAILED);
 
     // We are using a real job executor. Therefore, we can simulate the call `kubectl apply -f -`
     // by substituting kubectl with a test script that accepts stdin
@@ -649,7 +649,7 @@ final class KubectlJobExecutorTest {
    * Only meant to be used in tests where mocking certain kubectl calls prove to be tricky. This is
    * currently used in tests that verify retry behavior for such calls.
    */
-  static class TestJobExecutor extends KubectlJobExecutor {
+  private static class TestScriptJobExecutor extends KubectlJobExecutor {
     /**
      * depending on the custom script provided, to simulate retry attempts, we need to let the
      * script know when to emit an error message vs when to emit a success message. These enums help
@@ -666,7 +666,7 @@ final class KubectlJobExecutorTest {
 
     private int createJobRequestInvokedCounter;
 
-    TestJobExecutor(
+    TestScriptJobExecutor(
         JobExecutor jobExecutor,
         KubernetesConfigurationProperties kubernetesConfigurationProperties,
         MeterRegistry meterRegistry,
@@ -679,12 +679,14 @@ final class KubectlJobExecutorTest {
 
     @Override
     JobRequest createJobRequest(List<String> command, Optional<KubernetesManifest> manifest) {
-      // command[0] contains the path to the script
+      // command[0] contains the path to the custom script. This path is read from the credentials
+      // object used for running the command.
+      // Note: CommandLine requires a File object containing the path to the script to be able to
+      // execute these scripts. This is different from running executables like kubectl.
       CommandLine commandLine = new CommandLine(new File(command.get(0)));
 
       // this adds a special argument to the test script. The script can use this to decide at
-      // runtime
-      // if it needs to exit successfully or with a failure.
+      // runtime if it needs to exit successfully or with a failure.
       // This will be the first argument to the script
       if (createJobRequestInvokedCounter > 1
           && retryBehavior == RetryBehavior.SUCCESS_AFTER_INITIAL_FAILURE) {
