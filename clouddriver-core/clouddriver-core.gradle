@@ -64,4 +64,6 @@ dependencies {
   testImplementation "org.mockito:mockito-core"
   testImplementation "org.springframework.boot:spring-boot-test"
   testImplementation "org.springframework.boot:spring-boot-starter-test"
+  testImplementation "com.google.cloud:google-cloud-secretmanager"
+  testImplementation "io.spinnaker.kork:kork-cloud-config-server"
 }
