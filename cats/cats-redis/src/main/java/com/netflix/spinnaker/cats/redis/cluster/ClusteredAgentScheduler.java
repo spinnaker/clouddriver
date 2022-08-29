@@ -168,7 +168,10 @@ public class ClusteredAgentScheduler extends CatsModuleAware
           acquired.put(
               agentType,
               new NextAttempt(
-                  System.currentTimeMillis(), interval.getInterval(), interval.getErrorInterval()));
+                  System.currentTimeMillis(),
+                  interval.getInterval(),
+                  interval.getErrorInterval(),
+                  interval.getTimeout()));
         }
       }
       if (acquired.size() >= availableAgents) {
@@ -184,9 +187,53 @@ public class ClusteredAgentScheduler extends CatsModuleAware
       return;
     }
     try {
+      pruneActiveAgents();
       runAgents();
     } catch (Throwable t) {
       logger.error("Unable to run agents", t);
+    }
+  }
+
+  /**
+   * this method removes agents from the {@link #activeAgents} map based on the following criteria:
+   *
+   * <p>- each agent has a max timeout interval associated with it. If it is present in the {@link
+   * #activeAgents} map for longer than this timeout value, then it is removed from this map.
+   *
+   * <p>NOTE: This same timeout interval is used when {@link #acquireRunKey(String, long)} is
+   * invoked from {@link #acquire()}.
+   *
+   * <p>The motivation for actively cleaning such entries from the map is to ensure that no agent is
+   * in such a bad state that it can't be rescheduled again. In a normal workflow, the agent is
+   * removed from the map when {@link #agentCompleted(String, long)} is called from {@link #run()}
+   * method after its execution. But, if for some reason, that thread is killed, and the {@link
+   * #agentCompleted(String, long)} is not called, then this agent stays in the {@link
+   * #activeAgents} map, which means it won't be rescheduled again. So by actively doing something
+   * like this, we enable it to be rescheduled.
+   */
+  private void pruneActiveAgents() {
+    final long currentTime = System.currentTimeMillis();
+    int count = 0;
+    for (final Map.Entry<String, NextAttempt> activeAgent : activeAgents.entrySet()) {
+      // max time upto which an agent can remain active
+      long removalTime = activeAgent.getValue().currentTime + activeAgent.getValue().timeout;
+
+      // atleast allow an agent to be active for MIN_TTL_THRESHOLD ms.
+      // this is the same threshold used in the releaseRunKey() as well
+      if (removalTime + MIN_TTL_THRESHOLD < currentTime) {
+        logger.info(
+            "removing agent: {} from the active agents map as its max execution time"
+                + " has elapsed",
+            activeAgent.getKey());
+        activeAgents.remove(activeAgent.getKey());
+        count++;
+      }
+    }
+
+    if (count > 0) {
+      logger.info(
+          "removed {} accounts from the active agents map as their max execution times have elapsed",
+          count);
     }
   }
 
@@ -321,11 +368,13 @@ public class ClusteredAgentScheduler extends CatsModuleAware
     private final long currentTime;
     private final long successInterval;
     private final long errorInterval;
+    private final long timeout;
 
-    public NextAttempt(long currentTime, long successInterval, long errorInterval) {
+    public NextAttempt(long currentTime, long successInterval, long errorInterval, long timeout) {
       this.currentTime = currentTime;
       this.successInterval = successInterval;
       this.errorInterval = errorInterval;
+      this.timeout = timeout;
     }
 
     public long getNextTime(Status status) {
