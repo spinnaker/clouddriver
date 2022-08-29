@@ -70,6 +70,7 @@ public class JobRequest {
     this.workingDir = workingDir;
   }
 
+  // only used in tests
   public JobRequest(CommandLine commandLine, InputStream inputStream) {
     this.tokenizedCommand = new ArrayList<>();
     this.commandLine = commandLine;

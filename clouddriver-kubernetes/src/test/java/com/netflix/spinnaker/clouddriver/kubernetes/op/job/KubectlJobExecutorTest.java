@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
-import com.netflix.spinnaker.clouddriver.data.task.InMemoryTaskRepository;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutionException;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
@@ -581,9 +580,7 @@ final class KubectlJobExecutorTest {
         kubectlJobExecutor.deploy(
             mockKubernetesCredentials(
                 "src/test/resources/com/netflix/spinnaker/clouddriver/kubernetes/op/job/mock-kubectl-stdin-command.sh"),
-            inputManifest,
-            new InMemoryTaskRepository().create("starting", "starting"),
-            "starting");
+            inputManifest);
 
     // even after retries occur, the inputStream should not empty. This is verified by
     // checking the stdout generated from the script
@@ -619,9 +616,7 @@ final class KubectlJobExecutorTest {
                 kubectlJobExecutor.deploy(
                     mockKubernetesCredentials(
                         "src/test/resources/com/netflix/spinnaker/clouddriver/kubernetes/op/job/mock-kubectl-stdin-command.sh"),
-                    inputManifest,
-                    new InMemoryTaskRepository().create("starting", "starting"),
-                    "starting"));
+                    inputManifest));
 
     assertThat(thrown.getMessage()).contains("Deploy failed for manifest: job my-job");
     // verify that the final error contained stdin data
