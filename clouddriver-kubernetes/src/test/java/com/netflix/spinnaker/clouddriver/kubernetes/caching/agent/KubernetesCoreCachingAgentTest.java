@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -173,7 +173,10 @@ final class KubernetesCoreCachingAgentTest {
                 });
     when(credentials.getNamer()).thenReturn(new KubernetesManifestNamer());
     when(credentials.isValidKind(any(KubernetesKind.class))).thenReturn(true);
-
+    when(credentials.getKubernetesSpinnakerKindMap())
+        .thenReturn(
+            new KubernetesSpinnakerKindMap(
+                List.of(new KubernetesDeploymentHandler(), new KubernetesStorageClassHandler())));
     return credentials;
   }
 
@@ -232,16 +235,15 @@ final class KubernetesCoreCachingAgentTest {
   private static ImmutableCollection<KubernetesCoreCachingAgent> createCachingAgents(
       KubernetesNamedAccountCredentials credentials,
       int agentCount,
-      Front50Service front50Service,
+      Front50ApplicationLoader front50ApplicationLoader,
       boolean checkApplicationInFront50) {
     KubernetesConfigurationProperties kubernetesConfigurationProperties =
         new KubernetesConfigurationProperties();
-
     if (!checkApplicationInFront50) {
       return createCachingAgents(credentials, agentCount, kubernetesConfigurationProperties);
     }
 
-    kubernetesConfigurationProperties.setCheckApplicationInFront50(true);
+    kubernetesConfigurationProperties.getCache().setCheckApplicationInFront50(true);
     return IntStream.range(0, agentCount)
         .mapToObj(
             i ->
@@ -254,7 +256,7 @@ final class KubernetesCoreCachingAgentTest {
                     10L,
                     kubernetesConfigurationProperties,
                     kubernetesSpinnakerKindMap,
-                    front50Service))
+                    front50ApplicationLoader))
         .collect(toImmutableList());
   }
 
@@ -338,22 +340,23 @@ final class KubernetesCoreCachingAgentTest {
             KubernetesKind.DEPLOYMENT, ACCOUNT, NAMESPACE1, DEPLOYMENT_NAME);
 
     Front50Service front50Service = mock(Front50Service.class);
+    Front50ApplicationLoader front50ApplicationLoader =
+        new Front50ApplicationLoader(front50Service);
 
     ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
         createCachingAgents(
-            getNamedAccountCredentials(), 1, front50Service, checkApplicationInFront50);
+            getNamedAccountCredentials(), 1, front50ApplicationLoader, checkApplicationInFront50);
 
     when(front50Service.getAllApplicationsUnrestricted())
         .thenReturn(getApplicationsFromFront50("applications-response-from-front50.json"));
+    front50ApplicationLoader.refreshCache();
+    verify(front50Service).getAllApplicationsUnrestricted();
+
     // when:
     LoadDataResult loadDataResult = processLoadData(cachingAgents, ImmutableMap.of());
 
     // then:
-    if (checkApplicationInFront50) {
-      verify(front50Service).getAllApplicationsUnrestricted();
-    } else {
-      verifyNoInteractions(front50Service);
-    }
+    verifyNoMoreInteractions(front50Service);
 
     assertThat(loadDataResult.getResults()).containsKey(DEPLOYMENT_KIND);
     Collection<CacheData> deployments = loadDataResult.getResults().get(DEPLOYMENT_KIND);
@@ -370,17 +373,24 @@ final class KubernetesCoreCachingAgentTest {
     String deploymentName = "some-name-not-in-front50";
 
     Front50Service front50Service = mock(Front50Service.class);
+    Front50ApplicationLoader front50ApplicationLoader =
+        new Front50ApplicationLoader(front50Service);
+
     ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(deploymentName), 1, front50Service, true);
+        createCachingAgents(
+            getNamedAccountCredentials(deploymentName), 1, front50ApplicationLoader, true);
 
     when(front50Service.getAllApplicationsUnrestricted())
         .thenReturn(getApplicationsFromFront50("applications-response-from-front50.json"));
+
+    front50ApplicationLoader.refreshCache();
+    verify(front50Service).getAllApplicationsUnrestricted();
 
     // when:
     LoadDataResult loadDataResult = processLoadData(cachingAgents, ImmutableMap.of());
 
     // then:
-    verify(front50Service).getAllApplicationsUnrestricted();
+    verifyNoMoreInteractions(front50Service);
 
     // the deployment should not be cached as its application is not known to front50
     assertThat(loadDataResult.getResults()).doesNotContainKey(DEPLOYMENT_KIND);

@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
@@ -36,5 +35,5 @@ public interface KubernetesCachingAgentFactory {
       Long agentInterval,
       KubernetesConfigurationProperties configurationProperties,
       KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
-      @Nullable Front50Service front50Service);
+      @Nullable Front50ApplicationLoader front50ApplicationLoader);
 }

@@ -19,14 +19,18 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -42,7 +46,7 @@ public class KubernetesCachingAgentDispatcher {
   private final Registry registry;
   private final KubernetesConfigurationProperties configurationProperties;
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
-  @Nullable private final Front50Service front50Service;
+  @Nullable private final Front50ApplicationLoader front50ApplicationLoader;
 
   @Autowired
   public KubernetesCachingAgentDispatcher(
@@ -50,12 +54,12 @@ public class KubernetesCachingAgentDispatcher {
       Registry registry,
       KubernetesConfigurationProperties configurationProperties,
       KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
-      @Nullable Front50Service front50Service) {
+      @Nullable Front50ApplicationLoader front50ApplicationLoader) {
     this.objectMapper = objectMapper;
     this.registry = registry;
     this.configurationProperties = configurationProperties;
     this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
-    this.front50Service = front50Service;
+    this.front50ApplicationLoader = front50ApplicationLoader;
   }
 
   public Collection<KubernetesCachingAgent> buildAllCachingAgents(
@@ -91,7 +95,7 @@ public class KubernetesCachingAgentDispatcher {
                                 agentInterval,
                                 configurationProperties,
                                 kubernetesSpinnakerKindMap,
-                                front50Service))
+                                front50ApplicationLoader))
                     .filter(Objects::nonNull)
                     .forEach(result::add));
 

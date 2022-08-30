@@ -22,11 +22,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.ReplaceResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.Front50ApplicationLoader;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
@@ -113,7 +113,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
       Long agentInterval,
       KubernetesConfigurationProperties configurationProperties,
       KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
-      @Nullable Front50Service front50Service) {
+      @Nullable Front50ApplicationLoader front50ApplicationLoader) {
     return cachingAgentFactory()
         .buildCachingAgent(
             namedAccountCredentials,
@@ -124,7 +124,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
             agentInterval,
             configurationProperties,
             kubernetesSpinnakerKindMap,
-            front50Service);
+            front50ApplicationLoader);
   }
 
   // used for stripping sensitive values

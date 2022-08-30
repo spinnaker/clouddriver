@@ -23,7 +23,6 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.NoopRegistry;
-import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesAccountProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
@@ -82,7 +81,7 @@ public class KubernetesUnregisteredCustomResourceCachingAgentTest {
   private static KubernetesUnregisteredCustomResourceCachingAgent createCachingAgent(
       KubernetesNamedAccountCredentials credentials,
       KubernetesConfigurationProperties configurationProperties,
-      @Nullable Front50Service front50Service) {
+      @Nullable Front50ApplicationLoader front50ApplicationLoader) {
     return new KubernetesUnregisteredCustomResourceCachingAgent(
         credentials,
         objectMapper,
@@ -92,6 +91,6 @@ public class KubernetesUnregisteredCustomResourceCachingAgentTest {
         10L,
         configurationProperties,
         new KubernetesSpinnakerKindMap(new ArrayList<>()),
-        front50Service);
+        front50ApplicationLoader);
   }
 }

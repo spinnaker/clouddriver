@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
-import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
@@ -42,7 +41,7 @@ public class CustomKubernetesCachingAgentFactory {
       Long agentInterval,
       KubernetesConfigurationProperties configurationProperties,
       KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
-      @Nullable Front50Service front50Service) {
+      @Nullable Front50ApplicationLoader front50ApplicationLoader) {
     return new Agent(
         kind,
         namedAccountCredentials,
@@ -53,7 +52,7 @@ public class CustomKubernetesCachingAgentFactory {
         agentInterval,
         configurationProperties,
         kubernetesSpinnakerKindMap,
-        front50Service);
+        front50ApplicationLoader);
   }
 
   /**
@@ -76,7 +75,7 @@ public class CustomKubernetesCachingAgentFactory {
         Long agentInterval,
         KubernetesConfigurationProperties configurationProperties,
         KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
-        @Nullable Front50Service front50Service) {
+        @Nullable Front50ApplicationLoader front50ApplicationLoader) {
       super(
           namedAccountCredentials,
           objectMapper,
@@ -86,7 +85,7 @@ public class CustomKubernetesCachingAgentFactory {
           agentInterval,
           configurationProperties,
           kubernetesSpinnakerKindMap,
-          front50Service);
+          front50ApplicationLoader);
       this.kind = kind;
     }
 
