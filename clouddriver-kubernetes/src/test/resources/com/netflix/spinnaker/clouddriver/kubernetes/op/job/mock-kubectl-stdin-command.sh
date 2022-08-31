@@ -20,9 +20,9 @@
 # being tested is simply the fact that the retry attempts for such calls continue to read
 # data from stdin. To simulate retries, we exit the script with an error that is configured
 # to be retryable as long as $1 != "success"
-input=`cat -`
+input=$(cat -)
 # simulate error case
-if [[ "$1" != "success" ]]
+if [ "$1" != "success" ]
 then
   echo "\n########################" >&2
   echo "data received from stdin: $input" >&2
@@ -30,5 +30,5 @@ then
   echo "########################" >&2
   exit 1
 else
-  echo $input
+  echo "$input"
 fi
