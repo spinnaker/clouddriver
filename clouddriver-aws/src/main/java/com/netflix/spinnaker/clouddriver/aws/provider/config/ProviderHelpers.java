@@ -190,11 +190,6 @@ public class ProviderHelpers {
             new AmazonCertificateCachingAgent(
                 amazonClientProvider, credentials, region.getName(), objectMapper, registry));
 
-        if (dynamicConfigService.isEnabled("aws.features.cloud-formation", false)) {
-          newlyAddedAgents.add(
-              new AmazonCloudFormationCachingAgent(
-                  amazonClientProvider, credentials, region.getName(), registry));
-        }
         if (credentials.getEddaEnabled()
             && !eddaTimeoutConfig.getDisabledRegions().contains(region.getName())) {
           newlyAddedAgents.add(
