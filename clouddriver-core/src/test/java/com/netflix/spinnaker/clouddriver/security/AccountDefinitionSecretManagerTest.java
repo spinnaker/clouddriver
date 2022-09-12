@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
+import com.github.stefanbirkner.systemlambda.SystemLambda;
 import com.google.cloud.secretmanager.v1.SecretManagerServiceClient;
 import com.netflix.spinnaker.clouddriver.config.AccountDefinitionConfiguration;
 import com.netflix.spinnaker.kork.secrets.SecretManager;
@@ -30,12 +31,10 @@ import com.netflix.spinnaker.kork.secrets.user.UserSecret;
 import com.netflix.spinnaker.kork.secrets.user.UserSecretManager;
 import com.netflix.spinnaker.kork.secrets.user.UserSecretReference;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -156,23 +155,16 @@ class AccountDefinitionSecretManagerTest {
             + "  \"client_x509_cert_url\": \"https://www.googleapis.com/robot/v1/metadata/x509/dummy%40my-test-project.iam.gserviceaccount.com\"\n"
             + "}";
     String credentialsPath = writeToFile(credentials, "credentials.json");
-    setEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath);
-    assertDoesNotThrow(() -> SecretManagerServiceClient.create());
+    SystemLambda.withEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath)
+        .execute(
+            () -> {
+              assertDoesNotThrow(() -> SecretManagerServiceClient.create());
+            });
   }
 
   private String writeToFile(String content, String fileName) throws IOException {
     Path filePath = Paths.get(System.getProperty("java.io.tmpdir"), fileName);
     Files.write(filePath, content.getBytes());
     return filePath.toString();
-  }
-
-  private void setEnvironmentVariable(String key, String value)
-      throws NoSuchFieldException, IllegalAccessException {
-    Map<String, String> env = System.getenv();
-    Class<?> cl = env.getClass();
-    Field field = cl.getDeclaredField("m");
-    field.setAccessible(true);
-    Map<String, String> writableEnv = (Map<String, String>) field.get(env);
-    writableEnv.put(key, value);
   }
 }

@@ -53,6 +53,7 @@ dependencies {
   testImplementation project(":clouddriver-core-tck")
 
   testImplementation "cglib:cglib-nodep"
+  testImplementation "com.github.stefanbirkner:system-lambda:1.2.1"
   testImplementation "io.spinnaker.kork:kork-jedis-test"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
