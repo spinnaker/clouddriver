@@ -39,19 +39,19 @@ import org.slf4j.LoggerFactory;
 public class AzureManagedImageCachingAgent
     implements CachingAgent, CustomScheduledAgent, AccountAware {
   private final Logger log = LoggerFactory.getLogger(getClass());
-  public static final long DEFAULT_POLL_INTERVAL_MILLIS = TimeUnit.HOURS.toMillis(2);
-  public static final long DEFAULT_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(30);
+  private static final long DEFAULT_POLL_INTERVAL_MILLIS = TimeUnit.HOURS.toMillis(2);
+  private static final long DEFAULT_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(30);
 
-  final AzureCloudProvider azureCloudProvider;
-  final String accountName;
-  final AzureCredentials creds;
-  final String region;
-  final ObjectMapper objectMapper;
+  private final AzureCloudProvider azureCloudProvider;
+  private final String accountName;
+  private final AzureCredentials creds;
+  private final String region;
+  private final ObjectMapper objectMapper;
 
-  final long pollIntervalMillis;
-  final long timeoutMillis;
+  private final long pollIntervalMillis;
+  private final long timeoutMillis;
 
-  static final java.util.Set<AgentDataType> types =
+  private static final java.util.Set<AgentDataType> types =
       Set.of(AUTHORITATIVE.forType(Keys.Namespace.AZURE_MANAGEDIMAGES.toString()));
 
   public AzureManagedImageCachingAgent(
