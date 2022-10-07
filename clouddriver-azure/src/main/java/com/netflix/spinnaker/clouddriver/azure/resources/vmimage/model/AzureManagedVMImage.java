@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model;
 
-
 public class AzureManagedVMImage {
 
   private String name;

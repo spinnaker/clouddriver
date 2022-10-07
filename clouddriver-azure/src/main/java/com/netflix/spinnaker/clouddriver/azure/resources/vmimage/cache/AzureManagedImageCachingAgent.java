@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.azure.resources.vmimage.cache;
 
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.*;
@@ -28,17 +30,14 @@ import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.provider.A
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureManagedVMImage;
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials;
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-
-public class AzureManagedImageCachingAgent implements CachingAgent, CustomScheduledAgent, AccountAware {
+public class AzureManagedImageCachingAgent
+    implements CachingAgent, CustomScheduledAgent, AccountAware {
   private final Logger log = LoggerFactory.getLogger(getClass());
   public static final long DEFAULT_POLL_INTERVAL_MILLIS = TimeUnit.HOURS.toMillis(2);
   public static final long DEFAULT_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(30);
@@ -52,25 +51,33 @@ public class AzureManagedImageCachingAgent implements CachingAgent, CustomSchedu
   final long pollIntervalMillis;
   final long timeoutMillis;
 
-  static final java.util.Set<AgentDataType> types = Set.of(
-    AUTHORITATIVE.forType(Keys.Namespace.AZURE_MANAGEDIMAGES.toString())
-    );
+  static final java.util.Set<AgentDataType> types =
+      Set.of(AUTHORITATIVE.forType(Keys.Namespace.AZURE_MANAGEDIMAGES.toString()));
 
-  public AzureManagedImageCachingAgent(AzureCloudProvider azureCloudProvider,
-                                       String accountName,
-                                       AzureCredentials creds,
-                                       String region,
-                                       ObjectMapper objectMapper) {
-    this(azureCloudProvider, accountName, creds, region, objectMapper, DEFAULT_POLL_INTERVAL_MILLIS, DEFAULT_TIMEOUT_MILLIS);
+  public AzureManagedImageCachingAgent(
+      AzureCloudProvider azureCloudProvider,
+      String accountName,
+      AzureCredentials creds,
+      String region,
+      ObjectMapper objectMapper) {
+    this(
+        azureCloudProvider,
+        accountName,
+        creds,
+        region,
+        objectMapper,
+        DEFAULT_POLL_INTERVAL_MILLIS,
+        DEFAULT_TIMEOUT_MILLIS);
   }
 
-  AzureManagedImageCachingAgent(AzureCloudProvider azureCloudProvider,
-                                String accountName,
-                                AzureCredentials creds,
-                                String region,
-                                ObjectMapper objectMapper,
-                                long pollIntervalMillis,
-                                long timeoutMillis) {
+  AzureManagedImageCachingAgent(
+      AzureCloudProvider azureCloudProvider,
+      String accountName,
+      AzureCredentials creds,
+      String region,
+      ObjectMapper objectMapper,
+      long pollIntervalMillis,
+      long timeoutMillis) {
     this.azureCloudProvider = azureCloudProvider;
     this.accountName = accountName;
     this.creds = creds;
@@ -86,13 +93,13 @@ public class AzureManagedImageCachingAgent implements CachingAgent, CustomSchedu
   }
 
   @Override
- public String getAgentType() {
+  public String getAgentType() {
     return new StringJoiner("/")
-      .add(accountName)
-      .add(creds.getDefaultResourceGroup())
-      .add(region)
-      .add(this.getClass().getSimpleName()).toString();
-//    return "${accountName}/${creds.defaultResourceGroup}/${region}/${AzureManagedImageCachingAgent.simpleName}";
+        .add(accountName)
+        .add(creds.getDefaultResourceGroup())
+        .add(region)
+        .add(this.getClass().getSimpleName())
+        .toString();
   }
 
   @Override
@@ -101,7 +108,7 @@ public class AzureManagedImageCachingAgent implements CachingAgent, CustomSchedu
   }
 
   @Override
- public Collection<AgentDataType> getProvidedDataTypes() {
+  public Collection<AgentDataType> getProvidedDataTypes() {
     return types;
   }
 
@@ -109,19 +116,27 @@ public class AzureManagedImageCachingAgent implements CachingAgent, CustomSchedu
   public CacheResult loadData(ProviderCache providerCache) {
     log.info("Describing items in {}", getAgentType());
 
-    List<AzureManagedVMImage> vmImages = creds.getComputeClient().getAllVMCustomImages(creds.getDefaultResourceGroup(), region);
-    TypeReference<HashMap<String,Object>> typeRef
-      = new TypeReference<>() {
-    };
+    List<AzureManagedVMImage> vmImages =
+        creds.getComputeClient().getAllVMCustomImages(creds.getDefaultResourceGroup(), region);
+    TypeReference<HashMap<String, Object>> typeRef = new TypeReference<>() {};
 
-
-    List<CacheData> data = vmImages.stream().map( vmImage -> {
-      Map<String, Object> attributes = objectMapper.convertValue(vmImage, typeRef);
-      return new DefaultCacheData(Keys.getManagedVMImageKey(azureCloudProvider, accountName, vmImage.getRegion(), vmImage.getResourceGroup(), vmImage.getName(), vmImage.getOsType()),
-        attributes,
-        Map.of());
-      }
-    ).collect(Collectors.toList());
+    List<CacheData> data =
+        vmImages.stream()
+            .map(
+                vmImage -> {
+                  Map<String, Object> attributes = objectMapper.convertValue(vmImage, typeRef);
+                  return new DefaultCacheData(
+                      Keys.getManagedVMImageKey(
+                          azureCloudProvider,
+                          accountName,
+                          vmImage.getRegion(),
+                          vmImage.getResourceGroup(),
+                          vmImage.getName(),
+                          vmImage.getOsType()),
+                      attributes,
+                      Map.of());
+                })
+            .collect(Collectors.toList());
 
     log.info("Caching {} items in {}", data.size(), getAgentType());
 
