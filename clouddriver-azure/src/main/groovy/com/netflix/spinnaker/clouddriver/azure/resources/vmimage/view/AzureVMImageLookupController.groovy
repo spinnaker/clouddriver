@@ -49,7 +49,7 @@ class AzureVMImageLookupController {
   private final AzureCloudProvider azureCloudProvider
   private final AccountCredentialsProvider accountCredentialsProvider
   private final Cache cacheView
-  final ObjectMapper objectMapper
+  private final ObjectMapper objectMapper
 
 
   @Autowired
