@@ -29,7 +29,7 @@ public class CloudrunServerGroupNameResolver extends AbstractServerGroupNameReso
   private static final String PHASE = "DEPLOY";
 
   private final String project;
-  private final String region;
+  private String region;
   private final CloudrunNamedAccountCredentials credentials;
 
   public CloudrunServerGroupNameResolver(
@@ -47,6 +47,10 @@ public class CloudrunServerGroupNameResolver extends AbstractServerGroupNameReso
   @Override
   public String getRegion() {
     return region;
+  }
+
+  public void setRegion(String region) {
+    this.region = region;
   }
 
   @Override

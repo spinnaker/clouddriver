@@ -23,7 +23,7 @@ import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCreden
 import java.util.Map;
 
 public class CloudrunAtomicOperationConverterHelper {
-  static <T extends AbstractCloudrunCredentialsDescription> T convertDescription(
+  public static <T extends AbstractCloudrunCredentialsDescription> T convertDescription(
       Map input,
       AbstractAtomicOperationsCredentialsConverter<CloudrunNamedAccountCredentials>
           credentialsSupport,
