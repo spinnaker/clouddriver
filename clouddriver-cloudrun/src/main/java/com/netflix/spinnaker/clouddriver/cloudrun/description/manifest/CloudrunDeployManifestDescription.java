@@ -49,7 +49,7 @@ public class CloudrunDeployManifestDescription extends AbstractCloudrunCredentia
 
   private String stack;
 
-  private String freeFormDetails;
+  private String details;
 
   private String versionName;
 
@@ -167,12 +167,12 @@ public class CloudrunDeployManifestDescription extends AbstractCloudrunCredentia
     this.stack = stack;
   }
 
-  public String getFreeFormDetails() {
-    return freeFormDetails;
+  public String getDetails() {
+    return details;
   }
 
-  public void setFreeFormDetails(String freeFormDetails) {
-    this.freeFormDetails = freeFormDetails;
+  public void setDetails(String details) {
+    this.details = details;
   }
 
   public String getVersionName() {

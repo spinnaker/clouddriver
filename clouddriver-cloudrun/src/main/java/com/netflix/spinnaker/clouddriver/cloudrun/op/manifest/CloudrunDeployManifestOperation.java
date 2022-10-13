@@ -74,13 +74,10 @@ public class CloudrunDeployManifestOperation implements AtomicOperation<Deployme
     serverGroupNameResolver.setRegion(description.getRegion());
     String clusterName =
         serverGroupNameResolver.getClusterName(
-            description.getApplication(), description.getStack(), description.getFreeFormDetails());
+            description.getApplication(), description.getStack(), description.getDetails());
     String versionName =
         serverGroupNameResolver.resolveNextServerGroupName(
-            description.getApplication(),
-            description.getStack(),
-            description.getFreeFormDetails(),
-            false);
+            description.getApplication(), description.getStack(), description.getDetails(), false);
     List<String> modConfigFiles =
         insertSpinnakerAppNameServiceNameVersionName(configFiles, clusterName, versionName);
     List<String> writtenFullConfigFilePaths =
