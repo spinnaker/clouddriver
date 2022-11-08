@@ -22,6 +22,5 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = false)
 public class ForceRestartServerGroupDescription extends AbstractECSDescription {
-
   String serverGroupName;
 }
