@@ -185,34 +185,6 @@ public class DeployCloudrunAtomicOperation implements AtomicOperation<Deployment
     }
   }
 
-  /**
-   * curl -X POST -H "Content-Type: application/json" -d '[ { "createServerGroup": { "application":
-   * "myapp", "stack": "stack", "freeFormDetails": "details", "repositoryUrl":
-   * "https://github.com/organization/project.git", "branch": "feature-branch", "credentials":
-   * "my-appengine-account", "configFilepaths": ["app.yaml"] } } ]'
-   * "http://localhost:7002/appengine/ops" curl -X POST -H "Content-Type: application/json" -d '[ {
-   * "createServerGroup": { "application": "myapp", "stack": "stack", "freeFormDetails": "details",
-   * "repositoryUrl": "https://github.com/organization/project.git", "branch": "feature-branch",
-   * "credentials": "my-appengine-account", "configFilepaths": ["app.yaml"], "promote": true,
-   * "stopPreviousVersion": true } } ]' "http://localhost:7002/appengine/ops" curl -X POST -H
-   * "Content-Type: application/json" -d '[ { "createServerGroup": { "application": "myapp",
-   * "stack": "stack", "freeFormDetails": "details", "repositoryUrl":
-   * "https://github.com/organization/project.git", "branch": "feature-branch", "credentials":
-   * "my-appengine-account", "configFilepaths": ["runtime: python27\napi_version: 1\nthreadsafe:
-   * true\nmanual_scaling:\n instances: 5\ninbound_services:\n - warmup\nhandlers:\n - url: /.*\n
-   * script: main.app"],} } ]' "http://localhost:7002/appengine/ops" curl -X POST -H "Content-Type:
-   * application/json" -d '[ { "createServerGroup": { "application": "myapp", "stack": "stack",
-   * "freeFormDetails": "details", "credentials": "my-appengine-account", "containerImageUrl":
-   * "gcr.io/my-project/my-image:my-tag", "configFiles": ["env: flex\nruntime:
-   * custom\nmanual_scaling:\n instances: 1\nresources:\n cpu: 1\n memory_gb: 0.5\n disk_size_gb:
-   * 10"] } } ]' "http://localhost:7002/appengine/ops" curl -X POST -H "Content-Type:
-   * application/json" -d '[ { "createServerGroup": { "application": "myapp", "stack": "stack",
-   * "freeFormDetails": "details", "credentials": "my-appengine-credential-name",
-   * "containerImageUrl": "gcr.io/my-gcr-repo/image:tag", "configArtifacts": [{ "type":
-   * "gcs/object", "name": "gs://path/to/app.yaml", "reference": "gs://path/to/app.yaml",
-   * "artifactAccount": "my-gcs-artifact-account-name" }] } } ]'
-   * "http://localhost:7002/appengine/ops"
-   */
   @Override
   public DeploymentResult operate(List priorOutputs) {
 

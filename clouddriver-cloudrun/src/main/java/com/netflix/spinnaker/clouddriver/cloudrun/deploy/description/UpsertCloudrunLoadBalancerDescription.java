@@ -46,10 +46,6 @@ public class UpsertCloudrunLoadBalancerDescription extends AbstractCloudrunCrede
     return split;
   }
 
-  // public void setSplit(CloudrunTrafficSplit split) {
-  //  this.split = split;
-  // }
-
   public CloudrunTrafficSplitDescription getSplitDescription() {
     return splitDescription;
   }

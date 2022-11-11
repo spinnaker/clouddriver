@@ -24,10 +24,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
+@EqualsAndHashCode(callSuper = false)
 public class CloudrunManifestOperationResult extends DeploymentResult {
   private Map<String, Set<String>> manifestNamesByNamespace = new HashMap<>();
   private Set<CloudrunService> manifests = new HashSet<>();

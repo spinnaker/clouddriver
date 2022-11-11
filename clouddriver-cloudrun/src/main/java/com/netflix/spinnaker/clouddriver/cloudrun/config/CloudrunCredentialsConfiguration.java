@@ -76,7 +76,6 @@ public class CloudrunCredentialsConfiguration {
                         .setLocalRepositoryDirectory(a.getLocalRepositoryDirectory())
                         .setRequiredGroupMembership(a.getRequiredGroupMembership())
                         .setPermissions(a.getPermissions().build())
-                        .setSshTrustUnknownHosts(a.isSshTrustUnknownHosts())
                         .build(jobExecutor);
                   } catch (Exception e) {
                     log.info(

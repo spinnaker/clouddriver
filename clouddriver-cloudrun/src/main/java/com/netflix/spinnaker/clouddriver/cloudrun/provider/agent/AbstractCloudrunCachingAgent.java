@@ -31,14 +31,6 @@ public abstract class AbstractCloudrunCachingAgent
     this.credentials = credentials;
   }
 
-  public boolean shouldIgnoreLoadBalancer(String loadBalancerName) {
-    return false; // TODO - need to fix this
-  }
-
-  public boolean shouldIgnoreServerGroup(final String serverGroupName) {
-    return false; // TODO - need to fix this
-  }
-
   public static void cache(
       Map<String, List<CacheData>> cacheResults,
       String cacheNamespace,

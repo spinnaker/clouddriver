@@ -23,10 +23,8 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.List;
 import java.util.Map;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-@Data
 @EqualsAndHashCode(callSuper = true)
 public class CloudrunDeployManifestDescription extends AbstractCloudrunCredentialsDescription
     implements DeployDescription {

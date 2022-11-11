@@ -47,13 +47,6 @@ public class DisableCloudrunAtomicOperation extends CloudrunAtomicOperation<Void
     this.description = description;
   }
 
-  /**
-   * curl -X POST -H "Content-Type: application/json" -d '[ { "disableServerGroup": {
-   * "serverGroupName": "app-stack-detail-v000", "credentials": "my-appengine-account" }} ]'
-   * localhost:7002/appengine/ops
-   *
-   * @return
-   */
   @Override
   public Void operate(List<Void> priorOutputs) {
     getTask()

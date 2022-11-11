@@ -82,9 +82,6 @@ public class Keys {
         result.put("application", parts[3]);
         result.put("name", parts[4]);
         result.put("cluster", parts[4]);
-        // we are not using stack & detail at present
-        //        result.put("stack", names.getStack());
-        //        result.put("detail", names.getDetail());
         break;
       case INSTANCES:
         result.put("account", parts[2]);
@@ -102,13 +99,8 @@ public class Keys {
         result.put("cluster", parts[2]);
         result.put("account", parts[3]);
         result.put("region", parts[4]);
-        // we are not using stack & detail at present
-        //        result.put("stack", names_1.getStack());
-        //        result.put("detail", names_1.getDetail());
         result.put("serverGroup", parts[5]);
         result.put("name", parts[5]);
-        // we are not using sequence at present
-        //        result.put("sequence", names_1.getSequence().toString());
         break;
       default:
         break;

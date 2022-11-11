@@ -98,9 +98,6 @@ public class CloudrunServerGroupCachingAgent extends AbstractCloudrunCachingAgen
       return null;
     }
     String serverGroupName = data.get("serverGroupName").toString();
-    if (shouldIgnoreServerGroup(serverGroupName)) {
-      return null;
-    }
     Map<String, Object> matchingServerGroupAndLoadBalancer =
         metricsSupport.readData(() -> loadServerGroupAndLoadBalancer(serverGroupName));
     if (matchingServerGroupAndLoadBalancer.isEmpty()) {
@@ -504,9 +501,6 @@ public class CloudrunServerGroupCachingAgent extends AbstractCloudrunCachingAgen
   public Map<String, Object> loadServerGroupAndLoadBalancer(String serverGroupName) {
     Map<String, Object> serverGroupAndLoadBalancer = new HashMap<>();
     BatchRequest batch = getCredentials().getCloudRun().batch();
-    if (shouldIgnoreServerGroup(serverGroupName)) {
-      return serverGroupAndLoadBalancer;
-    }
     String project = getCredentials().getProject();
     List<Service> loadBalancers = getServicesList(project);
     List<Revision> serverGroups = getRevisionsList(project);

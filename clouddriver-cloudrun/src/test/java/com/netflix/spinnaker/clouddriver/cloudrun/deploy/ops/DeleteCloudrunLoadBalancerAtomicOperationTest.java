@@ -12,10 +12,10 @@ import com.netflix.spinnaker.clouddriver.cloudrun.security.CloudrunNamedAccountC
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.internal.util.reflection.FieldSetter;
 
 public class DeleteCloudrunLoadBalancerAtomicOperationTest {
   DeleteCloudrunLoadBalancerAtomicOperation deleteCloudrunLoadBalancerAtomicOperation;
@@ -43,7 +43,7 @@ public class DeleteCloudrunLoadBalancerAtomicOperationTest {
             .setLiveLookupsEnabled(false)
             .setLocalRepositoryDirectory("/localdirectory")
             .setJsonPath("/jsonpath")
-            .setProject(" my project")
+            .setProject(" my-project")
             .build(mock(CloudrunJobExecutor.class));
     taskRepository = mock(TaskRepository.class);
     task = mock(Task.class);
@@ -57,7 +57,6 @@ public class DeleteCloudrunLoadBalancerAtomicOperationTest {
     description.setCredentials(mockcredentials);
     deleteCloudrunLoadBalancerAtomicOperation =
         new DeleteCloudrunLoadBalancerAtomicOperation(description);
-    deleteCloudrunLoadBalancerAtomicOperation.jobExecutor = jobExecutor;
     loadBalancer = new CloudrunLoadBalancer();
     loadBalancer.setRegion("us-central");
     executor = mock(JobExecutor.class);
@@ -66,10 +65,21 @@ public class DeleteCloudrunLoadBalancerAtomicOperationTest {
   @Test
   public void DeleteCloudrunLoadBalancerOperateTest() throws NoSuchFieldException {
 
-    FieldSetter.setField(
-        deleteCloudrunLoadBalancerAtomicOperation,
-        deleteCloudrunLoadBalancerAtomicOperation.getClass().getDeclaredField("provider"),
-        provider);
+    deleteCloudrunLoadBalancerAtomicOperation =
+        new DeleteCloudrunLoadBalancerAtomicOperation(description);
+    try {
+      Field f = deleteCloudrunLoadBalancerAtomicOperation.getClass().getDeclaredField("provider");
+      f.setAccessible(true);
+      f.set(deleteCloudrunLoadBalancerAtomicOperation, provider);
+      Field f1 =
+          deleteCloudrunLoadBalancerAtomicOperation.getClass().getDeclaredField("jobExecutor");
+      f1.setAccessible(true);
+      f1.set(deleteCloudrunLoadBalancerAtomicOperation, jobExecutor);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(
+          "Failed to set provider/jobExecutor of DeleteCloudrunLoadBalancerAtomicOperation object",
+          e);
+    }
     given(provider.getLoadBalancer(any(), anyString())).willReturn(loadBalancer);
     deleteCloudrunLoadBalancerAtomicOperation.operate(new ArrayList<>());
   }

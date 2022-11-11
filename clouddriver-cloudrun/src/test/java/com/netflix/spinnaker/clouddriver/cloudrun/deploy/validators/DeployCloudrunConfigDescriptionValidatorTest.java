@@ -11,10 +11,10 @@ import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
 import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler;
+import java.lang.reflect.Field;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.internal.util.reflection.FieldSetter;
 
 public class DeployCloudrunConfigDescriptionValidatorTest {
   DeployCloudrunConfigDescriptionValidator deployCloudrunConfigDescriptionValidator;
@@ -56,12 +56,19 @@ public class DeployCloudrunConfigDescriptionValidatorTest {
             CloudrunNamedAccountCredentials.CREDENTIALS_TYPE,
             new NoopCredentialsLifecycleHandler<>());
     credentialsRepository.save(mockCredentials);
-    FieldSetter.setField(
-        deployCloudrunConfigDescriptionValidator,
-        deployCloudrunConfigDescriptionValidator
-            .getClass()
-            .getDeclaredField("credentialsRepository"),
-        credentialsRepository);
+    try {
+      deployCloudrunConfigDescriptionValidator = new DeployCloudrunConfigDescriptionValidator();
+      Field f =
+          deployCloudrunConfigDescriptionValidator
+              .getClass()
+              .getDeclaredField("credentialsRepository");
+      f.setAccessible(true);
+      f.set(deployCloudrunConfigDescriptionValidator, credentialsRepository);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(
+          "Failed to set credentialsRepository of DeployCloudrunConfigDescriptionValidator object",
+          e);
+    }
     deployCloudrunConfigDescriptionValidator.validate(List.of(description), description, errors);
     verify(errors, never()).rejectValue("${context}.account", "${context}.account.notFound");
   }
