@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.bitbucket;
 
+import static org.springframework.http.HttpHeaders.ACCEPT;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 
 import com.google.common.collect.ImmutableList;
@@ -48,6 +49,7 @@ public class BitbucketArtifactCredentials
     Optional<String> token = account.getTokenAsString();
     if (token.isPresent()) {
       headers.set(AUTHORIZATION, "Bearer " + token.get());
+      headers.set(ACCEPT, "application/json");
       log.info("Loaded credentials for Bitbucket Artifact Account {}", account.getName());
       return headers.build();
     }
