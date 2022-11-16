@@ -29,6 +29,7 @@ import com.squareup.okhttp.OkHttpClient;
 import java.util.Optional;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 
 @NonnullByDefault
 @Slf4j
@@ -49,7 +50,7 @@ public class BitbucketArtifactCredentials
     Optional<String> token = account.getTokenAsString();
     if (token.isPresent()) {
       headers.set(AUTHORIZATION, "Bearer " + token.get());
-      headers.set(ACCEPT, "application/json");
+      headers.set(ACCEPT, MediaType.APPLICATION_JSON_VALUE);
       log.info("Loaded credentials for Bitbucket Artifact Account {}", account.getName());
       return headers.build();
     }
