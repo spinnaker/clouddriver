@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.logging.log4j.util.Strings;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -589,7 +588,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- given --------------------------
     String appName = "bind-config-map";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
-    String cmName = genereateManifestName("myconfig");
+    String cmName = generateManifestName("myconfig");
     String version = "v005";
 
     // deploy versioned configmap
@@ -664,7 +663,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- given --------------------------
     String appName = "bind-secret";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
-    String secretName = genereateManifestName("mysecret");
+    String secretName = generateManifestName("mysecret");
     String version = "v009";
 
     // deploy versioned secret
@@ -814,7 +813,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- given --------------------------
     String appName = "add-config-map-version";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
-    String cmName = genereateManifestName("myconfig");
+    String cmName = generateManifestName("myconfig");
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
@@ -847,7 +846,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- given --------------------------
     String appName = "add-secret-version";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
-    String secretName = genereateManifestName("mysecret");
+    String secretName = generateManifestName("mysecret");
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/secret.yml")
@@ -883,7 +882,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- given --------------------------
     String appName = "new-config-map-version";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
-    String cmName = genereateManifestName("myconfig");
+    String cmName = generateManifestName("myconfig");
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
@@ -934,7 +933,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- given --------------------------
     String appName = "new-secret-version";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
-    String secretName = genereateManifestName("mysecret");
+    String secretName = generateManifestName("mysecret");
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/secret.yml")
@@ -986,7 +985,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- given --------------------------
     String appName = "unversioned-config-map";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
-    String cmName = genereateManifestName("myconfig");
+    String cmName = generateManifestName("myconfig");
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
@@ -1021,7 +1020,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- given --------------------------
     String appName = "unversioned-secret";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
-    String secretName = genereateManifestName("mysecret");
+    String secretName = generateManifestName("mysecret");
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/secret.yml")
@@ -1586,8 +1585,7 @@ public class DeployManifestIT extends BaseTest {
             hasSize(greaterThan(0)));
   }
 
-  @NotNull
-  private static String genereateManifestName(String myconfig) {
+  private static String generateManifestName(String myconfig) {
     return myconfig + Long.toHexString(UUID.randomUUID().getLeastSignificantBits());
   }
 }
