@@ -118,7 +118,7 @@ class DescriptionAuthorizerServiceSpec extends Specification {
 
     where:
     resourceType              || expectedNumberOfAuthChecks | expectedNumberOfErrors
-    ResourceType.APPLICATION  || 3                          | 3
+    ResourceType.APPLICATION  || 4                          | 4
     ResourceType.ACCOUNT      || 0                          | 1
   }
 
