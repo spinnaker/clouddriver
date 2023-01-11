@@ -6,7 +6,11 @@ ENV KUBECTL_RELEASE=1.20.6
 ENV AWS_CLI_VERSION=1.18.152
 ENV AWS_CLI_S3_CMD=2.0.2
 ENV AWS_AIM_AUTHENTICATOR_VERSION=0.5.5
+<<<<<<< HEAD
 ENV GOOGLE_CLOUD_SDK_VERSION=313.0.1
+=======
+ENV GOOGLE_CLOUD_SDK_VERSION=412.0.0
+>>>>>>> 2dc786fd4 (feat(gke): Enables gcloud auth plugin for 1.26+ GKE clusters (#5847))
 ENV ECR_TOKEN_VERSION=v1.0.2
 
 ENV PATH "$PATH:/usr/local/bin/:/opt/google-cloud-sdk/bin/:/usr/local/bin/aws-iam-authenticator"
@@ -28,9 +32,16 @@ RUN pip install --upgrade awscli==${AWS_CLI_VERSION} s3cmd==${AWS_CLI_S3_CMD} py
 # Google cloud SDK
 RUN wget -nv https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${GOOGLE_CLOUD_SDK_VERSION}-linux-x86_64.tar.gz \
   && mkdir -p /opt && cd /opt \
+<<<<<<< HEAD
   && tar -xzf /google-cloud-sdk-${GOOGLE_CLOUD_SDK_VERSION}-linux-x86_64.tar.gz \
   && rm /google-cloud-sdk-${GOOGLE_CLOUD_SDK_VERSION}-linux-x86_64.tar.gz \
   && CLOUDSDK_PYTHON="python3" /opt/google-cloud-sdk/install.sh --usage-reporting=false --bash-completion=false  --additional-components app-engine-java app-engine-go \
+=======
+  && tar -xzf /google-cloud-sdk-${GOOGLE_CLOUD_SDK_VERSION}-linux-${GCP_ARCH}.tar.gz \
+  && rm /google-cloud-sdk-${GOOGLE_CLOUD_SDK_VERSION}-linux-${GCP_ARCH}.tar.gz \
+  && CLOUDSDK_PYTHON="python3" /opt/google-cloud-sdk/install.sh --usage-reporting=false --bash-completion=false \
+     --additional-components app-engine-java app-engine-go gke-gcloud-auth-plugin \
+>>>>>>> 2dc786fd4 (feat(gke): Enables gcloud auth plugin for 1.26+ GKE clusters (#5847))
   && rm -rf ~/.config/gcloud \
   && rm -rf /opt/google-cloud-sdk/.install/.backup
 
