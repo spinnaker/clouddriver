@@ -18,7 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.op.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -26,6 +26,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -48,6 +49,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMet
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ManifestFetcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
+import com.netflix.spinnaker.kork.test.log.MemoryAppender;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -220,11 +222,7 @@ final class KubectlJobExecutorTest {
     kubernetesConfigurationProperties.getJobExecutor().getRetries().setEnabled(true);
 
     // to test log messages
-    Logger logger = (Logger) LoggerFactory.getLogger(KubectlJobExecutor.class);
-    ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
-    listAppender.setContext((LoggerContext) LoggerFactory.getILoggerFactory());
-    logger.addAppender(listAppender);
-    listAppender.start();
+    MemoryAppender memoryAppender = new MemoryAppender(KubectlJobExecutor.class);
 
     final ExecutorService executor =
         Executors.newFixedThreadPool(
@@ -294,25 +292,16 @@ final class KubectlJobExecutorTest {
     assertThat(retryMetrics.getNumberOfFailedCallsWithoutRetryAttempt()).isEqualTo(0);
 
     // verify that no duplicate messages are shown in the logs
-    List<ILoggingEvent> logsList = listAppender.list;
-    List<ILoggingEvent> numberOfFailedRetryAttemptLogMessages =
-        logsList.stream()
-            .filter(
-                iLoggingEvent ->
-                    iLoggingEvent
-                        .getFormattedMessage()
-                        .contains(
-                            "Kubectl command for mock-account failed after "
-                                + kubernetesConfigurationProperties
-                                    .getJobExecutor()
-                                    .getRetries()
-                                    .getMaxAttempts()
-                                + " attempts. Exception: com.netflix.spinnaker.clouddriver.kubernetes.op."
-                                + "job.KubectlJobExecutor$KubectlException: command: 'kubectl "
-                                + "--request-timeout=0 --namespace=test-namespace top po test-pod "
-                                + "--containers' in account: mock-account failed. Error: Unable to "
-                                + "connect to the server: net/http: TLS handshake timeout"))
-            .collect(Collectors.toList());
+    List<String> numberOfFailedRetryAttemptLogMessages =
+        memoryAppender.search(
+            "Kubectl command for mock-account failed after "
+                + kubernetesConfigurationProperties.getJobExecutor().getRetries().getMaxAttempts()
+                + " attempts. Exception: com.netflix.spinnaker.clouddriver.kubernetes.op."
+                + "job.KubectlJobExecutor$KubectlException: command: 'kubectl "
+                + "--request-timeout=0 --namespace=test-namespace top po test-pod "
+                + "--containers' in account: mock-account failed. Error: Unable to "
+                + "connect to the server: net/http: TLS handshake timeout",
+            Level.ERROR);
 
     // we should only see 1 failed retry attempt message per thread
     assertThat(numberOfFailedRetryAttemptLogMessages.size()).isEqualTo(numberOfThreads);
