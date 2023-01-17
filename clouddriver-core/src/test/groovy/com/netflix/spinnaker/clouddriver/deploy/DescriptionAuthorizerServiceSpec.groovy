@@ -65,7 +65,7 @@ class DescriptionAuthorizerServiceSpec extends Specification {
     service.authorize(description, errors)
 
     then:
-    3 * evaluator.hasPermission(*_) >> false
+    4 * evaluator.hasPermission(*_) >> false
     1 * evaluator.storeWholePermission()
     errors.allErrors.size() == 4
   }
@@ -83,15 +83,15 @@ class DescriptionAuthorizerServiceSpec extends Specification {
     service.authorize(description, errors)
 
     then:
-    0 * evaluator.hasPermission(*_) >> false
+    expectedNumberOfInvocations * evaluator.hasPermission(*_) >> false
     0 * evaluator.storeWholePermission()
     errors.allErrors.size() == expectedNumberOfErrors
 
     where:
-    allowUnauthenticatedImageTaggingInAccounts || expectedNumberOfErrors
-    ["testAccount"]                            || 0
-    ["anotherAccount"]                         || 1
-    []                                         || 1
+    allowUnauthenticatedImageTaggingInAccounts || expectedNumberOfErrors || expectedNumberOfInvocations
+    ["testAccount"]                            || 0                      || 0
+    ["anotherAccount"]                         || 1                      || 1
+    []                                         || 1                      || 1
   }
 
   @Unroll
@@ -118,8 +118,8 @@ class DescriptionAuthorizerServiceSpec extends Specification {
 
     where:
     resourceType              || expectedNumberOfAuthChecks | expectedNumberOfErrors
-    ResourceType.APPLICATION  || 4                          | 4
-    ResourceType.ACCOUNT      || 0                          | 1
+    ResourceType.APPLICATION  || 3                          | 3
+    ResourceType.ACCOUNT      || 1                          | 1
   }
 
   class TestDescription implements AccountNameable, ApplicationNameable, ResourcesNameable {
