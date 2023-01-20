@@ -123,6 +123,21 @@ class ApplicationsControllerSpec extends Specification {
     e.message == "Application does not exist (name: foo)"
   }
 
+  def "let exceptions during get bubble up"() {
+    setup:
+    def exceptionToThrow = new RuntimeException("arbitrary exception")
+    def appProvider1 = Mock(ApplicationProvider)
+    applicationsController.applicationProviders = [appProvider1]
+
+    when:
+    def result = applicationsController.get("foo")
+
+    then:
+    1 * appProvider1.getApplication("foo") >> { throw exceptionToThrow }
+    RuntimeException e = thrown()
+    e == exceptionToThrow
+  }
+
   @Unroll
   def "provide cloudProviders field correctly based on clusters"() {
     setup:
