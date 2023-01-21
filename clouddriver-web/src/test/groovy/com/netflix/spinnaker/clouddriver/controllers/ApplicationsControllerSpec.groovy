@@ -23,7 +23,7 @@ import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
 
-class ApplicationControllerSpec extends Specification {
+class ApplicationsControllerSpec extends Specification {
 
   @Shared
   ApplicationsController applicationsController
