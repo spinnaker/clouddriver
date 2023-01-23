@@ -111,10 +111,10 @@ public class DescriptionAuthorizerService {
 
     boolean hasPermission = true;
     if (account != null
-      && (
-      (resourceTypes.contains(ResourceType.ACCOUNT)
-        && !secretManager.canAccessAccountWithSecrets(account))
-        && (auth != null && !fiatPermissionEvaluator.hasPermission(auth, account, "ACCOUNT", "WRITE")))) {
+        && ((resourceTypes.contains(ResourceType.ACCOUNT)
+                && !secretManager.canAccessAccountWithSecrets(account))
+            && (auth != null
+                && !fiatPermissionEvaluator.hasPermission(auth, account, "ACCOUNT", "WRITE")))) {
       hasPermission = false;
       errors.reject("authorization.account", format("Access denied to account %s", account));
     }
