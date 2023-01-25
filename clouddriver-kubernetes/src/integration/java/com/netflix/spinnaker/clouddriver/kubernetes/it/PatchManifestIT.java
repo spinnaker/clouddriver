@@ -22,15 +22,29 @@ public class PatchManifestIT extends BaseTest {
 
   @BeforeEach
   public void deployIfMissing() throws InterruptedException, IOException {
-    KubeTestUtils.deployIfMissing(
-        baseUrl(),
-        ACCOUNT1_NAME,
-        account1Ns,
-        "deployment",
-        DEPLOYMENT_1_NAME,
-        "patch-manifests",
-        null,
-        kubeCluster);
+    boolean imageDeployed =
+        KubeTestUtils.imageDeployedToNamespace(
+            account1Ns,
+            "deployment",
+            DEPLOYMENT_1_NAME + "-v000",
+            "patch-manifests",
+            null,
+            kubeCluster);
+
+    if (!imageDeployed) {
+      KubeTestUtils.TestResourceFile manifest =
+          KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+              .withValue("metadata.name", DEPLOYMENT_1_NAME)
+              .withValue("metadata.namespace", account1Ns);
+
+      List<Map<String, Object>> body =
+          KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+              .withValue("deployManifest.account", ACCOUNT1_NAME)
+              .withValue("deployManifest.moniker.app", "patch-manifests")
+              .withValue("deployManifest.manifests", manifest.asList())
+              .asList();
+      KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, MANIFEST_NAME + "-v000");
+    }
   }
 
   @DisplayName(
@@ -47,20 +61,22 @@ public class PatchManifestIT extends BaseTest {
         KubeTestUtils.loadYaml("classpath:manifests/patch.yml").asMap();
     List<Map<String, Object>> patchBody =
         createPatchBody(patchManifest, Collections.emptyList(), Collections.emptyList());
-    KubeTestUtils.deployAndWaitStable(baseUrl(), patchBody, account1Ns, MANIFEST_NAME);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), patchBody, account1Ns, MANIFEST_NAME + "-v000");
     // ------------------------- then --------------------------
-    podsAreReady();
+    podsAreReady("-v000");
     String labels =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.spec.template.metadata.labels}'");
     assertTrue(
         labels.contains("\"testPatch\":\"success\""),
         "Expected patch to add label 'testPatch' with value 'success' to "
             + DEPLOYMENT_1_NAME
+            + "-v000"
             + " deployment. Labels:\n"
             + labels);
   }
@@ -91,11 +107,11 @@ public class PatchManifestIT extends BaseTest {
             Collections.singletonList(createArtifact(imageNoTag, imageWithTag)),
             Collections.emptyList()),
         account1Ns,
-        MANIFEST_NAME);
+        MANIFEST_NAME + "-v000");
 
     // ------------------------- then --------------------------
-    podsAreReady();
-    expectedImageIsDeployed(imageWithTag);
+    podsAreReady("-v000");
+    expectedImageIsDeployed(imageWithTag, "-v000");
   }
 
   @DisplayName(
@@ -122,11 +138,11 @@ public class PatchManifestIT extends BaseTest {
         baseUrl(),
         createPatchBody(patchManifest, requiredArtifacts, requiredArtifacts),
         account1Ns,
-        MANIFEST_NAME);
+        MANIFEST_NAME + "-v000");
 
     // ------------------------- then --------------------------
-    podsAreReady();
-    expectedImageIsDeployed(imageWithTag);
+    podsAreReady("-v000");
+    expectedImageIsDeployed(imageWithTag, "-v000");
   }
 
   @DisplayName(
@@ -161,11 +177,11 @@ public class PatchManifestIT extends BaseTest {
             Arrays.asList(optionalArtifact, artifact),
             Collections.singletonList(artifact)),
         account1Ns,
-        MANIFEST_NAME);
+        MANIFEST_NAME + "-v000");
 
     // ------------------------- then --------------------------
-    podsAreReady();
-    expectedImageIsDeployed(imageWithTag);
+    podsAreReady("-v000");
+    expectedImageIsDeployed(imageWithTag, "-v000");
   }
 
   @DisplayName(
@@ -280,7 +296,7 @@ public class PatchManifestIT extends BaseTest {
     return KubeTestUtils.loadJson("classpath:requests/patch_manifest.json")
         .withValue("patchManifest.account", ACCOUNT1_NAME)
         .withValue("patchManifest.location", account1Ns)
-        .withValue("patchManifest.manifestName", MANIFEST_NAME)
+        .withValue("patchManifest.manifestName", MANIFEST_NAME + "-v000")
         .withValue("patchManifest.patchBody", patchManifest)
         .withValue("patchManifest.allArtifacts", allArtifacts)
         .withValue("patchManifest.requiredArtifacts", requiredArtifacts)
@@ -296,7 +312,7 @@ public class PatchManifestIT extends BaseTest {
         .asMap();
   }
 
-  private void podsAreReady() throws IOException, InterruptedException {
+  private void podsAreReady(String version) throws IOException, InterruptedException {
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
     String readyPods =
         kubeCluster.execKubectl(
@@ -304,6 +320,7 @@ public class PatchManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + version
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
@@ -311,7 +328,7 @@ public class PatchManifestIT extends BaseTest {
         "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
   }
 
-  private void expectedImageIsDeployed(String expectedImageTag)
+  private void expectedImageIsDeployed(String expectedImageTag, String expectedDeployVersion)
       throws IOException, InterruptedException {
     String imageDeployed =
         kubeCluster.execKubectl(
@@ -319,6 +336,7 @@ public class PatchManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + expectedDeployVersion
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         expectedImageTag,
