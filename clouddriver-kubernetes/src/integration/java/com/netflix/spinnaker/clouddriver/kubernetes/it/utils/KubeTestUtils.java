@@ -420,7 +420,7 @@ public abstract class KubeTestUtils {
   public static void deployAndWaitStable(
       String baseUrl, String account, String namespace, String kind, String name, String app)
       throws InterruptedException {
-    deployAndWaitStable(baseUrl, account, namespace, kind, name, app, null);
+    deployAndWaitStable(baseUrl, account, namespace, kind, name, app, null, null);
   }
 
   public static void deployAndWaitStable(
@@ -430,7 +430,8 @@ public abstract class KubeTestUtils {
       String kind,
       String name,
       String app,
-      String image)
+      String image,
+      String version)
       throws InterruptedException {
 
     TestResourceFile manifest =
@@ -446,7 +447,7 @@ public abstract class KubeTestUtils {
             .withValue("deployManifest.moniker.app", app)
             .withValue("deployManifest.manifests", manifest.asList())
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl, body, namespace, kind + " " + name);
+    KubeTestUtils.deployAndWaitStable(baseUrl, body, namespace, kind + " " + name + version);
   }
 
   public static void deployIfMissing(
@@ -456,9 +457,10 @@ public abstract class KubeTestUtils {
       String kind,
       String name,
       String app,
+      String version,
       KubernetesCluster kubeCluster)
       throws InterruptedException, IOException {
-    deployIfMissing(baseUrl, account, namespace, kind, name, app, null, kubeCluster);
+    deployIfMissing(baseUrl, account, namespace, kind, name, app, null, kubeCluster, version);
   }
 
   public static boolean imageDeployedToNamespace(
@@ -502,7 +504,8 @@ public abstract class KubeTestUtils {
       String name,
       String app,
       String image,
-      KubernetesCluster kubeCluster)
+      KubernetesCluster kubeCluster,
+      String version)
       throws InterruptedException, IOException {
 
     String path = "";
@@ -520,6 +523,7 @@ public abstract class KubeTestUtils {
                 + app
                 + " -o=jsonpath='{.items[?(@.metadata.name==\""
                 + name
+                + version
                 + "\")]"
                 + path
                 + "}'");
@@ -529,6 +533,6 @@ public abstract class KubeTestUtils {
       }
     }
 
-    deployAndWaitStable(baseUrl, account, namespace, kind, name, app, image);
+    deployAndWaitStable(baseUrl, account, namespace, kind, name, app, image, version);
   }
 }
