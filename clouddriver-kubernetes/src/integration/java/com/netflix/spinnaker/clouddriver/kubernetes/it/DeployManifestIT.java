@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.util.Strings;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -73,7 +74,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -83,11 +84,16 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
-        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+        "Expected one ready pod for "
+            + DEPLOYMENT_1_NAME
+            + "-v000"
+            + " deployment. Pods:\n"
+            + pods);
   }
 
   @DisplayName(
@@ -153,7 +159,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, "default", "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, "default", "deployment " + DEPLOYMENT_1_NAME + "-v000");
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n default get pods");
@@ -162,11 +168,16 @@ public class DeployManifestIT extends BaseTest {
             "-n default"
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
-        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+        "Expected one ready pod for "
+            + DEPLOYMENT_1_NAME
+            + "-v000"
+            + " deployment. Pods:\n"
+            + pods);
   }
 
   @DisplayName(
@@ -194,7 +205,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + appName, "service " + appName);
+        baseUrl(), body, account1Ns, "deployment " + appName + "-v000", "service " + appName);
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -204,9 +215,12 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + appName
+                + "-v000"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
-        "1", readyPods, "Expected one ready pod for " + appName + " deployment. Pods:\n" + pods);
+        "1",
+        readyPods,
+        "Expected one ready pod for " + appName + "-v000" + " deployment. Pods:\n" + pods);
     String services = kubeCluster.execKubectl("-n " + account1Ns + " get services");
     assertTrue(
         Strings.isNotEmpty(
@@ -243,16 +257,19 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", oldManifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
     String currentImage =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
-        oldImage, currentImage, "Expected correct " + DEPLOYMENT_1_NAME + " image to be deployed");
+        oldImage,
+        currentImage,
+        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
 
     List<Map<String, Object>> newManifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
@@ -269,7 +286,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", newManifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v001");
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -279,20 +296,28 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v001"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
-        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+        "Expected one ready pod for "
+            + DEPLOYMENT_1_NAME
+            + "-v001"
+            + " deployment. Pods:\n"
+            + pods);
     currentImage =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v001"
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
-        newImage, currentImage, "Expected correct " + DEPLOYMENT_1_NAME + " image to be deployed");
+        newImage,
+        currentImage,
+        "Expected correct " + DEPLOYMENT_1_NAME + "-v001" + " image to be deployed");
   }
 
   @DisplayName(
@@ -333,7 +358,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.optionalArtifacts[0]", artifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -343,22 +368,28 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
-        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+        "Expected one ready pod for "
+            + DEPLOYMENT_1_NAME
+            + "-v000"
+            + " deployment. Pods:\n"
+            + pods);
     String imageDeployed =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         imageWithTag,
         imageDeployed,
-        "Expected correct " + DEPLOYMENT_1_NAME + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
   }
 
   @DisplayName(
@@ -399,7 +430,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.requiredArtifacts[0]", artifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -409,22 +440,28 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
-        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+        "Expected one ready pod for "
+            + DEPLOYMENT_1_NAME
+            + "-v000"
+            + " deployment. Pods:\n"
+            + pods);
     String imageDeployed =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         imageWithTag,
         imageDeployed,
-        "Expected correct " + DEPLOYMENT_1_NAME + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
   }
 
   @DisplayName(
@@ -545,7 +582,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.optionalArtifacts[0]", optionalArtifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -555,22 +592,28 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
-        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+        "Expected one ready pod for "
+            + DEPLOYMENT_1_NAME
+            + "-v000"
+            + " deployment. Pods:\n"
+            + pods);
     String imageDeployed =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         requiredImage,
         imageDeployed,
-        "Expected correct " + DEPLOYMENT_1_NAME + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
   }
 
   @DisplayName(
@@ -622,7 +665,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.optionalArtifacts[0]", artifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -632,17 +675,23 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
-        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+        "Expected one ready pod for "
+            + DEPLOYMENT_1_NAME
+            + "-v000"
+            + " deployment. Pods:\n"
+            + pods);
     String cmNameDeployed =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.spec.template.spec.volumes[0].configMap.name}'");
     assertEquals(
         cmName + "-" + version, cmNameDeployed, "Expected correct configmap to be referenced");
@@ -697,7 +746,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.optionalArtifacts[0]", artifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -707,17 +756,23 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
-        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+        "Expected one ready pod for "
+            + DEPLOYMENT_1_NAME
+            + "-v000"
+            + " deployment. Pods:\n"
+            + pods);
     String secretNameDeployed =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.spec.template.spec.volumes[0].secret.secretName}'");
     assertEquals(
         secretName + "-" + version, secretNameDeployed, "Expected correct secret to be referenced");
@@ -772,7 +827,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.enableArtifactBinding", false)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -782,22 +837,28 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
-        "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+        "Expected one ready pod for "
+            + DEPLOYMENT_1_NAME
+            + "-v000"
+            + " deployment. Pods:\n"
+            + pods);
     String imageDeployed =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
+                + "-v000"
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         imageInManifest,
         imageDeployed,
-        "Expected correct " + DEPLOYMENT_1_NAME + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
   }
 
   @DisplayName(
@@ -1410,7 +1471,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("disableManifest.account", ACCOUNT1_NAME)
             .asList();
     KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "deployment " + appName + "-v000");
-
+    Thread.sleep(TimeUnit.SECONDS.toMillis(60));
     // ------------------------- then --------------------------
     List<String> podNames =
         Splitter.on(" ")
@@ -1484,7 +1545,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("disableManifest.account", ACCOUNT1_NAME)
             .asList();
     KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "deployment " + appName + "-v000");
-
+    Thread.sleep(TimeUnit.SECONDS.toMillis(60));
     // ------------------------- then --------------------------
     List<String> podNames =
         Splitter.on(" ")
@@ -1712,7 +1773,7 @@ public class DeployManifestIT extends BaseTest {
           + "When sending credentials request\n"
           + "Then the credentials response contains the deployed CRD\n===")
   @Test
-  public void shouldGetDeployedCrdsCredentials() throws IOException, InterruptedException {
+  public void shouldGetDeployedCrdsCredentials() {
     // ------------------------- given --------------------------
     // ------------------------- when --------------------------
     Response response =
