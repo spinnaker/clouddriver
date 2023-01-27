@@ -17,7 +17,8 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.it;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.common.base.Splitter;
@@ -32,20 +33,21 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.util.Strings;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 
+@TestMethodOrder(value = MethodOrderer.OrderAnnotation.class)
 public class DeployManifestIT extends BaseTest {
   private static final String DEPLOYMENT_1_NAME = "deployment1";
   private static final String REPLICASET_1_NAME = "rs1";
   private static final String SERVICE_1_NAME = "service1";
   private static final String SERVICE_2_NAME = "service2";
   private static String account1Ns;
+  private static String account2Ns;
 
   @BeforeAll
   public static void setUpAll() throws IOException, InterruptedException {
     account1Ns = kubeCluster.createNamespace(ACCOUNT1_NAME);
+    account2Ns = kubeCluster.createNamespace(ACCOUNT2_NAME);
   }
 
   @DisplayName(
@@ -55,9 +57,11 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then a pod is up and running in the overridden namespace\n===")
+  @Order(value = 3)
   @Test
   public void shouldDeployManifestFromText() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
+    String version = "-v003";
     String appName = "deploy-from-text";
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
@@ -74,7 +78,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + version);
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -84,14 +88,14 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + version
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
         "Expected one ready pod for "
             + DEPLOYMENT_1_NAME
-            + "-v000"
+            + version
             + " deployment. Pods:\n"
             + pods);
   }
@@ -235,9 +239,12 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then old version is deleted and new version is available\n===")
+  @Order(value = 2)
   @Test
   public void shouldUpdateExistingDeployment() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
+    String version = "-v001";
+    String newVersion = "-v002";
     String appName = "update-deploy";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String oldImage = "index.docker.io/library/alpine:3.11";
@@ -257,19 +264,19 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", oldManifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + version);
     String currentImage =
         kubeCluster.execKubectl(
             "-n "
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + version
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         oldImage,
         currentImage,
-        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + version + " image to be deployed");
 
     List<Map<String, Object>> newManifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
@@ -286,7 +293,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.manifests", newManifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v001");
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + newVersion);
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -296,14 +303,14 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v001"
+                + newVersion
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
         "Expected one ready pod for "
             + DEPLOYMENT_1_NAME
-            + "-v001"
+            + newVersion
             + " deployment. Pods:\n"
             + pods);
     currentImage =
@@ -312,12 +319,12 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v001"
+                + newVersion
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         newImage,
         currentImage,
-        "Expected correct " + DEPLOYMENT_1_NAME + "-v001" + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + newVersion + " image to be deployed");
   }
 
   @DisplayName(
@@ -327,9 +334,11 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the docker artifact is deployed\n===")
+  @Order(value = 1)
   @Test
   public void shouldBindOptionalDockerImage() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
+    String version = "-v000";
     String appName = "bind-optional";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String imageNoTag = "index.docker.io/library/alpine";
@@ -358,7 +367,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.optionalArtifacts[0]", artifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + version);
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -368,14 +377,14 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + version
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
         "Expected one ready pod for "
             + DEPLOYMENT_1_NAME
-            + "-v000"
+            + version
             + " deployment. Pods:\n"
             + pods);
     String imageDeployed =
@@ -384,12 +393,12 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + version
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         imageWithTag,
         imageDeployed,
-        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + version + " image to be deployed");
   }
 
   @DisplayName(
@@ -399,9 +408,11 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the docker artifact is deployed\n===")
+  @Order(value = 4)
   @Test
   public void shouldBindRequiredDockerImage() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
+    String version = "-v004";
     String appName = "bind-required";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String imageNoTag = "index.docker.io/library/alpine";
@@ -430,7 +441,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.requiredArtifacts[0]", artifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + version);
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -440,14 +451,14 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + version
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
         "Expected one ready pod for "
             + DEPLOYMENT_1_NAME
-            + "-v000"
+            + version
             + " deployment. Pods:\n"
             + pods);
     String imageDeployed =
@@ -456,12 +467,12 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + version
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         imageWithTag,
         imageDeployed,
-        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + version + " image to be deployed");
   }
 
   @DisplayName(
@@ -542,9 +553,11 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then required docker artifact is deployed\n===")
+  @Order(value = 5)
   @Test
   public void shouldBindRequiredOverOptionalDockerImage() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
+    String version = "-v005";
     String appName = "bind-required-over-optional";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String imageNoTag = "index.docker.io/library/alpine";
@@ -582,7 +595,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.optionalArtifacts[0]", optionalArtifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + version);
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -592,14 +605,14 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + version
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
         "Expected one ready pod for "
             + DEPLOYMENT_1_NAME
-            + "-v000"
+            + version
             + " deployment. Pods:\n"
             + pods);
     String imageDeployed =
@@ -608,12 +621,12 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + version
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         requiredImage,
         imageDeployed,
-        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + version + " image to be deployed");
   }
 
   @DisplayName(
@@ -624,13 +637,15 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the manifest is deployed mounting versioned configmap\n===")
+  @Order(value = 6)
   @Test
   public void shouldBindVersionedConfigMap() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
+    String version = "-v005";
     String appName = "bind-config-map";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String cmName = generateManifestName("myconfig");
-    String version = "v005";
+    String deployVersion = "-v006";
 
     // deploy versioned configmap
     Map<String, Object> cm =
@@ -665,7 +680,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.optionalArtifacts[0]", artifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + deployVersion);
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -675,14 +690,14 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + deployVersion
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
         "Expected one ready pod for "
             + DEPLOYMENT_1_NAME
-            + "-v000"
+            + deployVersion
             + " deployment. Pods:\n"
             + pods);
     String cmNameDeployed =
@@ -691,7 +706,7 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + deployVersion
                 + " -o=jsonpath='{.spec.template.spec.volumes[0].configMap.name}'");
     assertEquals(
         cmName + "-" + version, cmNameDeployed, "Expected correct configmap to be referenced");
@@ -705,6 +720,7 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the manifest is deployed mounting versioned secret\n===")
+  @Order(value = 7)
   @Test
   public void shouldBindVersionedSecret() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
@@ -712,6 +728,7 @@ public class DeployManifestIT extends BaseTest {
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String secretName = generateManifestName("mysecret");
     String version = "v009";
+    String deployVersion = "-v007";
 
     // deploy versioned secret
     Map<String, Object> secret =
@@ -746,7 +763,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.optionalArtifacts[0]", artifact)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + deployVersion);
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -756,14 +773,14 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + deployVersion
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
         "Expected one ready pod for "
             + DEPLOYMENT_1_NAME
-            + "-v000"
+            + deployVersion
             + " deployment. Pods:\n"
             + pods);
     String secretNameDeployed =
@@ -772,7 +789,7 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + deployVersion
                 + " -o=jsonpath='{.spec.template.spec.volumes[0].secret.secretName}'");
     assertEquals(
         secretName + "-" + version, secretNameDeployed, "Expected correct secret to be referenced");
@@ -786,9 +803,11 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the manifest is deployed with the original image tag in the manifest\n===")
+  @Order(value = 8)
   @Test
   public void shouldNotBindArtifacts() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
+    String deployVersion = "-v008";
     String appName = "bind-disabled";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String imageInManifest = "index.docker.io/library/alpine:3.11";
@@ -827,7 +846,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.enableArtifactBinding", false)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + "-v000");
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + deployVersion);
 
     // ------------------------- then --------------------------
     String pods = kubeCluster.execKubectl("-n " + account1Ns + " get pods");
@@ -837,14 +856,14 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + deployVersion
                 + " -o=jsonpath='{.status.readyReplicas}'");
     assertEquals(
         "1",
         readyPods,
         "Expected one ready pod for "
             + DEPLOYMENT_1_NAME
-            + "-v000"
+            + deployVersion
             + " deployment. Pods:\n"
             + pods);
     String imageDeployed =
@@ -853,12 +872,12 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + "-v000"
+                + deployVersion
                 + " -o=jsonpath='{.spec.template.spec.containers[0].image}'");
     assertEquals(
         imageInManifest,
         imageDeployed,
-        "Expected correct " + DEPLOYMENT_1_NAME + "-v000" + " image to be deployed");
+        "Expected correct " + DEPLOYMENT_1_NAME + deployVersion + " image to be deployed");
   }
 
   @DisplayName(
@@ -1270,9 +1289,12 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request two times\n"
           + "  And sending disable manifest one time\n"
           + "Then there are two replicasets with only the last one receiving traffic\n===")
+  @Order(value = 9)
   @Test
   public void shouldDeployRedBlackReplicaSet() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
+    String deployVersion = "-v000";
+    String updateDeployVersion = "-v001";
     String appName = "red-black";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String selectorValue = appName + "traffichere";
@@ -1312,17 +1334,18 @@ public class DeployManifestIT extends BaseTest {
                 Collections.singleton("service " + appName))
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
+        baseUrl(), body, account1Ns, "replicaSet " + appName + deployVersion);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "replicaSet " + appName + "-v001");
+        baseUrl(), body, account1Ns, "replicaSet " + appName + updateDeployVersion);
     body =
         KubeTestUtils.loadJson("classpath:requests/disable_manifest.json")
             .withValue("disableManifest.app", appName)
-            .withValue("disableManifest.manifestName", "replicaSet " + appName + "-v000")
+            .withValue("disableManifest.manifestName", "replicaSet " + appName + deployVersion)
             .withValue("disableManifest.location", account1Ns)
             .withValue("disableManifest.account", ACCOUNT1_NAME)
             .asList();
-    KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
+    KubeTestUtils.disableManifest(
+        baseUrl(), body, account1Ns, "replicaSet " + appName + deployVersion);
 
     // ------------------------- then --------------------------
     List<String> podNames =
@@ -1344,9 +1367,12 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request two times\n"
           + "  And sending disable manifest one time\n"
           + "Then there are two replicasets with only the last one receiving traffic\n===")
+  @Order(value = 10)
   @Test
   public void shouldDeployBlueGreenReplicaSet() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
+    String deployVersion = "-v000";
+    String updateDeployVersion = "-v001";
     String appName = "blue-green";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String selectorValue = appName + "traffichere";
@@ -1386,17 +1412,18 @@ public class DeployManifestIT extends BaseTest {
                 Collections.singleton("service " + appName))
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
+        baseUrl(), body, account1Ns, "replicaSet " + appName + deployVersion);
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "replicaSet " + appName + "-v001");
+        baseUrl(), body, account1Ns, "replicaSet " + appName + updateDeployVersion);
     body =
         KubeTestUtils.loadJson("classpath:requests/disable_manifest.json")
             .withValue("disableManifest.app", appName)
-            .withValue("disableManifest.manifestName", "replicaSet " + appName + "-v000")
+            .withValue("disableManifest.manifestName", "replicaSet " + appName + deployVersion)
             .withValue("disableManifest.location", account1Ns)
             .withValue("disableManifest.account", ACCOUNT1_NAME)
             .asList();
-    KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
+    KubeTestUtils.disableManifest(
+        baseUrl(), body, account1Ns, "replicaSet " + appName + deployVersion);
 
     // ------------------------- then --------------------------
     List<String> podNames =
@@ -1422,21 +1449,21 @@ public class DeployManifestIT extends BaseTest {
   public void shouldDeployRedBlackDeployment() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "red-black";
-    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account2Ns + ", appName: " + appName);
     String selectorValue = appName + "traffichere";
 
     Map<String, Object> service =
         KubeTestUtils.loadYaml("classpath:manifests/service.yml")
-            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.namespace", account2Ns)
             .withValue("metadata.name", SERVICE_2_NAME)
             .withValue("spec.selector", ImmutableMap.of("pointer", selectorValue))
             .withValue("spec.type", "NodePort")
             .asMap();
-    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", service);
+    kubeCluster.execKubectl("-n " + account2Ns + " apply -f -", service);
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
-            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.namespace", account2Ns)
             .withValue("metadata.name", appName)
             .withValue("spec.selector.matchLabels", ImmutableMap.of("label1", "value1"))
             .withValue("spec.template.metadata.labels", ImmutableMap.of("label1", "value1"))
@@ -1445,7 +1472,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- when --------------------------
     List<Map<String, Object>> body =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
-            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.account", ACCOUNT2_NAME)
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .withValue(
@@ -1454,23 +1481,23 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.trafficManagement.enabled", true)
             .withValue("deployManifest.trafficManagement.options.strategy", "redblack")
             .withValue("deployManifest.trafficManagement.options.enableTraffic", true)
-            .withValue("deployManifest.trafficManagement.options.namespace", account1Ns)
+            .withValue("deployManifest.trafficManagement.options.namespace", account2Ns)
             .withValue(
                 "deployManifest.trafficManagement.options.services",
                 Collections.singleton("service " + appName))
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + appName + "-v000");
+        baseUrl(), body, account2Ns, "deployment " + appName + "-v000");
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + appName + "-v001");
+        baseUrl(), body, account2Ns, "deployment " + appName + "-v001");
     body =
         KubeTestUtils.loadJson("classpath:requests/disable_manifest.json")
             .withValue("disableManifest.app", appName)
             .withValue("disableManifest.manifestName", "deployment " + appName + "-v000")
-            .withValue("disableManifest.location", account1Ns)
-            .withValue("disableManifest.account", ACCOUNT1_NAME)
+            .withValue("disableManifest.location", account2Ns)
+            .withValue("disableManifest.account", ACCOUNT2_NAME)
             .asList();
-    KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "deployment " + appName + "-v000");
+    KubeTestUtils.disableManifest(baseUrl(), body, account2Ns, "deployment " + appName + "-v000");
     Thread.sleep(TimeUnit.SECONDS.toMillis(60));
     // ------------------------- then --------------------------
     List<String> podNames =
@@ -1478,7 +1505,7 @@ public class DeployManifestIT extends BaseTest {
             .splitToList(
                 kubeCluster.execKubectl(
                     "-n "
-                        + account1Ns
+                        + account2Ns
                         + " get pod -o=jsonpath='{.items[*].metadata.name}' -l=pointer="
                         + selectorValue));
     assertEquals(
@@ -1496,21 +1523,21 @@ public class DeployManifestIT extends BaseTest {
   public void shouldDeployBlueGreenDeployment() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "blue-green";
-    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    System.out.println("> Using namespace: " + account2Ns + ", appName: " + appName);
     String selectorValue = appName + "traffichere";
 
     Map<String, Object> service =
         KubeTestUtils.loadYaml("classpath:manifests/service.yml")
-            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.namespace", account2Ns)
             .withValue("metadata.name", SERVICE_2_NAME)
             .withValue("spec.selector", ImmutableMap.of("pointer", selectorValue))
             .withValue("spec.type", "NodePort")
             .asMap();
-    kubeCluster.execKubectl("-n " + account1Ns + " apply -f -", service);
+    kubeCluster.execKubectl("-n " + account2Ns + " apply -f -", service);
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
-            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.namespace", account2Ns)
             .withValue("metadata.name", appName)
             .withValue("spec.selector.matchLabels", ImmutableMap.of("label1", "value1"))
             .withValue("spec.template.metadata.labels", ImmutableMap.of("label1", "value1"))
@@ -1519,7 +1546,7 @@ public class DeployManifestIT extends BaseTest {
     // ------------------------- when --------------------------
     List<Map<String, Object>> body =
         KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
-            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.account", ACCOUNT2_NAME)
             .withValue("deployManifest.moniker.app", appName)
             .withValue("deployManifest.manifests", manifest)
             .withValue(
@@ -1528,23 +1555,23 @@ public class DeployManifestIT extends BaseTest {
             .withValue("deployManifest.trafficManagement.enabled", true)
             .withValue("deployManifest.trafficManagement.options.strategy", "bluegreen")
             .withValue("deployManifest.trafficManagement.options.enableTraffic", true)
-            .withValue("deployManifest.trafficManagement.options.namespace", account1Ns)
+            .withValue("deployManifest.trafficManagement.options.namespace", account2Ns)
             .withValue(
                 "deployManifest.trafficManagement.options.services",
                 Collections.singleton("service " + appName))
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + appName + "-v000");
+        baseUrl(), body, account2Ns, "deployment " + appName + "-v000");
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + appName + "-v001");
+        baseUrl(), body, account2Ns, "deployment " + appName + "-v001");
     body =
         KubeTestUtils.loadJson("classpath:requests/disable_manifest.json")
             .withValue("disableManifest.app", appName)
             .withValue("disableManifest.manifestName", "deployment " + appName + "-v000")
-            .withValue("disableManifest.location", account1Ns)
-            .withValue("disableManifest.account", ACCOUNT1_NAME)
+            .withValue("disableManifest.location", account2Ns)
+            .withValue("disableManifest.account", ACCOUNT2_NAME)
             .asList();
-    KubeTestUtils.disableManifest(baseUrl(), body, account1Ns, "deployment " + appName + "-v000");
+    KubeTestUtils.disableManifest(baseUrl(), body, account2Ns, "deployment " + appName + "-v000");
     Thread.sleep(TimeUnit.SECONDS.toMillis(60));
     // ------------------------- then --------------------------
     List<String> podNames =
@@ -1552,7 +1579,7 @@ public class DeployManifestIT extends BaseTest {
             .splitToList(
                 kubeCluster.execKubectl(
                     "-n "
-                        + account1Ns
+                        + account2Ns
                         + " get pod -o=jsonpath='{.items[*].metadata.name}' -l=pointer="
                         + selectorValue));
     assertEquals(
