@@ -445,8 +445,7 @@ public class InfrastructureIT extends BaseTest {
           + "When sending get server group request for account, region and name\n"
           + "Then only one server group should be returned\n===")
   @Order(value = 7)
-  // TODO Fix test after activation of deployment kind versioning
-  // @Test
+  @Test
   public void shouldGetServerGroupByMoniker() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
     String version = "-v009";
@@ -483,7 +482,7 @@ public class InfrastructureIT extends BaseTest {
                                 + " rs -o=jsonpath='{.items[?(@.metadata.ownerReferences[*].name==\""
                                 + DEPLOYMENT_1_NAME
                                 + version
-                                + "\")].metadata.ownerReferences[*].name}'"))
+                                + "\")].metadata.name}'"))
                     .stream(),
                 Splitter.on(" ")
                     .splitToList(
@@ -493,7 +492,7 @@ public class InfrastructureIT extends BaseTest {
                                 + " rs -o=jsonpath='{.items[?(@.metadata.ownerReferences[*].name==\""
                                 + DEPLOYMENT_1_NAME
                                 + versionUpdate
-                                + "\")].metadata.ownerReferences[*].name}'"))
+                                + "\")].metadata.name}'"))
                     .stream())
             .collect(Collectors.toList());
 
@@ -509,9 +508,9 @@ public class InfrastructureIT extends BaseTest {
                   + "/"
                   + account1Ns
                   + "/replicaSet "
-                  + rsNames.get(1);
-          System.out.println("> GET " + url);
+                  + rsNames.get(0);
           Response resp = get(url);
+          System.out.println("> GET " + url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
