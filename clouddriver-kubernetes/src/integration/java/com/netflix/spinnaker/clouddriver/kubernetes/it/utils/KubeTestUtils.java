@@ -294,7 +294,7 @@ public abstract class KubeTestUtils {
 
     // So it's possible to capture the Response from the lambda passed to
     // repeatUntilTrue, uese a wrapper.  List is an arbitrary choice.
-    List<Response> respList = new ArrayList();
+    List<Response> respList = new ArrayList<>();
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -420,7 +420,7 @@ public abstract class KubeTestUtils {
   public static void deployAndWaitStable(
       String baseUrl, String account, String namespace, String kind, String name, String app)
       throws InterruptedException {
-    deployAndWaitStable(baseUrl, account, namespace, kind, name, app, null);
+    deployAndWaitStable(baseUrl, account, namespace, kind, name, app, null, null);
   }
 
   public static void deployAndWaitStable(
@@ -430,7 +430,8 @@ public abstract class KubeTestUtils {
       String kind,
       String name,
       String app,
-      String image)
+      String image,
+      String version)
       throws InterruptedException {
 
     TestResourceFile manifest =
@@ -446,7 +447,7 @@ public abstract class KubeTestUtils {
             .withValue("deployManifest.moniker.app", app)
             .withValue("deployManifest.manifests", manifest.asList())
             .asList();
-    KubeTestUtils.deployAndWaitStable(baseUrl, body, namespace, kind + " " + name);
+    KubeTestUtils.deployAndWaitStable(baseUrl, body, namespace, kind + " " + name + version);
   }
 
   public static void deployIfMissing(
@@ -456,14 +457,13 @@ public abstract class KubeTestUtils {
       String kind,
       String name,
       String app,
+      String version,
       KubernetesCluster kubeCluster)
       throws InterruptedException, IOException {
-    deployIfMissing(baseUrl, account, namespace, kind, name, app, null, kubeCluster);
+    deployIfMissing(baseUrl, account, namespace, kind, name, app, null, kubeCluster, version);
   }
 
-  public static void deployIfMissing(
-      String baseUrl,
-      String account,
+  public static boolean imageDeployedToNamespace(
       String namespace,
       String kind,
       String name,
@@ -471,7 +471,6 @@ public abstract class KubeTestUtils {
       String image,
       KubernetesCluster kubeCluster)
       throws InterruptedException, IOException {
-
     String path = "";
     if (image != null) {
       path = ".spec.template.spec.containers[0].image";
@@ -491,11 +490,49 @@ public abstract class KubeTestUtils {
                 + path
                 + "}'");
     if (!output.isEmpty()) {
+      return image == null || output.contains(image);
+    }
+
+    return false;
+  }
+
+  public static void deployIfMissing(
+      String baseUrl,
+      String account,
+      String namespace,
+      String kind,
+      String name,
+      String app,
+      String image,
+      KubernetesCluster kubeCluster,
+      String version)
+      throws InterruptedException, IOException {
+
+    String path = "";
+    if (image != null) {
+      path = ".spec.template.spec.containers[0].image";
+    }
+
+    String output =
+        kubeCluster.execKubectl(
+            "-n "
+                + namespace
+                + " get "
+                + kind
+                + " -l app.kubernetes.io/name="
+                + app
+                + " -o=jsonpath='{.items[?(@.metadata.name==\""
+                + name
+                + version
+                + "\")]"
+                + path
+                + "}'");
+    if (!output.isEmpty()) {
       if (image == null || output.contains(image)) {
         return;
       }
     }
 
-    deployAndWaitStable(baseUrl, account, namespace, kind, name, app, image);
+    deployAndWaitStable(baseUrl, account, namespace, kind, name, app, image, version);
   }
 }

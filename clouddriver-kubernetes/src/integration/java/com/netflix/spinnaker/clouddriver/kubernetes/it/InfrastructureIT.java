@@ -29,10 +29,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.*;
 
+@TestMethodOrder(value = MethodOrderer.OrderAnnotation.class)
 public class InfrastructureIT extends BaseTest {
 
   private static final int CACHE_TIMEOUT_MIN = 5;
@@ -68,6 +69,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
+        "-v000",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -76,6 +78,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
+        "-v000",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -122,6 +125,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
+        "-v000",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -130,6 +134,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
+        "-v000",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -187,6 +192,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
+        "-v000",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -195,6 +201,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         "other",
         APP_SERVER_GROUP_MGRS,
+        "-v000",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -247,9 +254,12 @@ public class InfrastructureIT extends BaseTest {
           + "Given two kubernetes deployments made by spinnaker\n"
           + "When sending get clusters request for the deployment name, account and type\n"
           + "Then only the desired deployment should be returned\n===")
+  @Order(value = 4)
   @Test
   public void shouldGetClustersByAccountNameAndType() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    String version = "-v004";
+    String versionUpdate = "-v000";
     System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployAndWaitStable(
         baseUrl(),
@@ -257,7 +267,9 @@ public class InfrastructureIT extends BaseTest {
         account1Ns,
         "deployment",
         DEPLOYMENT_1_NAME,
-        APP_SERVER_GROUP_MGRS);
+        APP_SERVER_GROUP_MGRS,
+        null,
+        version);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
@@ -265,6 +277,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         "other",
         APP_SERVER_GROUP_MGRS,
+        versionUpdate,
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -309,9 +322,12 @@ public class InfrastructureIT extends BaseTest {
           + "Given one deployment associated with two replicasets\n"
           + "When sending get server groups request\n"
           + "Then two server groups should be returned\n===")
+  @Order(value = 5)
   @Test
   public void shouldGetServerGroups() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    String version = "-v005";
+    String versionUpdate = "-v006";
     System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -321,7 +337,8 @@ public class InfrastructureIT extends BaseTest {
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
         "index.docker.io/library/alpine:3.11",
-        kubeCluster);
+        kubeCluster,
+        version);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
@@ -330,7 +347,8 @@ public class InfrastructureIT extends BaseTest {
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
         "index.docker.io/library/alpine:3.12",
-        kubeCluster);
+        kubeCluster,
+        versionUpdate);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -367,9 +385,12 @@ public class InfrastructureIT extends BaseTest {
           + "Given one deployment associated with two applications\n"
           + "When sending get server groups request by the two application\n"
           + "Then two server groups should be returned\n===")
+  @Order(value = 6)
   @Test
   public void shouldGetServerGroupsForApplications() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    String version = "-v007";
+    String versionUpdate = "-v008";
     System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -378,6 +399,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
+        version,
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -386,6 +408,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP2_NAME,
+        versionUpdate,
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -421,9 +444,12 @@ public class InfrastructureIT extends BaseTest {
           + "Given one deployment associated with two replicasets\n"
           + "When sending get server group request for account, region and name\n"
           + "Then only one server group should be returned\n===")
+  @Order(value = 7)
   @Test
   public void shouldGetServerGroupByMoniker() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    String version = "-v009";
+    String versionUpdate = "-v010";
     System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -433,7 +459,8 @@ public class InfrastructureIT extends BaseTest {
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
         "index.docker.io/library/alpine:3.11",
-        kubeCluster);
+        kubeCluster,
+        version);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
@@ -442,17 +469,33 @@ public class InfrastructureIT extends BaseTest {
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
         "index.docker.io/library/alpine:3.12",
-        kubeCluster);
+        kubeCluster,
+        versionUpdate);
 
     List<String> rsNames =
-        Splitter.on(" ")
-            .splitToList(
-                kubeCluster.execKubectl(
-                    "get -n "
-                        + account1Ns
-                        + " rs -o=jsonpath='{.items[?(@.metadata.ownerReferences[*].name==\""
-                        + DEPLOYMENT_1_NAME
-                        + "\")].metadata.name}'"));
+        Stream.concat(
+                Splitter.on(" ")
+                    .splitToList(
+                        kubeCluster.execKubectl(
+                            "get -n "
+                                + account1Ns
+                                + " rs -o=jsonpath='{.items[?(@.metadata.ownerReferences[*].name==\""
+                                + DEPLOYMENT_1_NAME
+                                + version
+                                + "\")].metadata.name}'"))
+                    .stream(),
+                Splitter.on(" ")
+                    .splitToList(
+                        kubeCluster.execKubectl(
+                            "get -n "
+                                + account1Ns
+                                + " rs -o=jsonpath='{.items[?(@.metadata.ownerReferences[*].name==\""
+                                + DEPLOYMENT_1_NAME
+                                + versionUpdate
+                                + "\")].metadata.name}'"))
+                    .stream())
+            .collect(Collectors.toList());
+
     assertTrue(rsNames.size() > 1, "Expected more than one replicaset deployed");
 
     KubeTestUtils.repeatUntilTrue(
@@ -466,8 +509,8 @@ public class InfrastructureIT extends BaseTest {
                   + account1Ns
                   + "/replicaSet "
                   + rsNames.get(0);
-          System.out.println("> GET " + url);
           Response resp = get(url);
+          System.out.println("> GET " + url);
 
           // ------------------------- then --------------------------
           System.out.println(resp.asString());
@@ -491,9 +534,12 @@ public class InfrastructureIT extends BaseTest {
           + "Given one deployment associated with two replicasets\n"
           + "When sending get server group request for application, account, region and name\n"
           + "Then only one server group should be returned\n===")
+  @Order(value = 3)
   @Test
   public void shouldGetServerGroupByApplication() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    String version = "-v002";
+    String versionUpdate = "-v003";
     System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -503,7 +549,8 @@ public class InfrastructureIT extends BaseTest {
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
         "index.docker.io/library/alpine:3.11",
-        kubeCluster);
+        kubeCluster,
+        version);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
         ACCOUNT1_NAME,
@@ -512,17 +559,15 @@ public class InfrastructureIT extends BaseTest {
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
         "index.docker.io/library/alpine:3.12",
-        kubeCluster);
+        kubeCluster,
+        versionUpdate);
 
     List<String> rsNames =
         Splitter.on(" ")
             .splitToList(
                 kubeCluster.execKubectl(
-                    "get -n "
-                        + account1Ns
-                        + " rs -o=jsonpath='{.items[?(@.metadata.ownerReferences[*].name==\""
-                        + DEPLOYMENT_1_NAME
-                        + "\")].metadata.name}'"));
+                    "get -n " + account1Ns + " rs -o=jsonpath='{.items[*].metadata.name}'"));
+
     assertTrue(rsNames.size() > 1, "Expected more than one replicaset deployed");
 
     KubeTestUtils.repeatUntilTrue(
@@ -563,9 +608,11 @@ public class InfrastructureIT extends BaseTest {
           + "Given one deployment of two pods\n"
           + "When sending get instance request for application, region and name\n"
           + "Then only one pod should be returned\n===")
+  @Order(value = 1)
   @Test
   public void shouldGetInstanceByAccountRegionId() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    String version = "-v000";
     System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_SERVER_GROUP_MGRS);
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
@@ -580,7 +627,7 @@ public class InfrastructureIT extends BaseTest {
             .withValue("deployManifest.manifests", manifest)
             .asList();
     KubeTestUtils.deployAndWaitStable(
-        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME + version);
 
     List<String> allPodNames =
         Splitter.on(" ")
@@ -642,6 +689,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
+        "-v000",
         kubeCluster);
 
     List<String> allPodNames =
@@ -705,6 +753,7 @@ public class InfrastructureIT extends BaseTest {
         "service",
         SERVICE_1_NAME,
         APP_LOAD_BALANCERS,
+        "",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -713,6 +762,7 @@ public class InfrastructureIT extends BaseTest {
         "service",
         SERVICE_1_NAME,
         APP_LOAD_BALANCERS,
+        "",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -775,9 +825,17 @@ public class InfrastructureIT extends BaseTest {
         "service",
         SERVICE_1_NAME,
         APP_LOAD_BALANCERS,
+        "",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
-        baseUrl(), ACCOUNT1_NAME, account1Ns, "service", "other", APP_LOAD_BALANCERS, kubeCluster);
+        baseUrl(),
+        ACCOUNT1_NAME,
+        account1Ns,
+        "service",
+        "other",
+        APP_LOAD_BALANCERS,
+        "",
+        kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -831,9 +889,11 @@ public class InfrastructureIT extends BaseTest {
           + "Given a kubernetes deployment\n"
           + "When sending get manifest by account, location and name request\n"
           + "Then only the desired manifest should be returned\n===")
+  @Order(value = 2)
   @Test
   public void shouldGetManifestByAccountLocationName() throws InterruptedException, IOException {
     // ------------------------- given --------------------------
+    String version = "-v001";
     System.out.println("> Using namespace " + account1Ns + ", appName: " + APP_LOAD_BALANCERS);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -842,6 +902,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_LOAD_BALANCERS,
+        version,
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -854,7 +915,8 @@ public class InfrastructureIT extends BaseTest {
                   + "/"
                   + account1Ns
                   + "/deployment "
-                  + DEPLOYMENT_1_NAME;
+                  + DEPLOYMENT_1_NAME
+                  + version;
           System.out.println("> GET " + url);
           Response resp = get(url);
 
@@ -866,7 +928,9 @@ public class InfrastructureIT extends BaseTest {
           resp.then().statusCode(200);
           return resp.jsonPath().getString("account").equals(ACCOUNT1_NAME)
               && resp.jsonPath().getString("location").equals(account1Ns)
-              && resp.jsonPath().getString("name").equals("deployment " + DEPLOYMENT_1_NAME);
+              && resp.jsonPath()
+                  .getString("name")
+                  .equals("deployment " + DEPLOYMENT_1_NAME + version);
         },
         CACHE_TIMEOUT_MIN,
         TimeUnit.MINUTES,
@@ -878,6 +942,7 @@ public class InfrastructureIT extends BaseTest {
             + account1Ns
             + "/deployment "
             + DEPLOYMENT_1_NAME
+            + version
             + " to return valid data");
   }
 
@@ -952,6 +1017,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_1_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -960,6 +1026,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_1_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -1002,6 +1069,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_1_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -1010,6 +1078,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_2_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -1055,6 +1124,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_1_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -1063,6 +1133,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_2_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -1110,6 +1181,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_1_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -1156,6 +1228,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_1_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
     KubeTestUtils.deployIfMissing(
         baseUrl(),
@@ -1164,6 +1237,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_2_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -1215,6 +1289,7 @@ public class InfrastructureIT extends BaseTest {
         "networkPolicy",
         NETWORK_POLICY_1_NAME,
         APP_SECURITY_GROUPS,
+        "",
         kubeCluster);
     KubeTestUtils.repeatUntilTrue(
         () -> {
@@ -1268,6 +1343,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
+        "-v000",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
@@ -1293,6 +1369,7 @@ public class InfrastructureIT extends BaseTest {
                           + account1Ns
                           + "' && it.name == 'deployment "
                           + DEPLOYMENT_1_NAME
+                          + "-v000"
                           + "'}");
           return serverGroupList != null && serverGroupList.size() == 1;
         },
@@ -1323,6 +1400,7 @@ public class InfrastructureIT extends BaseTest {
         "deployment",
         DEPLOYMENT_1_NAME,
         APP_SERVER_GROUP_MGRS,
+        "-v000",
         kubeCluster);
 
     KubeTestUtils.repeatUntilTrue(
