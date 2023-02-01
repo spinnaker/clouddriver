@@ -86,7 +86,7 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
 
   @Override
   public boolean versioned() {
-    return false;
+    return true;
   }
 
   @Override
