@@ -164,7 +164,7 @@ class EcrImageProviderSpec extends Specification {
 
     Map<String, Object> region2 = Map.of(
       'name', region,
-      'availabilityZones', Arrays.asList('us-west-1a', 'us-west-1b', 'us-west-1c')
+      'availabilityZones', Arrays.asList('us-east-1a', 'us-east-1b', 'us-east-1c')
     )
     Map<String, Object> overrides2 = Map.of(
       'accountId', accountId,
