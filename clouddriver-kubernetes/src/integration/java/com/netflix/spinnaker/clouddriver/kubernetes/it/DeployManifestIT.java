@@ -1193,4 +1193,425 @@ public class DeployManifestIT extends BaseTest {
     assertEquals(
         1, podNames.size(), "Only one pod expected to have the label for traffic selection");
   }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a cron job manifest without image tag\n"
+          + "  And required docker artifact present\n"
+          + "When sending cron job manifest request\n"
+          + "  And waiting on manifest stable\n"
+          + "Then the docker artifact is scheduled\n===")
+  @Test
+  public void shouldBindRequiredCronJobDockerImage() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String appName = "bind-required";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    String imageNoTag = "index.docker.io/library/alpine";
+    String imageWithTag = "index.docker.io/library/alpine:3.12";
+
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/cronJob.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", DEPLOYMENT_1_NAME)
+            .withValue("spec.jobTemplate.spec.template.spec.containers[0].image", imageNoTag)
+            .asList();
+    Map<String, Object> artifact =
+        KubeTestUtils.loadJson("classpath:requests/artifact.json")
+            .withValue("name", imageNoTag)
+            .withValue("type", "docker/image")
+            .withValue("reference", imageWithTag)
+            .withValue("version", imageWithTag.substring(imageNoTag.length() + 1))
+            .asMap();
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .withValue("deployManifest.requiredArtifacts[0]", artifact)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "cronJob " + DEPLOYMENT_1_NAME);
+
+    // ------------------------- then --------------------------
+    String imageDeployed =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get cronjobs "
+                + DEPLOYMENT_1_NAME
+                + " -o=jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'");
+    assertEquals(
+        imageWithTag,
+        imageDeployed,
+        "Expected correct " + DEPLOYMENT_1_NAME + " image to be scheduled");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a v1beta1 CRD manifest\n"
+          + "When sending deploy manifest request\n"
+          + "Then a v1beta1 CRD is created\n===")
+  @Test
+  public void shouldDeployCrdV1beta1() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    final String crdName = "crontabs.stable.example.com";
+    final List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/crd_v1beta1.yml")
+            .withValue("metadata.name", crdName)
+            .asList();
+    // ------------------------- when --------------------------
+    final List<Map<String, Object>> request =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), request, "", String.format("customResourceDefinition %s", crdName));
+    // ------------------------- then --------------------------
+    String exits = kubeCluster.execKubectl(String.format("get crd %s", crdName));
+    assertTrue(exits.contains(crdName));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a v1 CRD manifest\n"
+          + "When sending deploy manifest request\n"
+          + "Then a v1 CRD is created\n===")
+  @Test
+  public void shouldDeployCrdV1() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    final String crdName = "crontabs.stable.example.com";
+    final List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/crd_v1.yml")
+            .withValue("metadata.name", crdName)
+            .asList();
+    // ------------------------- when --------------------------
+    final List<Map<String, Object>> request =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), request, "", String.format("customResourceDefinition %s", crdName));
+    // ------------------------- then --------------------------
+    String exits = kubeCluster.execKubectl(String.format("get crd %s", crdName));
+    assertTrue(exits.contains(crdName));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a CRD namespaced scope version v1\n"
+          + " And it's associated CR manifests"
+          + "When sending deploy manifests request\n"
+          + "Then a CRD and it's CR is created at namespaced level\n===")
+  @Test
+  public void shouldDeployCrCrdNamespacedV1() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    final String crdGroup = "stable.example.com";
+    final String crdName = String.format("crontabs.%s", crdGroup);
+    final String crName = "my-new-cron-object";
+    final List<Map<String, Object>> crdManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/crd_v1.yml")
+            .withValue("metadata.name", crdName)
+            .withValue("spec.scope", "Namespaced")
+            .asList();
+    final List<Map<String, Object>> crManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/cr_v1.yml")
+            .withValue("metadata.name", crName)
+            .asList();
+    // ------------------------- when --------------------------
+    final List<Map<String, Object>> crdRequest =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", crdManifest)
+            .asList();
+    final List<Map<String, Object>> crRequest =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", crManifest)
+            .withValue("deployManifest.namespaceOverride", account1Ns)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), crdRequest, "", String.format("customResourceDefinition %s", crdName));
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), crRequest, account1Ns, String.format("CronTab.%s %s", crdGroup, crName));
+    // ------------------------- then --------------------------
+    String crdExists = kubeCluster.execKubectl(String.format("get crd %s", crdName));
+    String crNotExists =
+        kubeCluster.execKubectl(String.format("get %s %s --ignore-not-found", crdName, crName));
+    String crExists =
+        kubeCluster.execKubectl(String.format("-n %s get %s %s", account1Ns, crdName, crName));
+    assertTrue(
+        crdExists.contains(crdName) && crExists.contains(crName) && !crNotExists.contains(crdName));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a CRD cluster scope version v1\n"
+          + " And it's associated CR manifests"
+          + "When sending deploy manifests request\n"
+          + "Then a CRD and it's CR is created at cluster level\n===")
+  @Test
+  public void shouldDeployCrCrdClusterV1() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    final String crdGroup = "stable.cluster.com";
+    final String crdName = String.format("crontabs.%s", crdGroup);
+    final String crName = "my-new-cron-object";
+    kubeCluster.execKubectl(String.format("delete crd %s --ignore-not-found", crdName));
+    final List<Map<String, Object>> crdManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/crd_v1.yml")
+            .withValue("metadata.name", crdName)
+            .withValue("spec.scope", "Cluster")
+            .withValue("spec.group", crdGroup)
+            .asList();
+    final List<Map<String, Object>> crManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/cr_v1.yml")
+            .withValue("apiVersion", String.format("%s/v1", crdGroup))
+            .withValue("metadata.name", crName)
+            .asList();
+    // ------------------------- when --------------------------
+    final List<Map<String, Object>> crdRequest =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", crdManifest)
+            .asList();
+    final List<Map<String, Object>> crRequest =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", crManifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), crdRequest, "", String.format("customResourceDefinition %s", crdName));
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), crRequest, "", String.format("CronTab.%s %s", crdGroup, crName));
+    // ------------------------- then --------------------------
+    String crdExists = kubeCluster.execKubectl(String.format("get crd %s", crdName));
+    String crExists = kubeCluster.execKubectl(String.format("get %s %s", crdName, crName));
+    String crExistsNamespaced =
+        kubeCluster.execKubectl(String.format("-n %s get %s %s", account1Ns, crdName, crName));
+    assertTrue(
+        crdExists.contains(crdName)
+            && crExists.contains(crName)
+            && crExistsNamespaced.contains(crName));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a CRD already hardcoded in the account configuration\n"
+          + "When sending credentials request\n"
+          + "Then the credentials response contains the deployed CRD\n===")
+  @Test
+  public void shouldGetDeployedCrdsCredentials() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    // ------------------------- when --------------------------
+    Response response =
+        given()
+            .log()
+            .body(false)
+            .queryParam("expand", true)
+            .get(String.format("%s/credentials", baseUrl()));
+    // ------------------------- then --------------------------
+    System.out.println(response.prettyPrint());
+    response
+        .then()
+        .statusCode(200)
+        .body(
+            "spinnakerKindMap.'crontab.stable.example.com'.findAll{ e -> e != null }",
+            hasSize(greaterThan(0)));
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a deployed manifest with an special annotation to avoid being versioned\n"
+          + "  And another annotation to avoid updating the replicas amount"
+          + "When sending an updated manifest\n"
+          + "  With a a new env var\n"
+          + "  And a different replica size\n"
+          + "The manifest is deployed with the new env var and the old replicas size\n===")
+  @Test
+  public void shouldUseSourceCapacityNonVersioned() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    int originalReplicasSize = 1;
+    int secondReplicasSize = 5;
+    ImmutableMap<String, String> annotations =
+        ImmutableMap.of(
+            "strategy.spinnaker.io/versioned",
+            "false" // non-versioned
+            ,
+            "strategy.spinnaker.io/use-source-capacity",
+            "true" // do not update replicas
+            );
+    String appName = "unversionedsourcepacaity-deployment";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", appName)
+            .withValue("spec.selector.matchLabels.app", appName)
+            .withValue("spec.template.metadata.labels.app", appName)
+            .withValue("spec.replicas", originalReplicasSize)
+            .withValue("metadata.annotations", annotations)
+            .asList();
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, account1Ns, "deployment " + appName);
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> secondManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", appName)
+            .withValue("spec.selector.matchLabels.app", appName)
+            .withValue("spec.template.metadata.labels.app", appName)
+            .withValue("spec.replicas", secondReplicasSize)
+            .withValue(
+                "spec.template.spec.containers[0].env",
+                Collections.singletonList(
+                    ImmutableMap.of(
+                        "name", "test",
+                        "value", "test")))
+            .withValue("metadata.annotations", annotations)
+            .asList();
+    List<Map<String, Object>> secondBody =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", secondManifest)
+            .asList();
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    KubeTestUtils.deployAndWaitStable(baseUrl(), secondBody, account1Ns, "deployment " + appName);
+
+    // ------------------------- then --------------------------
+    String currentReplicas =
+        kubeCluster.execKubectl(
+            "-n " + account1Ns + " get deployment " + appName + " -o=jsonpath='{.spec.replicas}'");
+    assertEquals(
+        String.valueOf(originalReplicasSize),
+        currentReplicas,
+        "Expected "
+            + originalReplicasSize
+            + " replica for "
+            + appName
+            + " deployment. Pods:\n"
+            + currentReplicas);
+
+    String envVarValue =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get deployment "
+                + appName
+                + " -o=jsonpath='{.spec.template.spec.containers[0].env[0].value}'");
+    assertEquals("test", envVarValue, "Expected update env var for " + appName + " deployment.\n");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a replicaset manifest with an special annotation for versioning\n"
+          + "  And another annotation to avoid updating the replicas amount"
+          + "When sending an updated manifest\n"
+          + "  With a a new env var\n"
+          + "  And a different replica size\n"
+          + "The manifest is deployed with the new env var and the replicas value from the previous version\n===")
+  @Test
+  public void shouldUseSourceCapacityVersioned() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    int originalReplicasSize = 1;
+    int secondReplicasSize = 5;
+    ImmutableMap<String, String> annotations =
+        ImmutableMap.of(
+            "strategy.spinnaker.io/versioned",
+            "true" // versioned
+            ,
+            "strategy.spinnaker.io/use-source-capacity",
+            "true" // do not update replicas
+            );
+    String appName = "unversionedsourcepacaity-replicaset";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", appName)
+            .withValue("spec.selector.matchLabels.app", appName)
+            .withValue("spec.template.metadata.labels.app", appName)
+            .withValue("spec.replicas", originalReplicasSize)
+            .withValue("metadata.annotations", annotations)
+            .asList();
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "replicaSet " + appName + "-v000");
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> secondManifest =
+        KubeTestUtils.loadYaml("classpath:manifests/replicaset.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", appName)
+            .withValue("spec.selector.matchLabels.app", appName)
+            .withValue("spec.template.metadata.labels.app", appName)
+            .withValue("spec.replicas", secondReplicasSize)
+            .withValue(
+                "spec.template.spec.containers[0].env",
+                Collections.singletonList(
+                    ImmutableMap.of(
+                        "name", "test",
+                        "value", "test")))
+            .withValue("metadata.annotations", annotations)
+            .asList();
+    List<Map<String, Object>> secondBody =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", secondManifest)
+            .asList();
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), secondBody, account1Ns, "replicaSet " + appName + "-v001");
+
+    // ------------------------- then --------------------------
+    String currentReplicas =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get replicaSet "
+                + appName
+                + "-v001"
+                + " -o=jsonpath='{.spec.replicas}'");
+    assertEquals(
+        String.valueOf(originalReplicasSize),
+        currentReplicas,
+        "Expected "
+            + originalReplicasSize
+            + " replica for "
+            + appName
+            + " replicaset. Pods:\n"
+            + currentReplicas);
+
+    String envVarValue =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get replicaSet "
+                + appName
+                + "-v001"
+                + " -o=jsonpath='{.spec.template.spec.containers[0].env[0].value}'");
+    assertEquals("test", envVarValue, "Expected update env var for " + appName + " replicaset.\n");
+  }
 }
