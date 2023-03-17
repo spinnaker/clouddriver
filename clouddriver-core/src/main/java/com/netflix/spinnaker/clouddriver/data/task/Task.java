@@ -3,6 +3,7 @@ package com.netflix.spinnaker.clouddriver.data.task;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * This interface represents the state of a given execution. Implementations must allow for updating
@@ -58,7 +59,8 @@ public interface Task {
    * This method will fail the task and will represent completed = true and failed = true from the
    * Task's {@link #getStatus()} method.
    *
-   * @param retryable If true, the failed state will be marked as retryable (sagas only)
+   * @param retryable If true, the failed state will be marked as retryable (only for sagas and
+   *     kubernetes tasks)
    */
   void fail(boolean retryable);
 
@@ -88,12 +90,24 @@ public interface Task {
 
   /** Returns true if the Task is retryable (in the case of a failure) */
   default boolean isRetryable() {
-    if (!hasSagaIds()) {
-      return false;
-    }
     return getStatus().isFailed() && getStatus().isRetryable();
   }
 
   /** Updates the status of a failed Task to running in response to a retry operation. */
   void retry();
+
+  /**
+   * This method is used to capture any output produced by the task.
+   *
+   * @param stdOut - captures std output
+   * @param stdError - captures errors
+   */
+  void updateOutput(
+      String manifest, String phase, @Nullable String stdOut, @Nullable String stdError);
+
+  /** @return */
+  List<TaskOutput> getOutputs();
+
+  // updates the owner id in case the task was picked up by another clouddriver pod
+  void updateOwnerId(String ownerId, String phase);
 }

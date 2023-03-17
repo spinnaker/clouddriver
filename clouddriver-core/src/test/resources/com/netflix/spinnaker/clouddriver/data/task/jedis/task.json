@@ -30,5 +30,6 @@
     "phase" : "DEPLOY",
     "retryable" : false,
     "status" : "Finished deploy"
-  }
+  },
+  "outputs": []
 }
