@@ -65,7 +65,7 @@ interface Front50Service {
   // v2 MPT APIs
   @GET('/v2/pipelineTemplates/{pipelineTemplateId}')
   Map getV2PipelineTemplate(@Path("pipelineTemplateId") String pipelineTemplateId,
-                            @Query("version") String version,
+                            @Query("tag") String version,
                             @Query("digest") String digest)
 
   @GET('/v2/pipelineTemplates')
