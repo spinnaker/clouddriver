@@ -11,9 +11,11 @@ dependencies {
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
 
-  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.codehaus.groovy:groovy"
+  implementation "org.codehaus.groovy:groovy-json"
   implementation "org.apache.commons:commons-lang3"
   implementation "com.google.apis:google-api-services-compute"
+  implementation "com.google.guava:guava"
   implementation "com.google.apis:google-api-services-iam"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
   implementation "com.netflix.frigga:frigga"
@@ -22,6 +24,8 @@ dependencies {
   implementation "io.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "io.spinnaker.kork:kork-annotations"
   implementation "io.spinnaker.kork:kork-artifacts"
+  implementation "io.spinnaker.kork:kork-credentials"
+  implementation "io.spinnaker.kork:kork-credentials-api"
   implementation "io.spinnaker.kork:kork-config"
   implementation "io.spinnaker.kork:kork-cloud-config-server"
   implementation "io.spinnaker.kork:kork-moniker"
@@ -31,6 +35,7 @@ dependencies {
   implementation "org.springframework.cloud:spring-cloud-context"
   implementation "org.springframework.cloud:spring-cloud-config-server"
 
+  testImplementation "org.assertj:assertj-core"
   testImplementation "cglib:cglib-nodep"
   testImplementation "commons-fileupload:commons-fileupload:1.4"
   testImplementation "org.apache.httpcomponents:httpmime"
@@ -43,4 +48,9 @@ dependencies {
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
+  testImplementation "org.springframework.boot:spring-boot-test"
+}
+
+configurations.all {
+   resolutionStrategy.force 'com.google.apis:google-api-services-compute:beta-rev20201102-1.30.10'
 }

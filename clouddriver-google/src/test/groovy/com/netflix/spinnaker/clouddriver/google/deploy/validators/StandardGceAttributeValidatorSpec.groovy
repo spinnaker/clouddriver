@@ -26,6 +26,9 @@ import com.netflix.spinnaker.clouddriver.google.security.FakeGoogleCredentials
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
+import com.netflix.spinnaker.credentials.CredentialsRepository
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository
+import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import spock.lang.Shared
 import spock.lang.Specification
@@ -80,14 +83,14 @@ class StandardGceAttributeValidatorSpec extends Specification {
   ]
 
   @Shared
-  DefaultAccountCredentialsProvider accountCredentialsProvider
+  CredentialsRepository<GoogleNamedAccountCredentials> credentialsRepository
 
   @Shared
   GoogleNamedAccountCredentials credentials
 
   void setupSpec() {
-    def credentialsRepo = new MapBackedAccountCredentialsRepository()
-    accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepo)
+    credentialsRepository= new MapBackedCredentialsRepository(GoogleNamedAccountCredentials.CREDENTIALS_TYPE,
+      new NoopCredentialsLifecycleHandler<>())
     credentials =
       new GoogleNamedAccountCredentials.Builder()
         .name(ACCOUNT_NAME)
@@ -95,7 +98,7 @@ class StandardGceAttributeValidatorSpec extends Specification {
         .locationToInstanceTypesMap(VCPU_MAX_BY_LOCATION)
         .regionToZonesMap(REGION_TO_ZONES)
         .build()
-    credentialsRepo.save(ACCOUNT_NAME, credentials)
+    credentialsRepository.save(credentials)
   }
 
   void "generic non-empty ok"() {
@@ -232,7 +235,7 @@ class StandardGceAttributeValidatorSpec extends Specification {
       def validator = new StandardGceAttributeValidator(DECORATOR, errors)
 
     when:
-      validator.validateCredentials(ACCOUNT_NAME, accountCredentialsProvider)
+      validator.validateCredentials(ACCOUNT_NAME, credentialsRepository)
     then:
       0 * errors._
   }
@@ -243,13 +246,13 @@ class StandardGceAttributeValidatorSpec extends Specification {
       def validator = new StandardGceAttributeValidator(DECORATOR, errors)
 
     when:
-      validator.validateCredentials(null, accountCredentialsProvider)
+      validator.validateCredentials(null, credentialsRepository)
     then:
       1 * errors.rejectValue("credentials", "${DECORATOR}.credentials.empty")
       0 * errors._
 
     when:
-      validator.validateCredentials("", accountCredentialsProvider)
+      validator.validateCredentials("", credentialsRepository)
     then:
       1 * errors.rejectValue("credentials", "${DECORATOR}.credentials.empty")
       0 * errors._
@@ -261,7 +264,7 @@ class StandardGceAttributeValidatorSpec extends Specification {
       def validator = new StandardGceAttributeValidator(DECORATOR, errors)
 
     when:
-      validator.validateCredentials("Unknown", accountCredentialsProvider)
+      validator.validateCredentials("Unknown", credentialsRepository)
 
     then:
       1 * errors.rejectValue("credentials", "${DECORATOR}.credentials.invalid")
@@ -780,7 +783,8 @@ class StandardGceAttributeValidatorSpec extends Specification {
         loadBalancingUtilization: new GoogleAutoscalingPolicy.LoadBalancingUtilization(utilizationTarget: 0.7),
         customMetricUtilizations: [ new GoogleAutoscalingPolicy.CustomMetricUtilization(metric: "myMetric",
           utilizationTarget: 0.9,
-          utilizationTargetType: UtilizationTargetType.DELTA_PER_MINUTE) ])
+          utilizationTargetType: UtilizationTargetType.DELTA_PER_MINUTE,
+          singleInstanceAssignment: 1.0) ])
 
     when:
       validator.validateAutoscalingPolicy(scalingPolicy)
@@ -873,6 +877,28 @@ class StandardGceAttributeValidatorSpec extends Specification {
       1 * errors.rejectValue("autoscalingPolicy.customMetricUtilizations[0].metric",
         "decorator.autoscalingPolicy.customMetricUtilizations[0].metric.empty")
 
+  }
+
+  void "valid autoscaler customMetricUtilizations"(){
+    setup:
+    def errors = Mock(ValidationErrors)
+    def validator = new StandardGceAttributeValidator(DECORATOR, errors)
+
+    when:
+    validator.validateAutoscalingPolicy(new GoogleAutoscalingPolicy(
+      customMetricUtilizations: [ new GoogleAutoscalingPolicy.CustomMetricUtilization(utilizationTarget: 5,
+        metric: "myMetric", utilizationTargetType: UtilizationTargetType.DELTA_PER_MINUTE,singleInstanceAssignment: null) ]))
+
+    then:
+    0 * errors._
+
+    when:
+    validator.validateAutoscalingPolicy(new GoogleAutoscalingPolicy(
+      customMetricUtilizations: [ new GoogleAutoscalingPolicy.CustomMetricUtilization(utilizationTarget: null,
+        metric: "myMetric", utilizationTargetType: null, singleInstanceAssignment: 1) ]))
+
+    then:
+    0 * errors._
   }
 
   @Unroll

@@ -18,8 +18,8 @@ package com.netflix.spinnaker.clouddriver.azure.resources.servergroup.ops;
 
 import static com.netflix.spinnaker.clouddriver.azure.resources.servergroup.ops.CreateAzureServerGroupAtomicOperation.SERVER_WAIT_TIMEOUT;
 
-import com.microsoft.azure.management.compute.VirtualMachineImage;
-import com.microsoft.azure.management.resources.Deployment;
+import com.azure.resourcemanager.compute.models.VirtualMachineImage;
+import com.azure.resourcemanager.resources.models.Deployment;
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities;
 import com.netflix.spinnaker.clouddriver.azure.resources.common.model.AzureDeploymentOperation;
 import com.netflix.spinnaker.clouddriver.azure.resources.common.model.KeyVaultSecret;
@@ -35,7 +35,8 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationException;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
-class CreateAzureServerGroupWithAzureLoadBalancerAtomicOperation implements AtomicOperation<Map> {
+public class CreateAzureServerGroupWithAzureLoadBalancerAtomicOperation
+    implements AtomicOperation<Map> {
   private static final String BASE_PHASE = "CREATE_SERVER_GROUP";
 
   private static Task getTask() {
@@ -46,7 +47,7 @@ class CreateAzureServerGroupWithAzureLoadBalancerAtomicOperation implements Atom
 
   @Autowired AzureNetworkProvider networkProvider;
 
-  CreateAzureServerGroupWithAzureLoadBalancerAtomicOperation(
+  public CreateAzureServerGroupWithAzureLoadBalancerAtomicOperation(
       AzureServerGroupDescription description) {
     this.description = description;
   }
@@ -103,7 +104,7 @@ class CreateAzureServerGroupWithAzureLoadBalancerAtomicOperation implements Atom
         }
 
         if (description.getImage().getImageName() == null) {
-          description.getImage().setImageName(virtualMachineImage.inner().name());
+          description.getImage().setImageName(virtualMachineImage.innerModel().name());
         }
         if (description.getImage().getOstype() == null) {
           description

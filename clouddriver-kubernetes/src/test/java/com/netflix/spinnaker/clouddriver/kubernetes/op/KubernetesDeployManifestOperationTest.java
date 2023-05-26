@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask;
+import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
@@ -331,6 +333,13 @@ final class KubernetesDeployManifestOperationTest {
         .containsExactlyInAnyOrder("my-name-v000", "myconfig-v001");
   }
 
+  @Test
+  void deploysCrdWhereSpecIsList() {
+    KubernetesDeployManifestDescription deployManifestDescription =
+        baseDeployDescription("deploy/crd-manifest-spec-is-list.yml");
+    deploy(deployManifestDescription);
+  }
+
   private static KubernetesDeployManifestDescription baseDeployDescription(String manifest) {
     KubernetesDeployManifestDescription deployManifestDescription =
         new KubernetesDeployManifestDescription()
@@ -386,7 +395,7 @@ final class KubernetesDeployManifestOperationTest {
             ManifestFetcher.getManifest(
                     KubernetesDeployManifestOperationTest.class, "deploy/service-no-selector.yml")
                 .get(0));
-    when(credentialsMock.deploy(any(KubernetesManifest.class)))
+    when(credentialsMock.deploy(any(KubernetesManifest.class), any(Task.class), anyString()))
         .thenAnswer(
             invocation -> {
               // This simulates the fact that the Kubernetes API will add the default namespace if

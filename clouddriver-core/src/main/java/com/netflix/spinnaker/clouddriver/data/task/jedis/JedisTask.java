@@ -6,6 +6,8 @@ import com.google.common.collect.Iterables;
 import com.netflix.spinnaker.clouddriver.data.task.SagaId;
 import com.netflix.spinnaker.clouddriver.data.task.Status;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
+import com.netflix.spinnaker.clouddriver.data.task.TaskDisplayOutput;
+import com.netflix.spinnaker.clouddriver.data.task.TaskOutput;
 import com.netflix.spinnaker.clouddriver.data.task.TaskState;
 import java.util.List;
 import java.util.Set;
@@ -39,7 +41,7 @@ public class JedisTask implements Task {
   @JsonIgnore private RedisTaskRepository repository;
   private final String id;
   private final long startTimeMs;
-  private final String ownerId;
+  private String ownerId;
   private final String requestId;
   private final Set<SagaId> sagaIds;
   @JsonIgnore private final boolean previousRedis;
@@ -65,7 +67,7 @@ public class JedisTask implements Task {
   public void updateStatus(String phase, String status) {
     checkMutable();
     repository.addToHistory(repository.currentState(this).update(phase, status), this);
-    log.info("[" + phase + "] " + status);
+    log.info("[" + phase + "] Task: " + id + " Status: " + status);
   }
 
   @Override
@@ -137,6 +139,40 @@ public class JedisTask implements Task {
   public void retry() {
     checkMutable();
     repository.addToHistory(repository.currentState(this).update(TaskState.STARTED), this);
+  }
+
+  @Override
+  public void updateOutput(String manifestName, String phase, String stdOut, String stdError) {
+    log.info("[" + phase + "] Capturing output for Task " + id + ", manifest: " + manifestName);
+    repository.addOutput(new TaskDisplayOutput(manifestName, phase, stdOut, stdError), this);
+  }
+
+  @Override
+  public List<TaskOutput> getOutputs() {
+    return repository.getOutputs(this);
+  }
+
+  @Override
+  public void updateOwnerId(String ownerId, String phase) {
+    checkMutable();
+    if (ownerId == null) {
+      log.debug("new owner id not provided. No update necessary.");
+      return;
+    }
+
+    String previousCloudDriverHostname = this.getOwnerId().split("@")[1];
+    String currentCloudDriverHostname = ownerId.split("@")[1];
+
+    if (previousCloudDriverHostname.equals(currentCloudDriverHostname)) {
+      log.debug("new owner id is the same as the previous owner Id. No update necessary.");
+      return;
+    }
+
+    String previousOwnerId = this.ownerId;
+    updateStatus(phase, "Re-assigning task from: " + previousOwnerId + " to: " + ownerId);
+    this.ownerId = ownerId;
+    repository.set(this.id, this);
+    log.debug("Updated ownerId for task id={} from {} to {}", id, previousOwnerId, ownerId);
   }
 
   private void checkMutable() {

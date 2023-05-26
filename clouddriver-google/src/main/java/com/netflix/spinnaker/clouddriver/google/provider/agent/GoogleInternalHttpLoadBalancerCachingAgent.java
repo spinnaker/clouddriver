@@ -691,10 +691,11 @@ public class GoogleInternalHttpLoadBalancerCachingAgent
       port = healthCheck.getHttpsHealthCheck().getPort();
       requestPath = healthCheck.getHttpsHealthCheck().getRequestPath();
       hcType = GoogleHealthCheck.HealthCheckType.HTTPS;
-    } else if (healthCheck.getUdpHealthCheck() != null) {
-      port = healthCheck.getUdpHealthCheck().getPort();
-      hcType = GoogleHealthCheck.HealthCheckType.UDP;
     }
+    //    else if (healthCheck.getUdpHealthCheck() != null) {
+    //      port = healthCheck.getUdpHealthCheck().getPort();
+    //      hcType = GoogleHealthCheck.HealthCheckType.UDP;
+    //    }
 
     if (port != null && hcType != null) {
       for (GoogleBackendService googleBackendService : googleBackendServices) {

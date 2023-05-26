@@ -1,13 +1,6 @@
 apply plugin: 'io.spinnaker.package'
 
-ext {
-  springConfigLocation = System.getProperty('spring.config.additional-location', "${System.getProperty('user.home')}/.spinnaker/".toString())
-}
-
 mainClassName = 'com.netflix.spinnaker.clouddriver.Main'
-run {
-  systemProperty('spring.config.additional-location', project.springConfigLocation)
-}
 
 configurations.all {
   exclude group: 'javax.servlet', module: 'servlet-api'
@@ -36,6 +29,7 @@ dependencies {
   implementation "io.spinnaker.fiat:fiat-api:$fiatVersion"
   implementation "io.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "io.spinnaker.kork:kork-artifacts"
+  implementation "io.spinnaker.kork:kork-cloud-config-server"
   implementation "io.spinnaker.kork:kork-config"
   implementation "io.spinnaker.kork:kork-web"
   implementation("io.spinnaker.kork:kork-plugins")
@@ -43,7 +37,7 @@ dependencies {
   implementation "commons-io:commons-io"
   implementation "io.reactivex:rxjava"
   implementation "io.swagger:swagger-annotations"
-  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.codehaus.groovy:groovy"
   implementation "org.slf4j:slf4j-api"
   implementation "org.springframework.boot:spring-boot-starter-actuator"
   implementation "org.springframework.boot:spring-boot-starter-json"
@@ -58,7 +52,7 @@ dependencies {
   testImplementation "io.spinnaker.kork:kork-test"
   testImplementation "org.springframework.boot:spring-boot-starter-test"
   testImplementation "org.spockframework:spock-core"
-  testImplementation "io.kubernetes:client-java:$kubernetesClientVersion"
+  testImplementation "io.kubernetes:client-java"
 
   // Add each included cloud provider project as a runtime dependency
   gradle.includedCloudProviderProjects.each {

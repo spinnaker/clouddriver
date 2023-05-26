@@ -35,8 +35,18 @@ public class KubernetesConfigurationProperties {
 
   private Cache cache = new Cache();
 
+  private KubectlProperties kubectl = new KubectlProperties();
+  private OAuthProperties oAuth = new OAuthProperties();
+
+  public KubernetesConfigurationProperties kubernetesConfigurationProperties() {
+    return new KubernetesConfigurationProperties();
+  }
+
   @Data
   public static class KubernetesJobExecutorProperties {
+    private boolean persistTaskOutput = false;
+    private boolean enableTaskOutputForAllAccounts = false;
+
     private Retries retries = new Retries();
 
     @Data
@@ -62,6 +72,14 @@ public class KubernetesConfigurationProperties {
 
       // only applicable when exponentialBackoff = true
       long exponentialBackOffIntervalMs = 10000;
+
+      private Metrics metrics = new Metrics();
+
+      @Data
+      public static class Metrics {
+        // flag to capture retry metrics. Turned off by default
+        private boolean enabled;
+      }
     }
   }
 
@@ -104,5 +122,25 @@ public class KubernetesConfigurationProperties {
      * Cache#cacheKinds}
      */
     private List<String> cacheOmitKinds = null;
+
+    /**
+     * controls whether an application name obtained from a kubernetes manifest needs to be checked
+     * against front50. This can be needed in cases where we want front50 to be the definitive
+     * source of truth for applications. If you set this to true, please ensure that front50 is
+     * enabled.
+     */
+    boolean checkApplicationInFront50 = false;
+  }
+
+  /** kubectl configuration properties */
+  @Data
+  public static class KubectlProperties {
+    private String executable = "kubectl";
+  }
+
+  /** oAuth configuration properties */
+  @Data
+  public static class OAuthProperties {
+    private String executable = "oauth2l";
   }
 }

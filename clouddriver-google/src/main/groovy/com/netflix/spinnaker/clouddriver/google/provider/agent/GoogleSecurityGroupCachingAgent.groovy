@@ -147,7 +147,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
   }
 
   @Override
-  Collection<Map<String, ?>> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     def keyOwnedByThisAgent = { Map<String, String> parsedKey ->
       parsedKey && parsedKey.account == accountName && parsedKey.region == "global"
     }
@@ -229,7 +229,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
         moveOnDemandDataToNamespace(cacheResultBuilder, firewall)
       } else {
         cacheResultBuilder.namespace(SECURITY_GROUPS.ns).keep(securityGroupKey).with {
-          attributes = [firewall: firewall]
+          attributes = [firewall: firewall, project: project]
         }
       }
     }

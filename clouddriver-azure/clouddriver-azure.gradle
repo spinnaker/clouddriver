@@ -10,15 +10,27 @@ dependencies {
   implementation "io.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "io.spinnaker.kork:kork-exceptions"
   implementation "io.spinnaker.kork:kork-moniker"
-  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.codehaus.groovy:groovy"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
-  implementation 'com.microsoft.azure:adal4j:1.6.3'
-  implementation 'com.microsoft.azure:azure:1.35.0'
+  implementation "com.azure.resourcemanager:azure-resourcemanager:2.19.0"
+  implementation "com.azure:azure-identity:1.6.0"
+  implementation "com.azure:azure-storage-blob:12.19.1"
+  implementation "io.projectreactor:reactor-core"
+  implementation "com.google.guava:guava:31.1-jre"
 
   testImplementation "cglib:cglib-nodep"
+  testImplementation "org.junit.jupiter:junit-jupiter-api"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
+  testImplementation 'org.mockito:mockito-inline:4.8.0'
+  testImplementation 'org.assertj:assertj-core:3.23.1'
+
+
+}
+
+configurations.all {
+   resolutionStrategy.force 'io.projectreactor:reactor-core:3.4.23'
 }
