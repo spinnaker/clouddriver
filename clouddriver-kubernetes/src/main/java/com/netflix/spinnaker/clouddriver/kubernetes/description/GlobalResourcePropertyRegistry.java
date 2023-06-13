@@ -52,7 +52,8 @@ public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry 
         new KubernetesResourceProperties(defaultHandler, defaultHandler.versioned());
   }
 
-  public void setDefaultHandler(KubernetesUnregisteredCustomResourceHandler defaultHandler) {
+  public void setDefaultHandler(
+      @Nonnull KubernetesUnregisteredCustomResourceHandler defaultHandler) {
     this.defaultProperties =
         new KubernetesResourceProperties(defaultHandler, defaultHandler.versioned());
   }
