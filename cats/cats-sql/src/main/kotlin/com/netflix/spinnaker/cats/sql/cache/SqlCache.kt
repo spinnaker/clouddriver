@@ -79,8 +79,16 @@ class SqlCache(
 
   private var createdTables = ConcurrentSkipListSet<String>()
 
+  private val hexStrings: List<String>
+
   init {
     log.info("Configured for $name")
+
+    this.hexStrings = arrayListOf()
+    for (byte in Byte.MIN_VALUE..Byte.MAX_VALUE) {
+      val str = "%02x".format(byte.toByte())
+      this.hexStrings.add(str)
+    }
   }
 
   /**
@@ -927,9 +935,11 @@ class SqlCache(
     return try {
       val digest = MessageDigest.getInstance("SHA-256")
         .digest(body.toByteArray())
-      digest.fold("") { str, it ->
-        str + "%02x".format(it)
+      val builder = StringBuilder(64)
+      for (byte in digest) {
+        builder.append(this.hexStrings[byte - Byte.MIN_VALUE])
       }
+      builder.toString()
     } catch (e: Exception) {
       log.error("error calculating hash for body: $body", e)
       null
