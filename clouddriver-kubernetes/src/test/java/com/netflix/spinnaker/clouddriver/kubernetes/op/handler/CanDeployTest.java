@@ -62,6 +62,16 @@ final class CanDeployTest {
   }
 
   @Test
+  void applyServerSideMutations() {
+    KubernetesCredentials credentials = mock(KubernetesCredentials.class);
+    KubernetesManifest manifest = ManifestFetcher.getManifest("candeploy/deployment.yml");
+    when(credentials.deploy(manifest, task, OP_NAME, "--server-side")).thenReturn(manifest);
+    handler.deploy(credentials, manifest, DeployStrategy.SERVER_SIDE_APPLY, task, OP_NAME);
+    verify(credentials).deploy(manifest, task, OP_NAME, "--server-side");
+    verifyNoMoreInteractions(credentials);
+  }
+
+  @Test
   void replaceMutations() {
     KubernetesCredentials credentials = mock(KubernetesCredentials.class);
     KubernetesManifest manifest = ManifestFetcher.getManifest("candeploy/deployment.yml");

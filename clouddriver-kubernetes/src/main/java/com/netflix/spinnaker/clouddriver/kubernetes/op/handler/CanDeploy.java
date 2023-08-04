@@ -59,6 +59,9 @@ public interface CanDeploy {
       case REPLACE:
         deployedManifest = credentials.createOrReplace(manifest, task, opName);
         break;
+      case SERVER_SIDE_APPLY:
+        deployedManifest = credentials.deploy(manifest, task, opName, "--server-side");
+        break;
       case APPLY:
         deployedManifest = credentials.deploy(manifest, task, opName);
         break;
