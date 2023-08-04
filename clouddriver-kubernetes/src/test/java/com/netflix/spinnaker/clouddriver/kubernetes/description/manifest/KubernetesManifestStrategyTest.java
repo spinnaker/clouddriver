@@ -65,6 +65,14 @@ final class KubernetesManifestStrategyTest {
   }
 
   @Test
+  void serverSideApplyStrategy() {
+    KubernetesManifestStrategy.DeployStrategy strategy =
+        KubernetesManifestStrategy.DeployStrategy.fromAnnotations(
+            ImmutableMap.of("strategy.spinnaker.io/server-side-apply", "true"));
+    assertThat(strategy).isEqualTo(DeployStrategy.SERVER_SIDE_APPLY);
+  }
+
+  @Test
   void nonBooleanValue() {
     KubernetesManifestStrategy.DeployStrategy strategy =
         KubernetesManifestStrategy.DeployStrategy.fromAnnotations(

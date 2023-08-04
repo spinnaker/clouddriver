@@ -107,7 +107,8 @@ public final class KubernetesManifestStrategy {
   public enum DeployStrategy {
     APPLY(null),
     RECREATE(STRATEGY_ANNOTATION_PREFIX + "/recreate"),
-    REPLACE(STRATEGY_ANNOTATION_PREFIX + "/replace");
+    REPLACE(STRATEGY_ANNOTATION_PREFIX + "/replace"),
+    SERVER_SIDE_APPLY(STRATEGY_ANNOTATION_PREFIX + "/server-side-apply");
 
     @Nullable private final String annotation;
 
@@ -121,6 +122,9 @@ public final class KubernetesManifestStrategy {
       }
       if (Boolean.parseBoolean(annotations.get(REPLACE.annotation))) {
         return REPLACE;
+      }
+      if (Boolean.parseBoolean(annotations.get(SERVER_SIDE_APPLY.annotation))) {
+        return SERVER_SIDE_APPLY;
       }
       return APPLY;
     }
