@@ -95,7 +95,6 @@ dependencies {
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
   testImplementation "org.junit.jupiter:junit-jupiter-params"
-  testImplementation "org.junit.platform:junit-platform-runner"
   testImplementation "org.mockito:mockito-core"
   testImplementation "org.mockito:mockito-junit-jupiter"
   testImplementation "cglib:cglib-nodep"
@@ -131,6 +130,7 @@ task integrationTest(type: Test) {
   group = 'verification'
 
   environment "IT_BUILD_HOME", "$project.buildDir/it"
+  environment "IMAGE", project.getProperties().get("kubernetes-image")
   useJUnitPlatform()
 
   testClassesDirs = sourceSets.integration.output.classesDirs
