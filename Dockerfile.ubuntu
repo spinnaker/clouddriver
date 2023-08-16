@@ -1,4 +1,4 @@
-FROM ubuntu:jammy
+FROM ubuntu:bionic
 LABEL maintainer="sig-platform@spinnaker.io"
 ARG TARGETARCH
 ENV GOOGLE_CLOUD_SDK_VERSION=412.0.0
