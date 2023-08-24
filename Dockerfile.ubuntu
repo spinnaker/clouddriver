@@ -26,7 +26,6 @@ RUN pip install --upgrade  --no-build-isolation awscli==${AWS_CLI_VERSION} s3cmd
   && apt remove -y python3-pip
 
 # kubectl + AWS IAM authenticator
-## TODO:  Move to the cdn.dl.k8s.io/ download url for kubectl & similar utilities.
 RUN wget https://cdn.dl.k8s.io/release/v${KUBECTL_RELEASE}/bin/linux/${TARGETARCH}/kubectl \
   && chmod +x kubectl \
   && mv ./kubectl /usr/local/bin/kubectl \
