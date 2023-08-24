@@ -6,6 +6,7 @@ ENV PATH "$PATH:/opt/google-cloud-sdk/bin/"
 ENV KUBECTL_RELEASE=1.22.17
 ENV AWS_CLI_VERSION=1.22
 ENV AWS_CLI_S3_CMD=2.0.2
+ENV AWS_AIM_AUTHENTICATOR_VERSION=0.5.9
 
 RUN apt-get update && apt-get install -y curl gnupg && \
   curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
