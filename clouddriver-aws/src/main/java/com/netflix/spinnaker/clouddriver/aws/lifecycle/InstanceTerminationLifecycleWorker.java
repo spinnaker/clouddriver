@@ -15,11 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.aws.lifecycle;
 
-import com.amazonaws.auth.policy.Condition;
-import com.amazonaws.auth.policy.Policy;
-import com.amazonaws.auth.policy.Principal;
-import com.amazonaws.auth.policy.Resource;
-import com.amazonaws.auth.policy.Statement;
+import com.amazonaws.auth.policy.*;
 import com.amazonaws.auth.policy.Statement.Effect;
 import com.amazonaws.auth.policy.actions.SNSActions;
 import com.amazonaws.auth.policy.actions.SQSActions;
@@ -42,21 +38,16 @@ import com.netflix.spinnaker.clouddriver.eureka.api.Eureka;
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport.DiscoveryStatus;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException;
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException;
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.inject.Provider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import retrofit.RetrofitError;
 
 public class InstanceTerminationLifecycleWorker implements Runnable {
 
@@ -227,24 +218,31 @@ public class InstanceTerminationLifecycleWorker implements Runnable {
       try {
         eureka.updateInstanceStatus(app, instanceId, DiscoveryStatus.OUT_OF_SERVICE.getValue());
         return true;
-      } catch (RetrofitError e) {
-        final String recoverableMessage =
-            "Failed marking app out of service (status: {}, app: {}, instance: {}, retry: {})";
-        if (HttpStatus.NOT_FOUND.value() == e.getResponse().getStatus()) {
-          log.warn(recoverableMessage, e.getResponse().getStatus(), app, instanceId, retry);
-        } else if (e.getKind() == RetrofitError.Kind.NETWORK) {
-          log.error(recoverableMessage, e.getResponse().getStatus(), app, instanceId, retry, e);
-        } else {
-          log.error(
-              "Irrecoverable error while marking app out of service (app: {}, instance: {}, retry: {})",
-              app,
-              instanceId,
-              retry,
-              e);
-          break;
-        }
+      } catch (NotFoundException e) {
+        log.warn(
+            "Failed marking app out of service (status: {}, app: {}, instance: {}, retry: {})",
+            404,
+            app,
+            instanceId,
+            retry);
+      } catch (SpinnakerNetworkException e) {
+        log.error(
+            "Failed marking app out of service (app: {}, instance: {}, retry: {})",
+            app,
+            instanceId,
+            retry,
+            e);
+      } catch (SpinnakerServerException e) {
+        log.error(
+            "Irrecoverable error while marking app out of service (app: {}, instance: {}, retry: {})",
+            app,
+            instanceId,
+            retry,
+            e);
+        break;
       }
     }
+
     return false;
   }
 

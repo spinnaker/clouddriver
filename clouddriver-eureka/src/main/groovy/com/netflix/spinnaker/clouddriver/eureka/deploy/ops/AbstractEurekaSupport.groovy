@@ -21,11 +21,15 @@ import com.netflix.spinnaker.clouddriver.eureka.api.Eureka
 import com.netflix.spinnaker.clouddriver.helpers.EnableDisablePercentageCategorizer
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.kork.exceptions.SpinnakerException
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import groovy.transform.InheritConstructors
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import retrofit.RetrofitError
 import retrofit.client.Response
 
 @Slf4j
@@ -152,17 +156,20 @@ abstract class AbstractEurekaSupport {
             throw new RetryableException("Non HTTP 200 response from discovery for instance ${instanceId}, will retry (attempt: $retryCount}).")
           }
         }
-      } catch (RetrofitError retrofitError) {
-        def alwaysSkippable = retrofitError.response?.status == 404
-        def willSkip = alwaysSkippable || !strict
-        def skippingOrNot = willSkip ? "skipping" : "not skipping"
+      } catch (NotFoundException ignored) {
+        String errorMessage = "Failed updating status of $instanceId to '$discoveryStatus' in application '$applicationName' in discovery" +
+          " and strict=$strict, skipping operation."
+        skipped.add(instanceId)
+        task.updateStatus phaseName, errorMessage
+      } catch (SpinnakerServerException e) {
+        def skippingOrNot = !strict ? "skipping" : "not skipping"
 
         String errorMessage = "Failed updating status of $instanceId to '$discoveryStatus' in application '$applicationName' in discovery" +
           " and strict=$strict, $skippingOrNot operation."
 
         // in strict mode, only 404 errors are ignored
-        if (!willSkip) {
-          errors[instanceId] = retrofitError
+        if (!strict) {
+          errors[instanceId] = e
         } else {
           skipped.add(instanceId)
         }
@@ -219,17 +226,17 @@ abstract class AbstractEurekaSupport {
 
         retryCount++
         sleep(getDiscoveryRetryMs());
-      } catch (RetrofitError re) {
+      } catch (SpinnakerException re) {
         if (retryCount >= (maxRetries - 1)) {
           throw re
         }
 
-        AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${re.message}")
+        AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${re.getMessage()}")
 
-        if (re.kind == RetrofitError.Kind.NETWORK || re.response.status == 404 || re.response.status == 406) {
+        if ( (re instanceof SpinnakerNetworkException == true) || (re instanceof NotFoundException == true) || ((re instanceof SpinnakerHttpException == true) && ((SpinnakerHttpException) re).responseCode == 406)) {
           retryCount++
           sleep(getDiscoveryRetryMs())
-        } else if (re.response.status >= 500) {
+        } else if (re instanceof SpinnakerHttpException && ((SpinnakerHttpException) re).responseCode >= 500) {
           // automatically retry on server errors (but wait a little longer between attempts)
           sleep(getDiscoveryRetryMs() * 10)
           retryCount++
@@ -313,7 +320,7 @@ abstract class AbstractEurekaSupport {
     Set<String> eligible = []
 
     instances.each { instanceId ->
-      def instanceInExistingServerGroup = serverGroup.instances.find { it.name == instanceId   }
+      def instanceInExistingServerGroup = serverGroup.instances.find { it.name == instanceId }
 
       if (instanceInExistingServerGroup) {
         boolean anyDown = instanceInExistingServerGroup.health?.flatten()?.any {

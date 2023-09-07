@@ -25,8 +25,9 @@ import com.netflix.spinnaker.clouddriver.docker.registry.cache.Keys
 import com.netflix.spinnaker.clouddriver.docker.registry.provider.DockerRegistryProvider
 import com.netflix.spinnaker.clouddriver.docker.registry.provider.DockerRegistryProviderUtils
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryCredentials
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import groovy.util.logging.Slf4j
-import retrofit.RetrofitError
 
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeUnit
@@ -96,10 +97,9 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
       DockerRegistryTags tags = null
       try {
         tags = credentials.client.getTags(repository)
-      } catch (Exception e) {
-        if (e instanceof RetrofitError && e.response?.status == 404) {
-          log.warn("Could not load tags for ${repository} in ${credentials.client.address}, reason: ${e.message}")
-        } else {
+      } catch (NotFoundException e) {
+        log.warn("Could not load tags for ${repository} in ${credentials.client.address}, reason: ${e.message}")
+      } catch (SpinnakerServerException e) {
           log.error("Could not load tags for ${repository} in ${credentials.client.address}", e)
         }
 
@@ -118,7 +118,6 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
       } else {
         return [:]
       }
-    }
   }
 
   @Override
@@ -147,18 +146,16 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
         if (credentials.trackDigests) {
           try {
             digest = credentials.client.getDigest(repository, tag)
-          } catch (Exception e) {
-            if (e instanceof RetrofitError && ((RetrofitError) e).response?.status == 404) {
-              // Indicates inconsistency in registry, or deletion between call for all tags and manifest retrieval.
-              // In either case, we need to trust that this tag no longer exists.
-              log.warn("Image manifest for $tagKey no longer available; tag will not be cached: $e.message")
-              return
-            } else {
+          } catch (NotFoundException e) {
+            // Indicates inconsistency in registry, or deletion between call for all tags and manifest retrieval.
+            // In either case, we need to trust that this tag no longer exists.
+            log.warn("Image manifest for $tagKey no longer available; tag will not be cached: $e.message")
+            return
+          } catch (SpinnakerServerException e) {
               // It is safe to not cache the tag here because igor now persists all the tags it has seen.
               log.warn("Error retrieving manifest for $tagKey; digest and tag will not be cached: $e.message")
               return
             }
-          }
         }
 
         if (credentials.inspectDigests) {
