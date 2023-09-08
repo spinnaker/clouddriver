@@ -147,8 +147,8 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
         if (credentials.trackDigests) {
           try {
             digest = credentials.client.getDigest(repository, tag)
-          } catch (SpinnakerHttpException e) {
-            if(e.getResponseCode() == 404)
+          } catch (Exception e) {
+            if(e instanceof SpinnakerHttpException && ((SpinnakerHttpException)e).getResponseCode() == 404)
             {
               // Indicates inconsistency in registry, or deletion between call for all tags and manifest retrieval.
               // In either case, we need to trust that this tag no longer exists.
