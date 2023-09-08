@@ -24,7 +24,6 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
-import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import groovy.transform.InheritConstructors
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
@@ -229,7 +228,9 @@ abstract class AbstractEurekaSupport {
 
         AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${re.getMessage()}")
 
-        if ( (re instanceof SpinnakerNetworkException == true) || (re instanceof NotFoundException == true) || ((re instanceof SpinnakerHttpException == true) && ((SpinnakerHttpException) re).responseCode == 406)) {
+        if ( (re instanceof SpinnakerNetworkException == true)
+          || ((re instanceof SpinnakerHttpException == true) && ((SpinnakerHttpException) re).responseCode == 406)
+          || ((re instanceof SpinnakerHttpException == true) && ((SpinnakerHttpException) re).responseCode == 404)) {
           retryCount++
           sleep(getDiscoveryRetryMs())
         } else if (re instanceof SpinnakerHttpException && ((SpinnakerHttpException) re).responseCode >= 500) {
