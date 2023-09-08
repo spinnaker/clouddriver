@@ -17,7 +17,7 @@
 package com.netflix.spinnaker.clouddriver.consul.config
 
 import com.netflix.spinnaker.clouddriver.consul.api.v1.ConsulCatalog
-import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
 import groovy.util.logging.Slf4j
 
 import java.util.concurrent.TimeUnit
@@ -52,7 +52,7 @@ class ConsulConfig {
       try {
         def catalog = new ConsulCatalog(this)
         datacenters = catalog.api.datacenters()
-      } catch (SpinnakerNetworkException e) {
+      } catch (SpinnakerServerException e) {
         log.warn "Unable to connect to Consul running on the local Clouddriver instance.", e
         datacenters = []
       }

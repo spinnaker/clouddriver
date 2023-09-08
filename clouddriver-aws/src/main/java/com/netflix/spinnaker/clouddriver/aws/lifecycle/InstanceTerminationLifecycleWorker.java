@@ -38,9 +38,9 @@ import com.netflix.spinnaker.clouddriver.eureka.api.Eureka;
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport.DiscoveryStatus;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException;
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException;
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException;
-import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
@@ -218,28 +218,31 @@ public class InstanceTerminationLifecycleWorker implements Runnable {
       try {
         eureka.updateInstanceStatus(app, instanceId, DiscoveryStatus.OUT_OF_SERVICE.getValue());
         return true;
-      } catch (NotFoundException e) {
-        log.warn(
-            "Failed marking app out of service (status: {}, app: {}, instance: {}, retry: {})",
-            404,
-            app,
-            instanceId,
-            retry);
-      } catch (SpinnakerNetworkException e) {
-        log.error(
-            "Failed marking app out of service (app: {}, instance: {}, retry: {})",
-            app,
-            instanceId,
-            retry,
-            e);
       } catch (SpinnakerServerException e) {
-        log.error(
-            "Irrecoverable error while marking app out of service (app: {}, instance: {}, retry: {})",
-            app,
-            instanceId,
-            retry,
-            e);
-        break;
+        if (e instanceof SpinnakerHttpException
+            && ((SpinnakerHttpException) e).getResponseCode() == 404) {
+          log.warn(
+              "Failed marking app out of service (status: {}, app: {}, instance: {}, retry: {})",
+              404,
+              app,
+              instanceId,
+              retry);
+        } else if (e instanceof SpinnakerNetworkException) {
+          log.error(
+              "Failed marking app out of service (app: {}, instance: {}, retry: {})",
+              app,
+              instanceId,
+              retry,
+              e);
+        } else {
+          log.error(
+              "Irrecoverable error while marking app out of service (app: {}, instance: {}, retry: {})",
+              app,
+              instanceId,
+              retry,
+              e);
+          break;
+        }
       }
     }
 

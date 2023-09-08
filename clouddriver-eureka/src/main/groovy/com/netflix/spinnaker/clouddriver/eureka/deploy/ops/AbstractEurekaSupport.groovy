@@ -21,7 +21,6 @@ import com.netflix.spinnaker.clouddriver.eureka.api.Eureka
 import com.netflix.spinnaker.clouddriver.helpers.EnableDisablePercentageCategorizer
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
-import com.netflix.spinnaker.kork.exceptions.SpinnakerException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
@@ -156,19 +155,16 @@ abstract class AbstractEurekaSupport {
             throw new RetryableException("Non HTTP 200 response from discovery for instance ${instanceId}, will retry (attempt: $retryCount}).")
           }
         }
-      } catch (NotFoundException ignored) {
-        String errorMessage = "Failed updating status of $instanceId to '$discoveryStatus' in application '$applicationName' in discovery" +
-          " and strict=$strict, skipping operation."
-        skipped.add(instanceId)
-        task.updateStatus phaseName, errorMessage
-      } catch (SpinnakerServerException e) {
-        def skippingOrNot = !strict ? "skipping" : "not skipping"
+      } catch (SpinnakerHttpException e) {
+        def alwaysSkippable = e.getResponseCode() == 404
+        def willSkip = alwaysSkippable || !strict
+        def skippingOrNot = willSkip ? "skipping" : "not skipping"
 
         String errorMessage = "Failed updating status of $instanceId to '$discoveryStatus' in application '$applicationName' in discovery" +
           " and strict=$strict, $skippingOrNot operation."
 
         // in strict mode, only 404 errors are ignored
-        if (strict) {
+        if (!willSkip) {
           errors[instanceId] = e
         } else {
           skipped.add(instanceId)

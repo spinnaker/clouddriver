@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.Docker
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryOperationException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerRetrofitErrorHandler
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
 import groovy.util.logging.Slf4j
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -442,10 +443,10 @@ class DockerRegistryClient {
   public void checkV2Availability() {
     try {
       doCheckV2Availability()
-    } catch (SpinnakerHttpException error) {
+    } catch (SpinnakerServerException error) {
       // If no credentials are supplied, and we got a 401, the best[1] we can do is assume the registry is OK.
       // [1] https://docs.docker.com/registry/spec/api/#/api-version-check
-      if (!tokenService.basicAuthHeader && error.getResponseCode() == 401) {
+      if (!tokenService.basicAuthHeader && error instanceof SpinnakerHttpException && ((SpinnakerHttpException)error).getResponseCode() == 401) {
         return
       }
       Response response = doCheckV2Availability(tokenService.basicAuthHeader)

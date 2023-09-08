@@ -37,9 +37,7 @@ import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.EurekaSupportConfigurationProperties
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
-import com.netflix.spinnaker.kork.exceptions.SpinnakerException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
-import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import retrofit.RetrofitError
 import retrofit.client.Response
 import spock.lang.Specification
@@ -316,15 +314,10 @@ class DiscoverySupportUnitSpec extends Specification {
     then: "should only retry a maximum of DISCOVERY_RETRY_MAX times on NOT_FOUND"
     discoverySupport.eurekaSupportConfigurationProperties.retryMax * task.getStatus() >> new DefaultTaskStatus(TaskState.STARTED)
     discoverySupport.eurekaSupportConfigurationProperties.retryMax * eureka.getInstanceInfo(_) >> {
-      if(errorCode == 404)
-      {
-        throw new NotFoundException()
-      } else {
         throw new SpinnakerHttpException(httpError(errorCode))
-      }
     }
     0 * task.fail()
-    thrown(SpinnakerException)
+    thrown(SpinnakerHttpException)
 
     where:
     discoveryUrl = "http://us-west-1.discovery.netflix.net"
@@ -385,8 +378,8 @@ class DiscoverySupportUnitSpec extends Specification {
           app: appName
         ]
       ]
-    eureka.updateInstanceStatus(appName, 'i-123', status.value) >> { throw new NotFoundException(httpError(404)) }
-    eureka.resetInstanceStatus(appName, 'i-123', AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> { throw new NotFoundException(httpError(404)) }
+    eureka.updateInstanceStatus(appName, 'i-123', status.value) >> { throw new SpinnakerHttpException(httpError(404)) }
+    eureka.resetInstanceStatus(appName, 'i-123', AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> { throw new SpinnakerHttpException(httpError(404)) }
     task.getStatus() >> new DefaultTaskStatus(TaskState.STARTED)
     0 * task.fail()
 

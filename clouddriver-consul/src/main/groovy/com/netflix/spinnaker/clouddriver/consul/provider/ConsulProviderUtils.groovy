@@ -23,7 +23,7 @@ import com.netflix.spinnaker.clouddriver.consul.config.ConsulConfig
 import com.netflix.spinnaker.clouddriver.consul.model.ConsulHealth
 import com.netflix.spinnaker.clouddriver.consul.model.ConsulNode
 import com.netflix.spinnaker.clouddriver.consul.model.ConsulService
-import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -40,7 +40,7 @@ class ConsulProviderUtils {
         return new ConsulService(result)
       } ?: []
       running = true
-    } catch (SpinnakerHttpException e) {
+    } catch (SpinnakerServerException e) {
       // Instance can't be connected to on hostname:port/v1/agent/checks
       log.debug(e.message)
     }
