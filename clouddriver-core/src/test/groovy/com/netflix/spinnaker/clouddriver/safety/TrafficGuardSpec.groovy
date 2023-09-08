@@ -22,21 +22,13 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
 import com.netflix.spinnaker.clouddriver.exceptions.TrafficGuardException
-import com.netflix.spinnaker.clouddriver.model.Cluster
-import com.netflix.spinnaker.clouddriver.model.ClusterProvider
-import com.netflix.spinnaker.clouddriver.model.HealthState
-import com.netflix.spinnaker.clouddriver.model.ServerGroup
-import com.netflix.spinnaker.clouddriver.model.SimpleInstance
-import com.netflix.spinnaker.clouddriver.model.SimpleServerGroup
+import com.netflix.spinnaker.clouddriver.model.*
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import com.netflix.spinnaker.moniker.Moniker
 import retrofit.RetrofitError
 import retrofit.client.Response
-import spock.lang.Ignore
-import spock.lang.Shared
-import spock.lang.Specification
-import spock.lang.Subject
-import spock.lang.Unroll
+import spock.lang.*
 
 class TrafficGuardSpec extends Specification {
 
@@ -443,7 +435,7 @@ class TrafficGuardSpec extends Specification {
     !application.containsKey("trafficGuards")
     result == false
     1 * front50Service.getApplication("app") >> {
-      throw new RetrofitError(null, null, new Response("http://stash.com", 404, "test reason", [], null), null, null, null, null)
+      throw new SpinnakerHttpException(new RetrofitError(null, null, new Response("http://stash.com", 404, "test reason", [], null), null, null, null, null))
     }
   }
 
