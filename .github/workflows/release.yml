@@ -117,16 +117,5 @@ jobs:
           draft: false
           name: ${{ github.event.repository.name }} ${{ github.ref_name }}
           prerelease: ${{ steps.release_info.outputs.IS_CANDIDATE }}
-<<<<<<< HEAD
-=======
           tag_name: ${{ github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Pause before dependency bump
-        run: sleep 900
-      - name: Trigger dependency bump workflow
-        uses: peter-evans/repository-dispatch@v1
-        with:
-          token: ${{ secrets.SPINNAKER_GITHUB_TOKEN }}
-          event-type: bump-dependencies
-          client-payload: '{"ref": "${{ github.ref }}"}'
->>>>>>> 5c8426ded (chore(gha): replace action for creating github releases (#5929))
