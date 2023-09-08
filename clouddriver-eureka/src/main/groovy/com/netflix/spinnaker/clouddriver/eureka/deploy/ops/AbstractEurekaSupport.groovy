@@ -168,7 +168,7 @@ abstract class AbstractEurekaSupport {
           " and strict=$strict, $skippingOrNot operation."
 
         // in strict mode, only 404 errors are ignored
-        if (!strict) {
+        if (strict) {
           errors[instanceId] = e
         } else {
           skipped.add(instanceId)
