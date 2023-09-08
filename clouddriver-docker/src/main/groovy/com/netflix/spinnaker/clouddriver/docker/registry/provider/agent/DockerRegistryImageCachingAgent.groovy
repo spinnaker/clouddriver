@@ -96,8 +96,8 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
       DockerRegistryTags tags = null
       try {
         tags = credentials.client.getTags(repository)
-      } catch (SpinnakerHttpException e) {
-        if (e.getResponseCode() == 404) {
+      } catch (Exception e) {
+        if (e instanceof SpinnakerHttpException && ((SpinnakerHttpException)e).getResponseCode() == 404) {
           log.warn("Could not load tags for ${repository} in ${credentials.client.address}, reason: ${e.message}")
         } else {
           log.error("Could not load tags for ${repository} in ${credentials.client.address}", e)
