@@ -226,7 +226,7 @@ abstract class AbstractEurekaSupport {
 
         retryCount++
         sleep(getDiscoveryRetryMs());
-      } catch (SpinnakerException re) {
+      } catch (SpinnakerServerException re) {
         if (retryCount >= (maxRetries - 1)) {
           throw re
         }
