@@ -15,7 +15,11 @@
  */
 package com.netflix.spinnaker.clouddriver.aws.lifecycle;
 
-import com.amazonaws.auth.policy.*;
+import com.amazonaws.auth.policy.Condition;
+import com.amazonaws.auth.policy.Policy;
+import com.amazonaws.auth.policy.Principal;
+import com.amazonaws.auth.policy.Resource;
+import com.amazonaws.auth.policy.Statement;
 import com.amazonaws.auth.policy.Statement.Effect;
 import com.amazonaws.auth.policy.actions.SNSActions;
 import com.amazonaws.auth.policy.actions.SQSActions;
