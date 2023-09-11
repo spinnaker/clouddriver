@@ -32,7 +32,11 @@ import org.slf4j.LoggerFactory
 import retrofit.RestAdapter
 import retrofit.client.Response
 import retrofit.converter.GsonConverter
-import retrofit.http.*
+import retrofit.http.GET
+import retrofit.http.Header
+import retrofit.http.Headers
+import retrofit.http.Path
+import retrofit.http.Query
 
 import java.time.Instant
 

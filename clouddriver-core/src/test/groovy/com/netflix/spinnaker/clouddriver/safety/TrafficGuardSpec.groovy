@@ -22,13 +22,21 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
 import com.netflix.spinnaker.clouddriver.exceptions.TrafficGuardException
-import com.netflix.spinnaker.clouddriver.model.*
+import com.netflix.spinnaker.clouddriver.model.Cluster
+import com.netflix.spinnaker.clouddriver.model.ClusterProvider
+import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.clouddriver.model.SimpleInstance
+import com.netflix.spinnaker.clouddriver.model.SimpleServerGroup
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import com.netflix.spinnaker.moniker.Moniker
 import retrofit.RetrofitError
 import retrofit.client.Response
-import spock.lang.*
+import spock.lang.Ignore
+import spock.lang.Shared
+import spock.lang.Specification
+import spock.lang.Subject
+import spock.lang.Unroll
 
 class TrafficGuardSpec extends Specification {
 
