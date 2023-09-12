@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 import javax.inject.Provider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 
 public class InstanceTerminationLifecycleWorker implements Runnable {
 
@@ -229,21 +230,13 @@ public class InstanceTerminationLifecycleWorker implements Runnable {
         eureka.updateInstanceStatus(app, instanceId, DiscoveryStatus.OUT_OF_SERVICE.getValue());
         return true;
       } catch (SpinnakerServerException e) {
+        final String recoverableMessage =
+            "Failed marking app out of service (status: {}, app: {}, instance: {}, retry: {})";
         if (e instanceof SpinnakerHttpException
-            && ((SpinnakerHttpException) e).getResponseCode() == 404) {
-          log.warn(
-              "Failed marking app out of service (status: {}, app: {}, instance: {}, retry: {})",
-              404,
-              app,
-              instanceId,
-              retry);
+            && HttpStatus.NOT_FOUND.value() == ((SpinnakerHttpException) e).getResponseCode()) {
+          log.warn(recoverableMessage, 404, app, instanceId, retry);
         } else if (e instanceof SpinnakerNetworkException) {
-          log.error(
-              "Failed marking app out of service (app: {}, instance: {}, retry: {})",
-              app,
-              instanceId,
-              retry,
-              e);
+          log.error(recoverableMessage, "none", app, instanceId, retry, e);
         } else {
           log.error(
               "Irrecoverable error while marking app out of service (app: {}, instance: {}, retry: {})",

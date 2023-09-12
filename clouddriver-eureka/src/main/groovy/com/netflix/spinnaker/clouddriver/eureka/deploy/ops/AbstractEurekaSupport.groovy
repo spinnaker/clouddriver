@@ -154,8 +154,8 @@ abstract class AbstractEurekaSupport {
             throw new RetryableException("Non HTTP 200 response from discovery for instance ${instanceId}, will retry (attempt: $retryCount}).")
           }
         }
-      } catch (SpinnakerHttpException e) {
-        def alwaysSkippable = e.getResponseCode() == 404
+      } catch (SpinnakerServerException e) {
+        def alwaysSkippable = e instanceof SpinnakerHttpException && ((SpinnakerHttpException)e).getResponseCode() == 404
         def willSkip = alwaysSkippable || !strict
         def skippingOrNot = willSkip ? "skipping" : "not skipping"
 
