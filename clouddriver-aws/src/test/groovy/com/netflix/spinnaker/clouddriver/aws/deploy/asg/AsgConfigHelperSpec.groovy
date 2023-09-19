@@ -51,6 +51,7 @@ class AsgConfigHelperSpec extends Specification {
 
   void "should return name correctly"() {
     when:
+    AsgConfigHelper.clock = Clock.fixed(Instant.now(), ZoneId.systemDefault())
     def actualName = AsgConfigHelper.createName(baseName, suffix)
 
     then:

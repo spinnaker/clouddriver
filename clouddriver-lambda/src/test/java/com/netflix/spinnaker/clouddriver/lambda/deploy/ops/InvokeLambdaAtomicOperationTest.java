@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaFunctionDescription;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaFunctionOutputDescription;
 import com.netflix.spinnaker.clouddriver.lambda.provider.view.LambdaFunctionProvider;
+import com.netflix.spinnaker.config.LambdaServiceConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -34,11 +35,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 public class InvokeLambdaAtomicOperationTest implements LambdaTestingDefaults {
   InvokeLambdaAtomicOperation invokeOperation;
-  LambdaOperationsConfig operationsConfig;
+  LambdaServiceConfig operationsConfig;
+  InvokeLambdaFunctionDescription invokeDesc;
 
   @BeforeEach
   public void setup() {
-    InvokeLambdaFunctionDescription invokeDesc = new InvokeLambdaFunctionDescription();
+    invokeDesc = new InvokeLambdaFunctionDescription();
     invokeDesc.setFunctionName(fName).setQualifier(version).setRegion(region).setAccount(account);
     invokeDesc.setPayload("example");
     invokeOperation = spy(new InvokeLambdaAtomicOperation(invokeDesc));
@@ -49,7 +51,7 @@ public class InvokeLambdaAtomicOperationTest implements LambdaTestingDefaults {
     doReturn(cachedFunction)
         .when(lambdaFunctionProvider)
         .getFunction(anyString(), anyString(), anyString());
-    operationsConfig = new LambdaOperationsConfig();
+    operationsConfig = new LambdaServiceConfig();
     ReflectionTestUtils.setField(invokeOperation, "operationsConfig", operationsConfig);
     doNothing().when(invokeOperation).updateTaskStatus(anyString());
   }
@@ -69,19 +71,21 @@ public class InvokeLambdaAtomicOperationTest implements LambdaTestingDefaults {
     verify(lambdaClient).invoke(captor.capture());
     verify(invokeOperation, atLeastOnce()).updateTaskStatus(anyString());
     assertEquals(fName, captor.getValue().getFunctionName());
-    assertEquals(50000, captor.getValue().getSdkRequestTimeout().intValue());
+    assertEquals(-1, captor.getValue().getSdkRequestTimeout().intValue());
   }
 
   @Test
   void verifyTimeoutIsSet() {
-    operationsConfig.setInvokeTimeoutMs(100000);
+    // Allows a base timeout for all operations of 100,000 then short it to 55 seconds for a
+    // specific request per invoked request
+    invokeDesc.setTimeout(55000);
 
     AWSLambda lambdaClient = mock(AWSLambda.class);
     doReturn(lambdaClient).when(invokeOperation).getLambdaClient();
 
-    ArgumentCaptor<InvokeRequest> captor = ArgumentCaptor.forClass(InvokeRequest.class);
-    doReturn(new InvokeResult()).when(lambdaClient).invoke(captor.capture());
+    ArgumentCaptor<InvokeRequest> invokeCaptor = ArgumentCaptor.forClass(InvokeRequest.class);
+    doReturn(new InvokeResult()).when(lambdaClient).invoke(invokeCaptor.capture());
     invokeOperation.operate(null);
-    assertEquals(100000, captor.getValue().getSdkRequestTimeout().intValue());
+    assertEquals(55000, invokeCaptor.getValue().getSdkRequestTimeout().intValue());
   }
 }

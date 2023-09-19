@@ -47,8 +47,6 @@ public class InvokeLambdaAtomicOperation
 
   @Autowired private ArtifactDownloader artifactDownloader;
 
-  @Autowired LambdaOperationsConfig operationsConfig;
-
   public InvokeLambdaAtomicOperation(InvokeLambdaFunctionDescription description) {
     super(description, "INVOKE_LAMBDA_FUNCTION");
   }
@@ -70,20 +68,19 @@ public class InvokeLambdaAtomicOperation
   private InvokeLambdaFunctionOutputDescription invokeFunction(
       String functionName, String payload) {
     AWSLambda client = getLambdaClient();
-
     InvokeRequest req =
         new InvokeRequest()
             .withFunctionName(functionName)
             .withLogType(LogType.Tail)
             .withPayload(payload)
-            .withSdkRequestTimeout(operationsConfig.getInvokeTimeoutMs());
+            .withSdkRequestTimeout(description.getTimeout());
 
     String qualifierRegex = "|[a-zA-Z0-9$_-]+";
     if (description.getQualifier().matches(qualifierRegex)) {
       req.setQualifier(description.getQualifier());
     }
+    req.setSdkRequestTimeout(description.getTimeout());
     log.info("Invoking Lmabda function " + functionName + " and waiting for it to complete");
-
     InvokeResult result = client.invoke(req);
     String ans = byteBuffer2String(result.getPayload(), Charset.forName("UTF-8"));
     InvokeLambdaFunctionOutputDescription is = new InvokeLambdaFunctionOutputDescription();
