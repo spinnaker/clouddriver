@@ -221,24 +221,24 @@ abstract class AbstractEurekaSupport {
 
         retryCount++
         sleep(getDiscoveryRetryMs());
-      } catch (SpinnakerServerException re) {
+      } catch (SpinnakerServerException e) {
         if (retryCount >= (maxRetries - 1)) {
-          throw re
+          throw e
         }
 
-        AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${re.getMessage()}")
+        AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${e.getMessage()}")
 
-        if ( (re instanceof SpinnakerNetworkException == true)
-          || ((re instanceof SpinnakerHttpException == true) && ((SpinnakerHttpException) re).responseCode == 406)
-          || ((re instanceof SpinnakerHttpException == true) && ((SpinnakerHttpException) re).responseCode == 404)) {
+        if ( (e instanceof SpinnakerNetworkException)
+          || ((e instanceof SpinnakerHttpException) && ((SpinnakerHttpException) e).responseCode == 406)
+          || ((e instanceof SpinnakerHttpException) && ((SpinnakerHttpException) e).responseCode == 404)) {
           retryCount++
           sleep(getDiscoveryRetryMs())
-        } else if (re instanceof SpinnakerHttpException && ((SpinnakerHttpException) re).responseCode >= 500) {
+        } else if (e instanceof SpinnakerHttpException && ((SpinnakerHttpException) e).responseCode >= 500) {
           // automatically retry on server errors (but wait a little longer between attempts)
           sleep(getDiscoveryRetryMs() * 10)
           retryCount++
         } else {
-          throw re
+          throw e
         }
       } catch (AmazonServiceException ase) {
         if (ase.statusCode == 503) {
