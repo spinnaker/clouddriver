@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregisteredCustomResourceHandler;
 import java.util.List;
+import java.util.function.BiFunction;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,13 @@ public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry 
   private final ImmutableMap<KubernetesKind, KubernetesResourceProperties> globalProperties;
   private ImmutableMap<KubernetesKind, KubernetesResourceProperties> crdProperties =
       ImmutableMap.of();
-  private KubernetesResourceProperties defaultProperties;
+  private final KubernetesResourceProperties defaultProperties;
+
+  private BiFunction<
+          KubernetesKind,
+          ImmutableMap<KubernetesKind, KubernetesResourceProperties>,
+          KubernetesResourceProperties>
+      crdPropertiesResolver = (kind, crdProperties) -> crdProperties.get(kind);
 
   @Autowired
   public GlobalResourcePropertyRegistry(
@@ -52,10 +59,14 @@ public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry 
         new KubernetesResourceProperties(defaultHandler, defaultHandler.versioned());
   }
 
-  public void setDefaultHandler(
-      @Nonnull KubernetesUnregisteredCustomResourceHandler defaultHandler) {
-    this.defaultProperties =
-        new KubernetesResourceProperties(defaultHandler, defaultHandler.versioned());
+  public void setCrdPropertiesResolver(
+      @Nonnull
+          BiFunction<
+                  KubernetesKind,
+                  ImmutableMap<KubernetesKind, KubernetesResourceProperties>,
+                  KubernetesResourceProperties>
+              crdPropertiesResolver) {
+    this.crdPropertiesResolver = crdPropertiesResolver;
   }
 
   public void updateCrdProperties(List<KubernetesHandler> handlers) {
@@ -75,7 +86,7 @@ public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry 
       return result;
     }
 
-    result = crdProperties.get(kind);
+    result = crdPropertiesResolver.apply(kind, crdProperties);
     if (result != null) {
       return result;
     }
