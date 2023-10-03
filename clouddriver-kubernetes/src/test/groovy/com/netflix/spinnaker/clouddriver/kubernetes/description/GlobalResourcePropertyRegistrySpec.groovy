@@ -89,4 +89,27 @@ class GlobalResourcePropertyRegistrySpec extends Specification {
     then:
     registry.get(customResource).getHandler() == customResourceHandler
   }
+
+  void "should resolve kubernetes resource properties via custom resolver"() {
+    given:
+    KubernetesKind fooCustomResourceKind = KubernetesKind.from("FooCRD", KubernetesApiGroup.fromString("foo.com"))
+    KubernetesKind barCustomResourceKind = KubernetesKind.from("BarCRD", KubernetesApiGroup.fromString("bar.com"))
+
+    KubernetesHandler fooCustomResourceHandler = new KubernetesCustomResourceHandler(fooCustomResourceKind)
+
+    when:
+    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry([], defaultHandler)
+
+    registry.setCrdPropertiesResolver {kind, crdProperties ->
+      if (fooCustomResourceKind == kind) {
+        return new KubernetesResourceProperties(fooCustomResourceHandler, fooCustomResourceHandler.versioned())
+      }
+
+      return crdProperties.get(kind)
+    }
+
+    then:
+    registry.get(fooCustomResourceKind).getHandler() == fooCustomResourceHandler
+    registry.get(barCustomResourceKind).getHandler() == defaultHandler
+  }
 }
