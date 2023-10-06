@@ -55,14 +55,19 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesNamerRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesCustomResourceHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor.KubectlException;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor.KubectlNotFoundException;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutorInterface;
 import com.netflix.spinnaker.kork.configserver.ConfigFileService;
 import com.netflix.spinnaker.moniker.Namer;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
 import io.kubernetes.client.openapi.models.V1beta1CustomResourceDefinition;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -86,7 +91,7 @@ public class KubernetesCredentials {
 
   private final Registry registry;
   private final Clock clock;
-  private final KubectlJobExecutor jobExecutor;
+  private final KubectlJobExecutorInterface jobExecutor;
   private final GlobalResourcePropertyRegistry globalResourcePropertyRegistry;
 
   @Include @Getter @Nonnull private final String accountName;
@@ -144,7 +149,7 @@ public class KubernetesCredentials {
 
   public KubernetesCredentials(
       Registry registry,
-      KubectlJobExecutor jobExecutor,
+      KubectlJobExecutorInterface jobExecutor,
       ManagedAccount managedAccount,
       AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory,
       KubernetesKindRegistry.Factory kindRegistryFactory,
@@ -801,7 +806,7 @@ public class KubernetesCredentials {
   public static class Factory {
     private final Registry spectatorRegistry;
     private final KubernetesNamerRegistry kubernetesNamerRegistry;
-    private final KubectlJobExecutor jobExecutor;
+    private final KubectlJobExecutorInterface jobExecutor;
     private final ConfigFileService configFileService;
     private final AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory;
     private final KubernetesKindRegistry.Factory kindRegistryFactory;

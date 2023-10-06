@@ -55,7 +55,10 @@ import java.io.ByteArrayInputStream;
 import java.io.EOFException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,7 +71,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubectlJobExecutor {
+public class KubectlJobExecutor implements KubectlJobExecutorInterface {
   private static final Logger log = LoggerFactory.getLogger(KubectlJobExecutor.class);
   private static final String NOT_FOUND_STRING = "(NotFound)";
   private static final String KUBECTL_COMMAND_OPTION_TOKEN = "--token=";
