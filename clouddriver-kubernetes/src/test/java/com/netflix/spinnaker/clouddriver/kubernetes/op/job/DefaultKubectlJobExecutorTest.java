@@ -297,7 +297,7 @@ final class DefaultKubectlJobExecutorTest {
             "Kubectl command for mock-account failed after "
                 + kubernetesConfigurationProperties.getJobExecutor().getRetries().getMaxAttempts()
                 + " attempts. Exception: com.netflix.spinnaker.clouddriver.kubernetes.op."
-                + "job.KubectlJobExecutor$KubectlException: command: 'kubectl "
+                + "job.DefaultKubectlJobExecutor$KubectlException: command: 'kubectl "
                 + "--request-timeout=0 --namespace=test-namespace top po test-pod "
                 + "--containers' in account: mock-account failed. Error: Unable to "
                 + "connect to the server: net/http: TLS handshake timeout",
@@ -470,7 +470,7 @@ final class DefaultKubectlJobExecutorTest {
                         .contains(
                             "Kubectl command for mock-account is now successful in attempt #2. Last "
                                 + "attempt had failed with exception: com.netflix.spinnaker.clouddriver"
-                                + ".kubernetes.op.job.KubectlJobExecutor$KubectlException: command: "
+                                + ".kubernetes.op.job.DefaultKubectlJobExecutor$KubectlException: command: "
                                 + "'kubectl --request-timeout=0 --namespace=test-namespace top po test-pod"
                                 + " --containers' in account: mock-account failed. Error: Unable to connect to"
                                 + " the server: net/http: TLS handshake timeout"))
