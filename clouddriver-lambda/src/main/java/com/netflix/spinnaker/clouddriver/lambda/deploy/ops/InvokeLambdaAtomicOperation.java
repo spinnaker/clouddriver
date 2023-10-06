@@ -47,6 +47,8 @@ public class InvokeLambdaAtomicOperation
 
   @Autowired private ArtifactDownloader artifactDownloader;
 
+  @Autowired LambdaOperationsConfig operationsConfig;
+
   public InvokeLambdaAtomicOperation(InvokeLambdaFunctionDescription description) {
     super(description, "INVOKE_LAMBDA_FUNCTION");
   }
