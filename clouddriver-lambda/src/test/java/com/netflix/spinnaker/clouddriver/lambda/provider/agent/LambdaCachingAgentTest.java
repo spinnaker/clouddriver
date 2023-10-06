@@ -48,7 +48,6 @@ public class LambdaCachingAgentTest {
 
   @BeforeEach
   public void setup() {
-    when(config.getConcurrency()).thenReturn(new LambdaServiceConfig.Concurrency());
     when(serviceLimitConfiguration.getLimit(any(), any(), any(), any(), any())).thenReturn(1.0);
     lambdaCachingAgent =
         new LambdaCachingAgent(

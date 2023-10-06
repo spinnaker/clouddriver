@@ -238,8 +238,16 @@ public class LambdaService extends AbstractLambdaProvider {
     functionAttributes.put("targetGroups", targetGroups);
     return null;
   }
-  private static final Predicate<Statement> isLambdaInvokeAction = statement -> statement.getActions().stream() .anyMatch(action -> action.getActionName().equals("lambda:InvokeFunction"));
-  private static final Predicate<Statement> isElbPrincipal = statement -> statement.getPrincipals().stream() .anyMatch( principal -> principal.getId().equals("elasticloadbalancing.amazonaws.com"));
+
+  private static final Predicate<Statement> isLambdaInvokeAction =
+      statement ->
+          statement.getActions().stream()
+              .anyMatch(action -> action.getActionName().equals("lambda:InvokeFunction"));
+  private static final Predicate<Statement> isElbPrincipal =
+      statement ->
+          statement.getPrincipals().stream()
+              .anyMatch(
+                  principal -> principal.getId().equals("elasticloadbalancing.amazonaws.com"));
 
   private List<String> getTargetGroupNames(String functionName) {
     List<String> targetGroupNames = new ArrayList<>();
@@ -272,5 +280,4 @@ public class LambdaService extends AbstractLambdaProvider {
 
     return targetGroupNames;
   }
-
 }

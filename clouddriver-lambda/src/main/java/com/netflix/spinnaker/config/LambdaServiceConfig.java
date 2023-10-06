@@ -52,7 +52,6 @@ public class LambdaServiceConfig {
   private int invokeTimeoutMs = 50000;
 
   private Retry retry = new Retry();
-  private Concurrency concurrency = new Concurrency();
 
   /**
    * Duplicated by the {@link
@@ -66,10 +65,5 @@ public class LambdaServiceConfig {
     // Default to the aws client max error retries if NOT set
     @Value("#{'${aws.lambda.retries:${aws.client.maxErrorRetry}}'}")
     private int retries = 3;
-  }
-
-  @Data
-  public static class Concurrency {
-    private int threads = 10;
   }
 }
