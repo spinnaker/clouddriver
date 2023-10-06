@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaF
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaFunctionOutputDescription;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.exception.LambdaOperationException;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.config.LambdaServiceConfig;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.File;
 import java.io.IOException;
@@ -47,7 +48,7 @@ public class InvokeLambdaAtomicOperation
 
   @Autowired private ArtifactDownloader artifactDownloader;
 
-  @Autowired LambdaOperationsConfig operationsConfig;
+  @Autowired LambdaServiceConfig operationsConfig;
 
   public InvokeLambdaAtomicOperation(InvokeLambdaFunctionDescription description) {
     super(description, "INVOKE_LAMBDA_FUNCTION");

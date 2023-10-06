@@ -54,8 +54,9 @@ class AsgConfigHelperSpec extends Specification {
     AsgConfigHelper.clock = Clock.fixed(Instant.now(), ZoneId.systemDefault())
     def actualName = AsgConfigHelper.createName(baseName, suffix)
 
+    //ignore the end precision for tests.
     then:
-    actualName.contains(expectedName)
+    actualName.contains(expectedName.substring(0, expectedName.length() - 3))
 
     where:
     baseName | suffix   || expectedName

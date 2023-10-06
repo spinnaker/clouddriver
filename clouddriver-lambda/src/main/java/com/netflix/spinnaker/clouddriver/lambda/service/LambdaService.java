@@ -21,19 +21,15 @@ import com.amazonaws.auth.policy.Statement;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider;
 import com.netflix.spinnaker.clouddriver.aws.data.ArnUtils;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
-import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.ops.AbstractLambdaProvider;
 import com.netflix.spinnaker.config.LambdaServiceConfig;
 import groovy.util.logging.Slf4j;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -41,45 +37,34 @@ import java.util.stream.Collectors;
 public class LambdaService extends AbstractLambdaProvider {
 
   private final ObjectMapper mapper;
-  private final ExecutorService executorService;
 
   public LambdaService(
       AmazonClientProvider amazonClientProvider,
       NetflixAmazonCredentials account,
       String region,
       ObjectMapper mapper,
-      LambdaServiceConfig lambdaServiceConfig,
-      ServiceLimitConfiguration serviceLimitConfiguration) {
+      LambdaServiceConfig lambdaServiceConfig) {
     super(region, account);
     super.operationsConfig = lambdaServiceConfig;
     super.amazonClientProvider = amazonClientProvider;
     this.mapper = mapper;
-    this.executorService =
-        Executors.newFixedThreadPool(
-            computeThreads(serviceLimitConfiguration, lambdaServiceConfig));
   }
 
-  public List<Map<String, Object>> getAllFunctions() throws InterruptedException {
+  public List<Map<String, Object>> getAllFunctions() {
     List<FunctionConfiguration> functions = listAllFunctionConfigurations();
-    List<Callable<Void>> functionTasks = Collections.synchronizedList(new ArrayList<>());
     List<Map<String, Object>> hydratedFunctionList =
         Collections.synchronizedList(new ArrayList<>());
     functions.stream()
         .forEach(
             f -> {
               Map<String, Object> functionAttributes = new ConcurrentHashMap<>();
-              functionTasks.add(() -> addBaseAttributes(functionAttributes, f.getFunctionName()));
-              functionTasks.add(
-                  () -> addRevisionsAttributes(functionAttributes, f.getFunctionName()));
-              functionTasks.add(
-                  () ->
-                      addAliasAndEventSourceMappingConfigurationAttributes(
-                          functionAttributes, f.getFunctionName()));
-              functionTasks.add(
-                  () -> addTargetGroupAttributes(functionAttributes, f.getFunctionName()));
+              addBaseAttributes(functionAttributes, f.getFunctionName());
+              addRevisionsAttributes(functionAttributes, f.getFunctionName());
+              addAliasAndEventSourceMappingConfigurationAttributes(
+                  functionAttributes, f.getFunctionName());
+              addTargetGroupAttributes(functionAttributes, f.getFunctionName());
               hydratedFunctionList.add(functionAttributes);
             });
-    executorService.invokeAll(functionTasks);
 
     // if addBaseAttributes returned null, the name won't be included. There is a chance other
     // resources still have
@@ -97,12 +82,9 @@ public class LambdaService extends AbstractLambdaProvider {
       // return quick so we don't make extra api calls for a delete lambda
       return null;
     }
-    functionTasks.add(() -> addRevisionsAttributes(functionAttributes, functionName));
-    functionTasks.add(
-        () ->
-            addAliasAndEventSourceMappingConfigurationAttributes(functionAttributes, functionName));
-    functionTasks.add(() -> addTargetGroupAttributes(functionAttributes, functionName));
-    executorService.invokeAll(functionTasks);
+    addRevisionsAttributes(functionAttributes, functionName);
+    addAliasAndEventSourceMappingConfigurationAttributes(functionAttributes, functionName);
+    addTargetGroupAttributes(functionAttributes, functionName);
     return functionAttributes;
   }
 
@@ -256,27 +238,19 @@ public class LambdaService extends AbstractLambdaProvider {
     functionAttributes.put("targetGroups", targetGroups);
     return null;
   }
+  private static final Predicate<Statement> isLambdaInvokeAction = statement -> statement.getActions().stream() .anyMatch(action -> action.getActionName().equals("lambda:InvokeFunction"));
+  private static final Predicate<Statement> isElbPrincipal = statement -> statement.getPrincipals().stream() .anyMatch( principal -> principal.getId().equals("elasticloadbalancing.amazonaws.com"));
 
   private List<String> getTargetGroupNames(String functionName) {
-    AWSLambda lambda = getLambdaClient();
     List<String> targetGroupNames = new ArrayList<>();
     Predicate<Statement> isAllowStatement =
         statement -> statement.getEffect().toString().equals(Statement.Effect.Allow.toString());
-    Predicate<Statement> isLambdaInvokeAction =
-        statement ->
-            statement.getActions().stream()
-                .anyMatch(action -> action.getActionName().equals("lambda:InvokeFunction"));
-    Predicate<Statement> isElbPrincipal =
-        statement ->
-            statement.getPrincipals().stream()
-                .anyMatch(
-                    principal -> principal.getId().equals("elasticloadbalancing.amazonaws.com"));
 
     try {
+      AWSLambda lambda = getLambdaClient();
       GetPolicyResult result =
           lambda.getPolicy(new GetPolicyRequest().withFunctionName(functionName));
-      String json = result.getPolicy();
-      Policy policy = Policy.fromJson(json);
+      Policy policy = Policy.fromJson(result.getPolicy());
 
       targetGroupNames =
           policy.getStatements().stream()
@@ -292,23 +266,11 @@ public class LambdaService extends AbstractLambdaProvider {
 
     } catch (ResourceNotFoundException e) {
       // ignore the exception.
+    } catch (NullPointerException e) {
+      // ignore no resources found which can lead to null responses.
     }
 
     return targetGroupNames;
   }
 
-  private int computeThreads(
-      ServiceLimitConfiguration serviceLimitConfiguration,
-      LambdaServiceConfig lambdaServiceConfig) {
-    int serviceLimit =
-        serviceLimitConfiguration
-            .getLimit(
-                ServiceLimitConfiguration.API_RATE_LIMIT,
-                AWSLambda.class.getSimpleName(),
-                getCredentials().getName(),
-                AmazonCloudProvider.ID,
-                5.0d)
-            .intValue();
-    return Math.min(serviceLimit * 2, lambdaServiceConfig.getConcurrency().getThreads());
-  }
 }
