@@ -59,7 +59,8 @@ final class KubernetesCredentialsTest {
   private final String OP_NAME = "KubernetesCredentialsTest";
   private final Task task = new DefaultTask("task-id");
 
-  private KubernetesCredentials getCredentials(Registry registry, DefaultKubectlJobExecutor jobExecutor) {
+  private KubernetesCredentials getCredentials(
+      Registry registry, DefaultKubectlJobExecutor jobExecutor) {
     KubernetesCredentials.Factory factory =
         new KubernetesCredentials.Factory(
             registry,

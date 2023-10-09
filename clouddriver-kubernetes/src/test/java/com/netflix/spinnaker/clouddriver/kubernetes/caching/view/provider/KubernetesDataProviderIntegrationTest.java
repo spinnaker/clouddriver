@@ -575,7 +575,8 @@ final class KubernetesDataProviderIntegrationTest {
   }
 
   private static DefaultKubectlJobExecutor getJobExecutor() {
-    DefaultKubectlJobExecutor jobExecutor = mock(DefaultKubectlJobExecutor.class, new ReturnsSmartNulls());
+    DefaultKubectlJobExecutor jobExecutor =
+        mock(DefaultKubectlJobExecutor.class, new ReturnsSmartNulls());
     when(jobExecutor.list(
             any(KubernetesCredentials.class),
             anyList(),

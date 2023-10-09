@@ -131,7 +131,8 @@ final class DefaultKubectlJobExecutorTest {
         .thenReturn(
             JobResult.<String>builder()
                 .result(Result.SUCCESS)
-                .output(ManifestFetcher.getResource(DefaultKubectlJobExecutorTest.class, "top-pod.txt"))
+                .output(
+                    ManifestFetcher.getResource(DefaultKubectlJobExecutorTest.class, "top-pod.txt"))
                 .error("")
                 .build());
 
@@ -247,7 +248,9 @@ final class DefaultKubectlJobExecutorTest {
     for (int i = 1; i <= numberOfThreads; i++) {
       futures.add(
           executor.submit(
-              () -> defaultKubectlJobExecutor.topPod(mockKubernetesCredentials(), NAMESPACE, "test-pod")));
+              () ->
+                  defaultKubectlJobExecutor.topPod(
+                      mockKubernetesCredentials(), NAMESPACE, "test-pod")));
     }
 
     // then
@@ -347,7 +350,9 @@ final class DefaultKubectlJobExecutorTest {
     for (int i = 1; i <= numberOfThreads; i++) {
       futures.add(
           executor.submit(
-              () -> defaultKubectlJobExecutor.topPod(mockKubernetesCredentials(), NAMESPACE, "test-pod")));
+              () ->
+                  defaultKubectlJobExecutor.topPod(
+                      mockKubernetesCredentials(), NAMESPACE, "test-pod")));
     }
 
     // then
@@ -422,7 +427,8 @@ final class DefaultKubectlJobExecutorTest {
         .thenReturn(
             JobResult.<String>builder()
                 .result(Result.SUCCESS)
-                .output(ManifestFetcher.getResource(DefaultKubectlJobExecutorTest.class, "top-pod.txt"))
+                .output(
+                    ManifestFetcher.getResource(DefaultKubectlJobExecutorTest.class, "top-pod.txt"))
                 .error("")
                 .build());
 
@@ -530,7 +536,8 @@ final class DefaultKubectlJobExecutorTest {
     JobExecutionException thrown =
         assertThrows(
             JobExecutionException.class,
-            () -> defaultKubectlJobExecutor.topPod(mockKubernetesCredentials(), "test", "test-pod"));
+            () ->
+                defaultKubectlJobExecutor.topPod(mockKubernetesCredentials(), "test", "test-pod"));
 
     if (retriesEnabled) {
       // should be called 3 times as there were max 3 attempts made
