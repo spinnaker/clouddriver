@@ -24,17 +24,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.aws.data.ArnUtils;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
-import com.netflix.spinnaker.clouddriver.lambda.deploy.ops.AbstractLambdaProvider;
+import com.netflix.spinnaker.clouddriver.lambda.deploy.ops.LambdaClientProvider;
 import com.netflix.spinnaker.config.LambdaServiceConfig;
-import groovy.util.logging.Slf4j;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import lombok.extern.log4j.Log4j2;
 
-@Slf4j
-public class LambdaService extends AbstractLambdaProvider {
+@Log4j2
+public class LambdaService extends LambdaClientProvider {
 
   private final ObjectMapper mapper;
 
@@ -242,12 +242,12 @@ public class LambdaService extends AbstractLambdaProvider {
   private static final Predicate<Statement> isLambdaInvokeAction =
       statement ->
           statement.getActions().stream()
-              .anyMatch(action -> action.getActionName().equals("lambda:InvokeFunction"));
+              .anyMatch(action -> "lambda:InvokeFunction".equals(action.getActionName()));
   private static final Predicate<Statement> isElbPrincipal =
       statement ->
           statement.getPrincipals().stream()
               .anyMatch(
-                  principal -> principal.getId().equals("elasticloadbalancing.amazonaws.com"));
+                  principal -> "elasticloadbalancing.amazonaws.com".equals(principal.getId()));
 
   private List<String> getTargetGroupNames(String functionName) {
     List<String> targetGroupNames = new ArrayList<>();
@@ -266,16 +266,15 @@ public class LambdaService extends AbstractLambdaProvider {
               .flatMap(statement -> statement.getConditions().stream())
               .filter(
                   condition ->
-                      condition.getType().equals("ArnLike")
-                          && condition.getConditionKey().equals("AWS:SourceArn"))
+                      "ArnLike".equals(condition.getType())
+                          && "AWS:SourceArn".equals(condition.getConditionKey()))
               .flatMap(condition -> condition.getValues().stream())
               .flatMap(value -> ArnUtils.extractTargetGroupName(value).stream())
               .collect(Collectors.toList());
 
-    } catch (ResourceNotFoundException e) {
-      // ignore the exception.
-    } catch (NullPointerException e) {
-      // ignore no resources found which can lead to null responses.
+    } catch (NullPointerException | ResourceNotFoundException e) {
+      // ignore the exception. Log it
+      log.info("Unable to find target group names for {}", functionName);
     }
 
     return targetGroupNames;

@@ -24,7 +24,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public abstract class AbstractLambdaAtomicOperation<T extends AbstractLambdaFunctionDescription, K>
-    extends AbstractLambdaProvider implements AtomicOperation<K> {
+    extends LambdaClientProvider implements AtomicOperation<K> {
 
   @Autowired LambdaFunctionProvider lambdaFunctionProvider;
 

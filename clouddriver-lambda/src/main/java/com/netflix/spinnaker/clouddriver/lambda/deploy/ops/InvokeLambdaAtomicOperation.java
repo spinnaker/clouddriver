@@ -25,7 +25,6 @@ import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaF
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaFunctionOutputDescription;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.exception.LambdaOperationException;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.config.LambdaServiceConfig;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.File;
 import java.io.IOException;
@@ -47,8 +46,6 @@ public class InvokeLambdaAtomicOperation
     implements AtomicOperation<InvokeLambdaFunctionOutputDescription> {
 
   @Autowired private ArtifactDownloader artifactDownloader;
-
-  @Autowired LambdaServiceConfig operationsConfig;
 
   public InvokeLambdaAtomicOperation(InvokeLambdaFunctionDescription description) {
     super(description, "INVOKE_LAMBDA_FUNCTION");
@@ -83,7 +80,7 @@ public class InvokeLambdaAtomicOperation
       req.setQualifier(description.getQualifier());
     }
     req.setSdkRequestTimeout(description.getTimeout());
-    log.info("Invoking Lmabda function " + functionName + " and waiting for it to complete");
+    log.info("Invoking Lmabda function {} and waiting for it to complete", functionName);
     InvokeResult result = client.invoke(req);
     String ans = byteBuffer2String(result.getPayload(), Charset.forName("UTF-8"));
     InvokeLambdaFunctionOutputDescription is = new InvokeLambdaFunctionOutputDescription();

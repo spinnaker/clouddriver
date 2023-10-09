@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaFunctionDescription;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaFunctionOutputDescription;
 import com.netflix.spinnaker.clouddriver.lambda.provider.view.LambdaFunctionProvider;
-import com.netflix.spinnaker.config.LambdaServiceConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -35,7 +34,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 public class InvokeLambdaAtomicOperationTest implements LambdaTestingDefaults {
   InvokeLambdaAtomicOperation invokeOperation;
-  LambdaServiceConfig operationsConfig;
   InvokeLambdaFunctionDescription invokeDesc;
 
   @BeforeEach
@@ -51,8 +49,6 @@ public class InvokeLambdaAtomicOperationTest implements LambdaTestingDefaults {
     doReturn(cachedFunction)
         .when(lambdaFunctionProvider)
         .getFunction(anyString(), anyString(), anyString());
-    operationsConfig = new LambdaServiceConfig();
-    ReflectionTestUtils.setField(invokeOperation, "operationsConfig", operationsConfig);
     doNothing().when(invokeOperation).updateTaskStatus(anyString());
   }
 

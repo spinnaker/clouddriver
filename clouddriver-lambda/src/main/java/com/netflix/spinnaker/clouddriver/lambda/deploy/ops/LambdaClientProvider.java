@@ -26,14 +26,14 @@ import com.netflix.spinnaker.clouddriver.lambda.deploy.exception.InvalidAccountE
 import com.netflix.spinnaker.config.LambdaServiceConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class AbstractLambdaProvider {
+public class LambdaClientProvider {
   @Autowired protected AmazonClientProvider amazonClientProvider;
 
   @Autowired protected LambdaServiceConfig operationsConfig;
   private String region;
   private NetflixAmazonCredentials credentials;
 
-  public AbstractLambdaProvider(String region, NetflixAmazonCredentials credentials) {
+  public LambdaClientProvider(String region, NetflixAmazonCredentials credentials) {
     this.region = region;
     this.credentials = credentials;
   }
