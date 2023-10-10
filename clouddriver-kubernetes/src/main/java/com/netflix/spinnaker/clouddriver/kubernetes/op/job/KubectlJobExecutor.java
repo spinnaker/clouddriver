@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2023 Armory, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,13 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
 package com.netflix.spinnaker.clouddriver.kubernetes.op.job;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+<<<<<<< HEAD
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
@@ -28,6 +27,9 @@ import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobResult;
 import com.netflix.spinnaker.clouddriver.jobs.local.ReaderConsumer;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+=======
+import com.netflix.spinnaker.clouddriver.data.task.Task;
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
@@ -35,6 +37,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesSelectorList;
+<<<<<<< HEAD
 import io.github.resilience4j.retry.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -64,9 +67,29 @@ public class KubectlJobExecutor {
   private final JobExecutor jobExecutor;
   private final String executable;
   private final String oAuthExecutable;
+=======
+import io.kubernetes.client.openapi.models.V1DeleteOptions;
+import java.util.List;
+import javax.annotation.Nonnull;
 
-  private final Gson gson = new Gson();
+public interface KubectlJobExecutor {
+  String logs(
+      KubernetesCredentials credentials, String namespace, String podName, String containerName);
 
+  String jobLogs(
+      KubernetesCredentials credentials, String namespace, String jobName, String containerName);
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
+
+  Void scale(
+      KubernetesCredentials credentials,
+      KubernetesKind kind,
+      String namespace,
+      String name,
+      int replicas,
+      Task task,
+      String opName);
+
+<<<<<<< HEAD
   private final KubernetesConfigurationProperties kubernetesConfigurationProperties;
 
   private final Optional<RetryRegistry> retryRegistry;
@@ -135,29 +158,45 @@ public class KubectlJobExecutor {
   }
 
   public List<String> delete(
+=======
+  List<String> delete(
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
       KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
       KubernetesSelectorList labelSelectors,
+<<<<<<< HEAD
       V1DeleteOptions deleteOptions) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+=======
+      V1DeleteOptions deleteOptions,
+      Task task,
+      String opName);
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
 
-    command.add("delete");
+  ImmutableList<KubernetesPodMetric> topPod(
+      KubernetesCredentials credentials, String namespace, @Nonnull String pod);
 
-    command = kubectlLookupInfo(command, kind, name, labelSelectors);
+  KubernetesManifest deploy(
+      KubernetesCredentials credentials, KubernetesManifest manifest, Task task, String opName);
 
-    // spinnaker generally accepts deletes of resources that don't exist
-    command.add("--ignore-not-found=true");
+  KubernetesManifest replace(
+      KubernetesCredentials credentials, KubernetesManifest manifest, Task task, String opName);
 
+<<<<<<< HEAD
     if (deleteOptions.getOrphanDependents() != null) {
       command.add("--cascade=" + !deleteOptions.getOrphanDependents());
     }
+=======
+  KubernetesManifest create(
+      KubernetesCredentials credentials, KubernetesManifest manifest, Task task, String opName);
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
 
-    if (deleteOptions.getGracePeriodSeconds() != null) {
-      command.add("--grace-period=" + deleteOptions.getGracePeriodSeconds());
-    }
+  List<Integer> historyRollout(
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name);
 
+<<<<<<< HEAD
     if (!Strings.isNullOrEmpty(deleteOptions.getPropagationPolicy())) {
       throw new IllegalArgumentException(
           "Propagation policy is not yet supported as a delete option");
@@ -191,17 +230,24 @@ public class KubectlJobExecutor {
   }
 
   public Void scale(
+=======
+  Void undoRollout(
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
       KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
+<<<<<<< HEAD
       int replicas) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+=======
+      int revision);
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
 
-    command.add("scale");
-    command = kubectlLookupInfo(command, kind, name, null);
-    command.add("--replicas=" + replicas);
+  Void pauseRollout(
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name);
 
+<<<<<<< HEAD
     JobResult<String> status =
         executeKubectlJob(
             credentials.getAccountName() + ".scale." + kind.toString() + "/" + name,
@@ -268,10 +314,14 @@ public class KubectlJobExecutor {
   }
 
   public Void undoRollout(
+=======
+  Void resumeRollout(
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
       KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
+<<<<<<< HEAD
       int revision) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
@@ -703,38 +753,68 @@ public class KubectlJobExecutor {
   }
 
   public Void patch(
+=======
+      Task task,
+      String opName);
+
+  Void rollingRestart(
+      KubernetesCredentials credentials,
+      KubernetesKind kind,
+      String namespace,
+      String name,
+      Task task,
+      String opName);
+
+  Void patch(
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
       KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
       KubernetesPatchOptions options,
+<<<<<<< HEAD
       List<JsonPatch> patches) {
     return patch(credentials, kind, namespace, name, options, gson.toJson(patches));
   }
+=======
+      List<JsonPatch> patches,
+      Task task,
+      String opName);
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
 
-  public Void patch(
+  Void patch(
       KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
       KubernetesPatchOptions options,
+<<<<<<< HEAD
       KubernetesManifest manifest) {
     return patch(credentials, kind, namespace, name, options, gson.toJson(manifest));
   }
+=======
+      KubernetesManifest manifest,
+      Task task,
+      String opName);
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
 
-  private Void patch(
+  ImmutableList<KubernetesManifest> list(
       KubernetesCredentials credentials,
-      KubernetesKind kind,
+      List<KubernetesKind> kinds,
       String namespace,
+<<<<<<< HEAD
       String name,
       KubernetesPatchOptions options,
       String patchBody) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+=======
+      KubernetesSelectorList selectors);
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
 
-    command.add("patch");
-    command.add(kind.toString());
-    command.add(name);
+  KubernetesManifest get(
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name);
 
+<<<<<<< HEAD
     if (options.isRecord()) {
       command.add("--record");
     }
@@ -964,4 +1044,8 @@ public class KubectlJobExecutor {
       super(message);
     }
   }
+=======
+  ImmutableList<KubernetesManifest> eventsFor(
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name);
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
 }

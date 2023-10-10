@@ -20,7 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.op.handler;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestStrategy;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.job.DefaultKubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesSelectorList;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
@@ -46,8 +46,15 @@ public interface CanDeploy {
               manifest.getNamespace(),
               manifest.getName(),
               new KubernetesSelectorList(),
+<<<<<<< HEAD
               new V1DeleteOptions());
         } catch (KubectlJobExecutor.KubectlException ignored) {
+=======
+              new V1DeleteOptions(),
+              task,
+              opName);
+        } catch (DefaultKubectlJobExecutor.KubectlException ignored) {
+>>>>>>> bb0487805 (feat(kubectl): Extract interface for KubectlJobExecutor and use it. (#6076))
         }
         deployedManifest = credentials.deploy(manifest);
         break;
