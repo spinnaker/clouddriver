@@ -14,22 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.lambda.service.config;
+package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConfigurationProperties(prefix = "aws.lambda")
+@ConfigurationProperties(prefix = "aws.lambda.ops")
 @Data
-public class LambdaServiceConfig {
-
-  private Retry retry = new Retry();
-
-  @Data
-  public static class Retry {
-    private int timeout = 15;
-    private int retries = 5;
-  }
+public class LambdaOperationsConfig {
+  // Matches AWS SDK default value
+  private int invokeTimeoutMs = 50000;
 }
