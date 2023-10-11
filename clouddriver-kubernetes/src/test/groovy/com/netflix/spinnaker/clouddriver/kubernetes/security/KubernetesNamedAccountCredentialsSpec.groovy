@@ -26,7 +26,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinna
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesManifestNamer
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesNamerRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregisteredCustomResourceHandler
-import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor
+import com.netflix.spinnaker.clouddriver.kubernetes.op.job.DefaultKubectlJobExecutor
 import com.netflix.spinnaker.fiat.model.Authorization
 import com.netflix.spinnaker.kork.configserver.ConfigFileService
 import spock.lang.Specification
@@ -41,7 +41,7 @@ class KubernetesNamedAccountCredentialsSpec extends Specification {
   KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap = new KubernetesSpinnakerKindMap(ImmutableList.of())
   GlobalResourcePropertyRegistry globalResourcePropertyRegistry = new GlobalResourcePropertyRegistry(ImmutableList.of(), new KubernetesUnregisteredCustomResourceHandler())
 
-  KubectlJobExecutor mockKubectlJobExecutor = Mock(KubectlJobExecutor)
+  DefaultKubectlJobExecutor mockKubectlJobExecutor = Mock(DefaultKubectlJobExecutor)
 
   KubernetesCredentials.Factory credentialFactory = new KubernetesCredentials.Factory(
     new NoopRegistry(),
@@ -58,7 +58,7 @@ class KubernetesNamedAccountCredentialsSpec extends Specification {
   void "should equal 2 Kubernetes accounts with same kubeconfig content"() {
     setup:
       def file1 = Files.createTempFile("test", "")
-      file1.append("some content")
+      file1.toFile().append("some content")
       def account1Def = new ManagedAccount()
       account1Def.setName("test")
       account1Def.setCacheThreads(1)
@@ -67,7 +67,7 @@ class KubernetesNamedAccountCredentialsSpec extends Specification {
       account1Def.setKubeconfigFile(file1.toString())
 
       def file2 = Files.createTempFile("other", "")
-      file2.append("some content")
+      file2.toFile().append("some content")
       def account2Def = new ManagedAccount()
       account2Def.setName("test")
       account2Def.setCacheThreads(1)

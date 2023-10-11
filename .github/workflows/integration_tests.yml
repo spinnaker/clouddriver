@@ -10,43 +10,43 @@ env:
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Xmx6g -Xms6g
 
 jobs:
+  it-test-kubernetes:
+    uses: ./.github/workflows/integration-tests-kubernetes.yml
   it-test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    # Install Java 8 for cross-compilation support. Setting it up before
-    # Java 11 means it comes later in $PATH (because of how setup-java works)
-    - uses: actions/setup-java@v3
-      with:
-        java-version: 8
-        distribution: 'zulu'
-    - uses: actions/setup-java@v3
-      with:
-        java-version: 11
-        distribution: 'zulu'
-    - name: Cache on push
-      if: github.event_name == 'push'
-      uses: actions/cache@v3
-      with:
-        path: ~/.gradle
-        key: ${{ runner.os }}-cd-it-${{ github.sha }}
-        # Restore build outputs from the previous commit (if successful), if current commit hasn't run successfully yet
-        restore-keys: |
-          ${{ runner.os }}-cd-it-${{ github.event.before }}
-    - name: Cache on pull_request
-      if: github.event_name == 'pull_request'
-      uses: actions/cache@v3
-      with:
-        path: ~/.gradle
-        key: ${{ runner.os }}-cd-it-${{ github.event.pull_request.head.sha }}
-        restore-keys: |
-          ${{ runner.os }}-cd-it-${{ github.event.before }}
-    # Separating integration tests by provider allows to have separate logs
-    - name: Kubernetes Provider Integration Tests
-      run: ./gradlew --build-cache :clouddriver-kubernetes:integrationTest
-    - name: Amazon ECS Provider Integration Tests
-      run: ./gradlew --build-cache :clouddriver-ecs:integrationTest
-    - name: Artifacts Integration Tests
-      run: ./gradlew --build-cache :clouddriver-artifacts:integrationTest
-    - name: AWS EC2 Provider Integration Tests
-      run: ./gradlew --build-cache :clouddriver-aws:integrationTest
+      - uses: actions/checkout@v4
+      # Install Java 8 for cross-compilation support. Setting it up before
+      # Java 11 means it comes later in $PATH (because of how setup-java works)
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 8
+          distribution: 'zulu'
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'zulu'
+      - name: Cache on push
+        if: github.event_name == 'push'
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle
+          key: ${{ runner.os }}-cd-it-${{ github.sha }}
+          # Restore build outputs from the previous commit (if successful), if current commit hasn't run successfully yet
+          restore-keys: |
+            ${{ runner.os }}-cd-it-${{ github.event.before }}
+      - name: Cache on pull_request
+        if: github.event_name == 'pull_request'
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle
+          key: ${{ runner.os }}-cd-it-${{ github.event.pull_request.head.sha }}
+          restore-keys: |
+            ${{ runner.os }}-cd-it-${{ github.event.before }}
+      # Separating integration tests by provider allows to have separate logs
+      - name: Amazon ECS Provider Integration Tests
+        run: ./gradlew --build-cache :clouddriver-ecs:integrationTest
+      - name: Artifacts Integration Tests
+        run: ./gradlew --build-cache :clouddriver-artifacts:integrationTest
+      - name: AWS EC2 Provider Integration Tests
+        run: ./gradlew --build-cache :clouddriver-aws:integrationTest
