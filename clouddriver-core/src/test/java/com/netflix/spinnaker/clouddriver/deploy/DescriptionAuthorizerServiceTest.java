@@ -26,56 +26,60 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.netflix.spectator.api.NoopRegistry;
+import com.netflix.spectator.api.DefaultRegistry;
 import com.netflix.spinnaker.clouddriver.security.AccountDefinitionSecretManager;
-import com.netflix.spinnaker.clouddriver.security.DefaultAccountSecurityPolicy;
 import com.netflix.spinnaker.clouddriver.security.config.SecurityConfig;
 import com.netflix.spinnaker.clouddriver.security.resources.AccountNameable;
 import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
 import com.netflix.spinnaker.clouddriver.security.resources.ResourcesNameable;
 import com.netflix.spinnaker.fiat.model.resources.ResourceType;
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator;
-import com.netflix.spinnaker.kork.secrets.user.UserSecretManager;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 import lombok.Getter;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 public class DescriptionAuthorizerServiceTest {
 
-  private final NoopRegistry registry = new NoopRegistry();
+  private final DefaultRegistry registry = new DefaultRegistry();
   private final FiatPermissionEvaluator evaluator = mock(FiatPermissionEvaluator.class);
-  private final UserSecretManager userSecretManager = mock(UserSecretManager.class);
+  private final AccountDefinitionSecretManager secretManager =
+      mock(AccountDefinitionSecretManager.class);
   private SecurityConfig.OperationsSecurityConfigurationProperties opsSecurityConfigProps;
   private DescriptionAuthorizerService service;
+  private final String username = "testUser";
 
   @BeforeEach
   public void setup() {
     opsSecurityConfigProps = new SecurityConfig.OperationsSecurityConfigurationProperties();
     service =
         new DescriptionAuthorizerService(
-            registry,
-            Optional.of(evaluator),
-            opsSecurityConfigProps,
-            new AccountDefinitionSecretManager(
-                userSecretManager, new DefaultAccountSecurityPolicy(evaluator)));
-    TestingAuthenticationToken auth = new TestingAuthenticationToken(null, null);
+            registry, Optional.of(evaluator), opsSecurityConfigProps, secretManager);
+    TestingAuthenticationToken auth = new TestingAuthenticationToken(username, null);
     SecurityContextHolder.getContext().setAuthentication(auth);
   }
 
-  @Test
-  public void shouldAuthorizePassedDescription() {
+  @AfterEach
+  public void resetRegistry() {
+    registry.reset();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void shouldAuthorizePassedDescription(boolean hasPermission) {
     TestDescription description =
         new TestDescription(
             "testAccount",
@@ -84,15 +88,20 @@ public class DescriptionAuthorizerServiceTest {
 
     DescriptionValidationErrors errors = new DescriptionValidationErrors(description);
 
+    when(secretManager.canAccessAccountWithSecrets(username, "testAccount"))
+        .thenReturn(hasPermission);
     when(evaluator.hasPermission(any(Authentication.class), anyString(), anyString(), anyString()))
-        .thenReturn(false);
+        .thenReturn(hasPermission);
 
     service.authorize(description, errors);
 
-    assertEquals(errors.getAllErrors().size(), 4);
+    assertEquals(hasPermission ? 0 : 4, errors.getAllErrors().size());
+    verify(secretManager).canAccessAccountWithSecrets(username, "testAccount");
     verify(evaluator, times(3))
         .hasPermission(any(Authentication.class), anyString(), anyString(), anyString());
     verify(evaluator, times(1)).storeWholePermission();
+
+    verifySuccessMetric(hasPermission, "TestDescription");
   }
 
   private static Stream<Arguments> provideSkipAuthenticationForImageTaggingArgs() {
@@ -115,15 +124,28 @@ public class DescriptionAuthorizerServiceTest {
     service.authorize(description, errors);
 
     assertEquals(errors.getAllErrors().size(), expectedNumberOfErrors);
+    if (!allowUnauthenticatedImageTaggingInAccounts.isEmpty()
+        && allowUnauthenticatedImageTaggingInAccounts.get(0).equals("testAccount")) {
+      verify(secretManager, never()).canAccessAccountWithSecrets(username, "testAccount");
+    } else {
+      verify(secretManager).canAccessAccountWithSecrets(username, "testAccount");
+    }
     verify(evaluator, never())
         .hasPermission(any(Authentication.class), anyString(), anyString(), anyString());
     verify(evaluator, never()).storeWholePermission();
+
+    verifySuccessMetric(expectedNumberOfErrors == 0, "TestImageTaggingDescription");
+
+    assertEquals(
+        expectedNumberOfErrors > 0 ? 0 : 1,
+        registry
+            .counter("authorization.skipped", "descriptionClass", "TestImageTaggingDescription")
+            .count());
   }
 
   @ParameterizedTest
-  @CsvSource({"APPLICATION, 3, 3", "ACCOUNT, 0, 1"})
-  public void shouldOnlyAuthzSpecifiedResourceType(
-      ResourceType resourceType, int expectedNumberOfAuthChecks, int expectedNumberOfErrors) {
+  @CsvSource({"APPLICATION", "ACCOUNT"})
+  public void shouldOnlyAuthzSpecifiedResourceType(ResourceType resourceType) {
     TestDescription description =
         new TestDescription(
             "testAccount",
@@ -132,14 +154,51 @@ public class DescriptionAuthorizerServiceTest {
 
     DescriptionValidationErrors errors = new DescriptionValidationErrors(description);
 
-    when(evaluator.hasPermission(any(Authentication.class), anyString(), anyString(), anyString()))
-        .thenReturn(false);
-
     service.authorize(description, errors, List.of(resourceType));
 
-    assertEquals(errors.getAllErrors().size(), expectedNumberOfErrors);
-    verify(evaluator, times(expectedNumberOfAuthChecks))
-        .hasPermission(any(Authentication.class), any(), any(), any());
+    if (resourceType.equals(ResourceType.APPLICATION)) {
+      verify(evaluator, times(3)).hasPermission(any(Authentication.class), any(), any(), any());
+      assertEquals(3, errors.getAllErrors().size());
+    } else {
+      verify(secretManager).canAccessAccountWithSecrets(username, "testAccount");
+      assertEquals(1, errors.getAllErrors().size());
+    }
+
+    verifySuccessMetric(false, "TestDescription");
+  }
+
+  @Test
+  public void shouldAddMetricWithApplicationRestrictionAndNoAccount() {
+    TestDescription description = new TestDescription("testAccount", List.of(), List.of());
+    DescriptionValidationErrors errors = new DescriptionValidationErrors(description);
+
+    service.authorize(description, errors);
+
+    assertEquals(errors.getAllErrors().size(), 1);
+    assertEquals(
+        1,
+        registry
+            .counter(
+                "authorization.missingApplication",
+                "descriptionClass",
+                "TestDescription",
+                "hasValidationErrors",
+                "true")
+            .count());
+    verifySuccessMetric(false, "TestDescription");
+  }
+
+  private void verifySuccessMetric(boolean success, String descriptionClass) {
+    assertEquals(
+        1,
+        registry
+            .counter(
+                "authorization",
+                "descriptionClass",
+                descriptionClass,
+                "success",
+                String.valueOf(success))
+            .count());
   }
 
   @Getter
