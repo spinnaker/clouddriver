@@ -17,7 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.appengine.deploy.ops;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.appengine.deploy.description.DeployAppengineConfigDescription;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
+import com.netflix.spinnaker.kork.artifacts.ArtifactTypes;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -35,8 +36,8 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.io.FileUtils;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 public class DeployAppengineConfigAtomicOperationTest {
@@ -46,7 +47,7 @@ public class DeployAppengineConfigAtomicOperationTest {
   ObjectMapper mapper;
   ArtifactDownloader artifactDownloader = mock(ArtifactDownloader.class);
 
-  @Before
+  @BeforeEach
   public void init() {
     deployAppengineConfigAtomicOperation = new DeployAppengineConfigAtomicOperation(description);
     mapper = new ObjectMapper();
@@ -73,7 +74,7 @@ public class DeployAppengineConfigAtomicOperationTest {
     artifactMap.put("artifactAccount", "embedded-artifact");
     artifactMap.put("id", "123abc");
     artifactMap.put("reference", "ZG9zb21ldGhpbmc=");
-    artifactMap.put("type", "embedded/base64");
+    artifactMap.put("type", ArtifactTypes.EMBEDDED_BASE64.getMimeType());
     Artifact artifact = mapper.convertValue(artifactMap, Artifact.class);
 
     Path path = null;

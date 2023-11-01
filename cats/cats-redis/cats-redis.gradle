@@ -13,5 +13,9 @@ dependencies {
   testImplementation project(":cats:cats-test")
   testImplementation "io.spinnaker.kork:kork-jedis-test"
 
+  testImplementation "org.apache.commons:commons-lang3"
+  testImplementation "org.assertj:assertj-core"
+  testImplementation "org.mockito:mockito-core"
   testImplementation "org.spockframework:spock-core"
+  testImplementation "org.junit.jupiter:junit-jupiter-api"
 }

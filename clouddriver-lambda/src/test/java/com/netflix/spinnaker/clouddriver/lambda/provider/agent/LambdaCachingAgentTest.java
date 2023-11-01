@@ -32,8 +32,8 @@ import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
 import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class LambdaCachingAgentTest {
   private ObjectMapper objectMapper = new ObjectMapper();
@@ -46,10 +46,9 @@ public class LambdaCachingAgentTest {
   private LambdaCachingAgent lambdaCachingAgent;
   private final ProviderCache cache = mock(ProviderCache.class);
 
-  @Before
+  @BeforeEach
   public void setup() {
     when(config.getRetry()).thenReturn(new LambdaServiceConfig.Retry());
-    when(config.getConcurrency()).thenReturn(new LambdaServiceConfig.Concurrency());
     when(serviceLimitConfiguration.getLimit(any(), any(), any(), any(), any())).thenReturn(1.0);
     lambdaCachingAgent =
         new LambdaCachingAgent(

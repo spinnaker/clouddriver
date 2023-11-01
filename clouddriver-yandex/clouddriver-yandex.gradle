@@ -14,12 +14,8 @@ dependencies {
   testAnnotationProcessor "org.projectlombok:lombok"
 
   implementation 'com.yandex.cloud:java-sdk-services:2.1.1'
-  compile("io.opencensus:opencensus-api:0.21.0") {
-    force = true
-  }
-  compile("io.opencensus:opencensus-contrib-grpc-metrics:0.21.0") {
-    force = true
-  }
+  compileOnly "io.opencensus:opencensus-api"
+  compileOnly "io.opencensus:opencensus-contrib-grpc-metrics"
   implementation "org.codehaus.groovy:groovy-datetime"
   implementation "org.apache.commons:commons-lang3"
   implementation "com.netflix.frigga:frigga"
@@ -37,7 +33,6 @@ dependencies {
   testImplementation "org.apache.httpcomponents:httpmime"
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
-  testImplementation "org.junit.platform:junit-platform-runner"
   testImplementation "org.mockito:mockito-core"
   testImplementation "org.mockito:mockito-junit-jupiter"
   testImplementation "org.objenesis:objenesis"
@@ -46,4 +41,9 @@ dependencies {
   testImplementation "org.springframework:spring-test"
   testImplementation "org.springframework.boot:spring-boot-test"
   testImplementation "org.springframework.boot:spring-boot-starter-test"
+}
+
+configurations.all {
+   resolutionStrategy.force 'io.opencensus:opencensus-api:0.21.0'
+   resolutionStrategy.force 'io.opencensus:opencensus-contrib-grpc-metrics:0.21.0'
 }

@@ -63,7 +63,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesReplica
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesServiceHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregisteredCustomResourceHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ManifestFetcher;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.job.DefaultKubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.*;
 import com.netflix.spinnaker.clouddriver.model.Application;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
@@ -89,12 +89,9 @@ import org.assertj.core.api.junit.jupiter.SoftAssertionsExtension;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.platform.runner.JUnitPlatform;
-import org.junit.runner.RunWith;
 import org.mockito.internal.stubbing.defaultanswers.ReturnsSmartNulls;
 
 @ExtendWith(SoftAssertionsExtension.class)
-@RunWith(JUnitPlatform.class)
 final class KubernetesDataProviderIntegrationTest {
   private static final String ACCOUNT_NAME = "my-account";
   private static final Registry registry = new NoopRegistry();
@@ -577,8 +574,9 @@ final class KubernetesDataProviderIntegrationTest {
     softly.assertThat(coordinates).isEmpty();
   }
 
-  private static KubectlJobExecutor getJobExecutor() {
-    KubectlJobExecutor jobExecutor = mock(KubectlJobExecutor.class, new ReturnsSmartNulls());
+  private static DefaultKubectlJobExecutor getJobExecutor() {
+    DefaultKubectlJobExecutor jobExecutor =
+        mock(DefaultKubectlJobExecutor.class, new ReturnsSmartNulls());
     when(jobExecutor.list(
             any(KubernetesCredentials.class),
             anyList(),
