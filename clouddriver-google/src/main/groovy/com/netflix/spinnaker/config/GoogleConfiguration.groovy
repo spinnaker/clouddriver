@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.config
 
-
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.config.GoogleCredentialsConfiguration
 
@@ -25,6 +25,8 @@ import com.netflix.spinnaker.clouddriver.google.health.GoogleHealthIndicator
 import com.netflix.spinnaker.clouddriver.google.model.GoogleDisk
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstanceTypeDisk
 import com.netflix.spinnaker.clouddriver.google.provider.GoogleInfrastructureProvider
+import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.credentials.CredentialsTypeBaseConfiguration
 import groovy.transform.ToString
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -49,8 +51,10 @@ class GoogleConfiguration {
   }
 
   @Bean
-  GoogleHealthIndicator googleHealthIndicator() {
-    new GoogleHealthIndicator()
+  GoogleHealthIndicator googleHealthIndicator(Registry registry,
+                                              CredentialsTypeBaseConfiguration<GoogleNamedAccountCredentials, ?> credentialsTypeBaseConfiguration,
+                                              GoogleConfigurationProperties googleConfigurationProperties) {
+    new GoogleHealthIndicator(registry, credentialsTypeBaseConfiguration, googleConfigurationProperties)
   }
 
   @Bean

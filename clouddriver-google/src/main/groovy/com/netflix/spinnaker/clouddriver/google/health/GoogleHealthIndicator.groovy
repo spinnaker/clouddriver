@@ -18,15 +18,12 @@ package com.netflix.spinnaker.clouddriver.google.health
 
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
-import com.netflix.spinnaker.clouddriver.google.security.GoogleCredentials
+import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import com.netflix.spinnaker.credentials.CredentialsRepository
 import com.netflix.spinnaker.credentials.CredentialsTypeBaseConfiguration
 import groovy.transform.InheritConstructors
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.actuate.health.Health
 import org.springframework.boot.actuate.health.HealthIndicator
 import org.springframework.http.HttpStatus
@@ -41,13 +38,22 @@ class GoogleHealthIndicator implements HealthIndicator, GoogleExecutorTraits {
 
   private static final Logger LOG = LoggerFactory.getLogger(GoogleHealthIndicator)
 
-  @Autowired
   Registry registry
 
-  @Autowired
   CredentialsTypeBaseConfiguration<GoogleNamedAccountCredentials, ?> credentialsTypeBaseConfiguration
 
+  GoogleConfigurationProperties googleConfigurationProperties
+
   private final AtomicReference<Exception> lastException = new AtomicReference<>(null)
+
+  GoogleHealthIndicator(
+    Registry registry,
+    CredentialsTypeBaseConfiguration<GoogleNamedAccountCredentials, ?> credentialsTypeBaseConfiguration,
+    GoogleConfigurationProperties googleConfigurationProperties) {
+    this.registry = registry;
+    this.credentialsTypeBaseConfiguration = credentialsTypeBaseConfiguration;
+    this.googleConfigurationProperties = googleConfigurationProperties;
+  }
 
   @Override
   Health health() {
@@ -62,6 +68,7 @@ class GoogleHealthIndicator implements HealthIndicator, GoogleExecutorTraits {
 
   @Scheduled(fixedDelay = 300000L)
   void checkHealth() {
+    if (googleConfigurationProperties.getHealth().getVerifyAccountHealth()) {
       try {
         credentialsTypeBaseConfiguration.credentialsRepository?.all?.forEach({
           try {
@@ -78,7 +85,10 @@ class GoogleHealthIndicator implements HealthIndicator, GoogleExecutorTraits {
 
         lastException.set(ex)
       }
+    } else {
+      LOG.info("google.health.verifyAccountHealth flag is disabled - not verifying connection to the GCP accounts");
     }
+  }
 
   @ResponseStatus(value = HttpStatus.SERVICE_UNAVAILABLE, reason = "Problem communicating with Google.")
   @InheritConstructors
