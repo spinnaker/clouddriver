@@ -17,15 +17,11 @@
 package com.netflix.spinnaker.clouddriver.google.health
 
 
-import com.google.api.client.testing.http.MockLowLevelHttpRequest
-import com.google.api.client.testing.http.MockLowLevelHttpResponse
 import com.google.api.services.compute.model.Project
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableMap
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.clouddriver.google.compute.FakeGoogleComputeRequest
-import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.provider.agent.StubComputeFactory
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import com.netflix.spinnaker.credentials.CredentialsRepository
@@ -41,19 +37,11 @@ class GoogleHealthIndicatorSpec extends Specification {
   private static final String PROJECT = "myproject"
   private static final String REGION = "myregion"
   private static final String ZONE = REGION + "-myzone"
-
   private static final Registry REGISTRY = new NoopRegistry()
-  GoogleConfigurationProperties googleConfigurationProperties
-
-  void setup() {
-    googleConfigurationProperties = new GoogleConfigurationProperties()
-  }
 
   @Unroll
   def "health succeeds when google is reachable"() {
     setup:
-    googleConfigurationProperties.health.setVerifyAccountHealth(true)
-
     def applicationContext = Mock(ApplicationContext)
     def project = new Project()
     project.setName(PROJECT)
@@ -78,10 +66,9 @@ class GoogleHealthIndicatorSpec extends Specification {
     def credentialsTypeBaseConfiguration = new CredentialsTypeBaseConfiguration(applicationContext, null)
     credentialsTypeBaseConfiguration.credentialsRepository = credentialsRepository
 
-    def indicator = new GoogleHealthIndicator(
-      REGISTRY,
-      credentialsTypeBaseConfiguration,
-      googleConfigurationProperties)
+    def indicator = new GoogleHealthIndicator()
+    indicator.registry = REGISTRY
+    indicator.credentialsTypeBaseConfiguration = credentialsTypeBaseConfiguration
 
     when:
     indicator.checkHealth()
@@ -90,40 +77,11 @@ class GoogleHealthIndicatorSpec extends Specification {
     then:
     health.status == Status.UP
     health.details.isEmpty()
-  }
-
-  @Unroll
-  def "health succeeds when google check is disabled"() {
-    setup:
-    googleConfigurationProperties.health.setVerifyAccountHealth(false)
-
-    def applicationContext = Mock(ApplicationContext)
-
-    def credentialsTypeBaseConfiguration = new CredentialsTypeBaseConfiguration(applicationContext, null)
-
-    def indicator = new GoogleHealthIndicator(
-      REGISTRY,
-      credentialsTypeBaseConfiguration,
-      googleConfigurationProperties)
-
-    when:
-    indicator.checkHealth()
-    def health = indicator.health()
-
-    then:
-    health.status == Status.UP
-    health.details.isEmpty()
-  }
-
-  private MockLowLevelHttpResponse project(MockLowLevelHttpRequest request) {
-    return FakeGoogleComputeRequest.createWithException(new IOException("Read timed out")) as MockLowLevelHttpResponse
   }
 
   @Unroll
   def "health throws exception when google appears unreachable"() {
     setup:
-    googleConfigurationProperties.health.setVerifyAccountHealth(true)
-
     def applicationContext = Mock(ApplicationContext)
     def project = new Project()
     project.setName(PROJECT)
@@ -149,10 +107,9 @@ class GoogleHealthIndicatorSpec extends Specification {
     def credentialsTypeBaseConfiguration = new CredentialsTypeBaseConfiguration(applicationContext, null)
     credentialsTypeBaseConfiguration.credentialsRepository = credentialsRepository
 
-    def indicator = new GoogleHealthIndicator(
-      REGISTRY,
-      credentialsTypeBaseConfiguration,
-      googleConfigurationProperties)
+    def indicator = new GoogleHealthIndicator()
+    indicator.registry = REGISTRY
+    indicator.credentialsTypeBaseConfiguration = credentialsTypeBaseConfiguration
 
     when:
     indicator.checkHealth()
