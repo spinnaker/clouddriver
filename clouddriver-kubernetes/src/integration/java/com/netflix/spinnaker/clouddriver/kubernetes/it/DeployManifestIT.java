@@ -1802,7 +1802,7 @@ public class DeployManifestIT extends BaseTest {
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .withValue(
                 "metadata.annotations",
-                ImmutableMap.of("strategy.spinnaker.io/server-side-apply", "true"))
+                ImmutableMap.of("strategy.spinnaker.io/server-side-apply", "force-conflicts"))
             .asList();
 
     // ------------------------- when --------------------------
@@ -1851,6 +1851,52 @@ public class DeployManifestIT extends BaseTest {
             + DEPLOYMENT_1_NAME
             + " deployment to be managed server-side. managedFields:\n"
             + managedFields);
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a deployment manifest with server-side-apply disabled set\n"
+          + "When sending deploy manifest request\n"
+          + "Then a deployment is created using client-side apply\n===")
+  @Test
+  public void shouldDeployUsingApplyWithServerSideApplyDisabled()
+      throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String appName = "server-side-apply-disabled";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", DEPLOYMENT_1_NAME)
+            .withValue(
+                "metadata.annotations",
+                ImmutableMap.of("strategy.spinnaker.io/server-side-apply", "false"))
+            .asList();
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+
+    // ------------------------- then --------------------------
+    String lastAppliedConfiguration =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get deployment "
+                + DEPLOYMENT_1_NAME
+                + " -o=jsonpath='{.metadata.annotations.kubectl\\.kubernetes\\.io/last-applied-configuration}'");
+    assertTrue(
+        Strings.isNotEmpty(lastAppliedConfiguration),
+        "Expected last-applied-configuration for "
+            + DEPLOYMENT_1_NAME
+            + " deployment to exist and be managed client-side. fields:\n"
+            + lastAppliedConfiguration);
   }
 
   @DisplayName(
