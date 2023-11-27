@@ -46,6 +46,7 @@ class GoogleConfiguration {
   }
 
   @Bean
+  @ConditionalOnProperty("google.health.verifyAccountHealth")
   GoogleHealthIndicator googleHealthIndicator() {
     new GoogleHealthIndicator()
   }
