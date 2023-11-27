@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.google.health
 
-
 import com.google.api.services.compute.model.Project
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableMap
@@ -24,10 +23,9 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.google.provider.agent.StubComputeFactory
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import com.netflix.spinnaker.credentials.CredentialsRepository
-import com.netflix.spinnaker.credentials.CredentialsTypeBaseConfiguration
+import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
+import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
 import org.springframework.boot.actuate.health.Status
-import org.springframework.context.ApplicationContext
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -42,7 +40,6 @@ class GoogleHealthIndicatorSpec extends Specification {
   @Unroll
   def "health succeeds when google is reachable"() {
     setup:
-    def applicationContext = Mock(ApplicationContext)
     def project = new Project()
     project.setName(PROJECT)
 
@@ -59,16 +56,15 @@ class GoogleHealthIndicatorSpec extends Specification {
         .build()
 
     def credentials = [googleNamedAccountCredentials]
-    def credentialsRepository = Stub(CredentialsRepository) {
+    def credentialsRepository = Stub(MapBackedAccountCredentialsRepository) {
       getAll() >> credentials
     }
 
-    def credentialsTypeBaseConfiguration = new CredentialsTypeBaseConfiguration(applicationContext, null)
-    credentialsTypeBaseConfiguration.credentialsRepository = credentialsRepository
+    def accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepository)
 
     def indicator = new GoogleHealthIndicator()
     indicator.registry = REGISTRY
-    indicator.credentialsTypeBaseConfiguration = credentialsTypeBaseConfiguration
+    indicator.accountCredentialsProvider = accountCredentialsProvider
 
     when:
     indicator.checkHealth()
@@ -82,7 +78,6 @@ class GoogleHealthIndicatorSpec extends Specification {
   @Unroll
   def "health throws exception when google appears unreachable"() {
     setup:
-    def applicationContext = Mock(ApplicationContext)
     def project = new Project()
     project.setName(PROJECT)
 
@@ -100,16 +95,15 @@ class GoogleHealthIndicatorSpec extends Specification {
         .build()
 
     def credentials = [googleNamedAccountCredentials]
-    def credentialsRepository = Stub(CredentialsRepository) {
+    def credentialsRepository = Stub(MapBackedAccountCredentialsRepository) {
       getAll() >> credentials
     }
 
-    def credentialsTypeBaseConfiguration = new CredentialsTypeBaseConfiguration(applicationContext, null)
-    credentialsTypeBaseConfiguration.credentialsRepository = credentialsRepository
+    def accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepository)
 
     def indicator = new GoogleHealthIndicator()
     indicator.registry = REGISTRY
-    indicator.credentialsTypeBaseConfiguration = credentialsTypeBaseConfiguration
+    indicator.accountCredentialsProvider = accountCredentialsProvider
 
     when:
     indicator.checkHealth()
