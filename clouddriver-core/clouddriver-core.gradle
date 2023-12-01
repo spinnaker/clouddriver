@@ -56,7 +56,8 @@ dependencies {
   testImplementation project(":clouddriver-core-tck")
 
   testImplementation "cglib:cglib-nodep"
-  testImplementation "com.github.stefanbirkner:system-lambda:1.2.1"
+  testImplementation "uk.org.webcompere:system-stubs-core:2.1.5"
+  testImplementation "uk.org.webcompere:system-stubs-jupiter:2.1.5"
   testImplementation "io.spinnaker.kork:kork-jedis-test"
   testImplementation "io.spinnaker.kork:kork-test"
   testImplementation "org.objenesis:objenesis"
@@ -64,7 +65,6 @@ dependencies {
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
-  testImplementation "org.junit.jupiter:junit-jupiter-engine"
   testImplementation "org.junit.jupiter:junit-jupiter-params"
   testImplementation "org.mockito:mockito-core"
   testImplementation "org.springframework.boot:spring-boot-test"

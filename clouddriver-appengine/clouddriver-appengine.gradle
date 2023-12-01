@@ -25,6 +25,7 @@ dependencies {
   implementation "io.spinnaker.kork:kork-retrofit"
   implementation "com.netflix.spectator:spectator-api"
   implementation "com.squareup.okhttp:okhttp"
+  implementation "com.squareup.retrofit:converter-jackson"
   implementation "com.squareup.retrofit:retrofit"
   implementation "commons-io:commons-io"
   implementation "org.apache.commons:commons-compress:1.21"
@@ -44,7 +45,6 @@ dependencies {
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
-  testImplementation "org.junit.jupiter:junit-jupiter-engine"
   testImplementation "org.mockito:mockito-core"
 
 }

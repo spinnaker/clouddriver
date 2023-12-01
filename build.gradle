@@ -17,7 +17,6 @@
 
 buildscript {
   ext {
-    kotlinVersion = "1.4.10"
     junitPlatformVersion = "1.0.2"
   }
 
@@ -62,7 +61,7 @@ subprojects {
       annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
       testAnnotationProcessor platform("io.spinnaker.kork:kork-bom:$korkVersion")
       testAnnotationProcessor "org.projectlombok:lombok"
-      testRuntimeOnly "org.junit.vintage:junit-vintage-engine" // Required for Spock tests to execute along with Junit5 tests.
+      testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
     }
 
     test {
@@ -100,6 +99,17 @@ subprojects {
     logger.info("Enabling mavenLocal")
     repositories {
       mavenLocal()
+    }
+  }
+
+  tasks.withType(JavaCompile).configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+      languageVersion = JavaLanguageVersion.of(11)
+    }
+  }
+  tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+      languageVersion = JavaLanguageVersion.of(17)
     }
   }
 

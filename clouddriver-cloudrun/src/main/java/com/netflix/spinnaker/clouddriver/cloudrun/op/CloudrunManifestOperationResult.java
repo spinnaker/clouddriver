@@ -19,9 +19,7 @@ package com.netflix.spinnaker.clouddriver.cloudrun.op;
 
 import com.netflix.spinnaker.clouddriver.cloudrun.model.CloudrunService;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -31,7 +29,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 public class CloudrunManifestOperationResult extends DeploymentResult {
-  private Map<String, Set<String>> manifestNamesByNamespace = new HashMap<>();
+
   private Set<CloudrunService> manifests = new HashSet<>();
 
   public CloudrunManifestOperationResult addManifest(CloudrunService manifest) {

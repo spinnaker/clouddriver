@@ -27,7 +27,6 @@ dependencies {
   testImplementation "io.mockk:mockk"
 
   testRuntimeOnly "org.junit.platform:junit-platform-launcher"
-  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
 }
 
 test {
@@ -38,7 +37,7 @@ test {
 
 compileTestKotlin {
   kotlinOptions {
-    languageVersion = "1.4"
+    languageVersion = "1.5"
     jvmTarget = "11"
   }
 }
