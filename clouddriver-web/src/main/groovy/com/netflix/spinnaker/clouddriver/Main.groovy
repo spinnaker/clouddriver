@@ -28,8 +28,6 @@ import org.springframework.boot.actuate.autoconfigure.elasticsearch.ElasticSearc
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.autoconfigure.batch.BatchAutoConfiguration
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.groovy.template.GroovyTemplateAutoConfiguration
 import org.springframework.boot.autoconfigure.gson.GsonAutoConfiguration
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
@@ -42,7 +40,6 @@ import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder
 import org.springframework.scheduling.annotation.EnableScheduling
-import sun.net.InetAddressCachePolicy
 
 import java.security.Security
 
@@ -73,7 +70,6 @@ class Main extends SpringBootServletInitializer {
      * We often operate in an environment where we expect resolution of DNS names for remote dependencies to change
      * frequently, so it's best to tell the JVM to avoid caching DNS results internally.
      */
-    InetAddressCachePolicy.cachePolicy = InetAddressCachePolicy.NEVER
     Security.setProperty('networkaddress.cache.ttl', '0')
     System.setProperty("spring.main.allow-bean-definition-overriding", "true")
   }
@@ -88,18 +84,10 @@ class Main extends SpringBootServletInitializer {
 
   @Bean
   @Primary
-  @ConditionalOnBean(value = ArtifactDeserializer.class)
   ObjectMapper objectMapper(Jackson2ObjectMapperBuilder builder) {
     return builder.createXmlMapper(false)
       .mixIn(Artifact.class, ArtifactMixin.class)
       .build()
-  }
-
-  @Bean
-  @Primary
-  @ConditionalOnMissingBean(value = ArtifactDeserializer.class)
-  ObjectMapper jacksonObjectMapper(Jackson2ObjectMapperBuilder builder) {
-    return builder.createXmlMapper(false).build()
   }
 
   @Override
@@ -110,8 +98,8 @@ class Main extends SpringBootServletInitializer {
   }
 
   /**
-   * Used to deserialize artifacts utilizing an artifact store if it is enabled,
-   * and thus bypassing the default deserializer on the artifact object itself.
+   * Used to deserialize artifacts utilizing an artifact store, and thus
+   * bypassing the default deserializer on the artifact object itself.
    */
   @JsonDeserialize(using = ArtifactDeserializer.class)
   private static interface ArtifactMixin{}
