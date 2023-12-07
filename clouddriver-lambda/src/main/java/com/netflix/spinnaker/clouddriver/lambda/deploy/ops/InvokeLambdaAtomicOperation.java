@@ -72,14 +72,17 @@ public class InvokeLambdaAtomicOperation
         new InvokeRequest()
             .withFunctionName(functionName)
             .withLogType(LogType.Tail)
-            .withPayload(payload)
-            .withSdkRequestTimeout(description.getTimeout());
+            .withPayload(payload);
 
     String qualifierRegex = "|[a-zA-Z0-9$_-]+";
     if (description.getQualifier().matches(qualifierRegex)) {
       req.setQualifier(description.getQualifier());
     }
-    req.setSdkRequestTimeout(description.getTimeout());
+
+    if (description.getTimeout() != -1) {
+      // UI & API are in seconds, SDK is in MS.
+      req.setSdkRequestTimeout(description.getTimeout() * 1000);
+    }
     log.info("Invoking Lmabda function {} and waiting for it to complete", functionName);
     InvokeResult result = client.invoke(req);
     String ans = byteBuffer2String(result.getPayload(), Charset.forName("UTF-8"));

@@ -52,13 +52,15 @@ public class LambdaClientProvider {
     clientConfiguration.setSocketTimeout(operationsConfig.getInvokeTimeoutMs());
     // only override if non-negative, and can't just set to the negative default :(
     if (operationsConfig.getRetry().getRetries() >= 0) {
-      clientConfiguration.setMaxErrorRetry(operationsConfig.getRetry().getRetries());
       clientConfiguration.setRetryPolicy(
           RetryPolicy.builder()
               .withBackoffStrategy(
                   new PredefinedBackoffStrategies.SDKDefaultBackoffStrategy(
                       100, 500, operationsConfig.getRetry().getTimeout() * 1000))
+              .withMaxErrorRetry(operationsConfig.getRetry().getRetries())
               .build());
+      // doing it here as well as in the retry policy to be safe.
+      clientConfiguration.setMaxErrorRetry(operationsConfig.getRetry().getRetries());
     }
 
     if (!credentials.getLambdaEnabled()) {

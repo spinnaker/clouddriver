@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -32,6 +33,15 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
+/*
+* To test against clouddriver, you can verify results using the following example CURL. Note this
+* is all "sample" data. The return type will be a callback that can be queried to know the status
+* of the invoke operation. <code>curl -XPOST -k -H "X-SPINNAKER-USER: jason.mcintosh@armory.io" -H
+ "Accept: application/json" -H "Content-Type: application/json"
+ https://spin-clouddriver:7002/aws/ops/invokeLambdaFunction -d ' { "appName":"simple",
+ "functionName": "simple-hello-world", "qualifier":"$LATEST", "region": "us-west-2",
+ "credentials": "aws-internal-dev", "account": "aws-internal-dev", "timeout": 600000 }'</code>
+*/
 public class InvokeLambdaAtomicOperationTest implements LambdaTestingDefaults {
   InvokeLambdaAtomicOperation invokeOperation;
   InvokeLambdaFunctionDescription invokeDesc;
@@ -67,14 +77,14 @@ public class InvokeLambdaAtomicOperationTest implements LambdaTestingDefaults {
     verify(lambdaClient).invoke(captor.capture());
     verify(invokeOperation, atLeastOnce()).updateTaskStatus(anyString());
     assertEquals(fName, captor.getValue().getFunctionName());
-    assertEquals(-1, captor.getValue().getSdkRequestTimeout().intValue());
+    assertNull(captor.getValue().getSdkRequestTimeout());
   }
 
   @Test
   void verifyTimeoutIsSet() {
     // Allows a base timeout for all operations of 100,000 then short it to 55 seconds for a
     // specific request per invoked request
-    invokeDesc.setTimeout(55000);
+    invokeDesc.setTimeout(55);
 
     AWSLambda lambdaClient = mock(AWSLambda.class);
     doReturn(lambdaClient).when(invokeOperation).getLambdaClient();
