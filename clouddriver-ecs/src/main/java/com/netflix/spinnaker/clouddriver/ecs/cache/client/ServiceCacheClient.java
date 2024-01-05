@@ -60,6 +60,7 @@ public class ServiceCacheClient extends AbstractCacheClient<Service> {
     service.setMinimumHealthyPercent((Integer) attributes.get("minimumHealthyPercent"));
     service.setSubnets((List<String>) attributes.get("subnets"));
     service.setSecurityGroups((List<String>) attributes.get("securityGroups"));
+    service.setEnableDeploymentCircuitBreaker((Boolean) attributes.get("enableDeploymentCircuitBreaker"));
 
     if (attributes.containsKey("loadBalancers")) {
       List<Map<String, Object>> loadBalancers =

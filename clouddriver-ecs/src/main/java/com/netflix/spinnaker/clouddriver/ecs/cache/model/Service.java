@@ -38,6 +38,7 @@ public class Service {
   List<LoadBalancer> loadBalancers;
   List<String> subnets;
   List<String> securityGroups;
+  boolean enableDeploymentCircuitBreaker;
   long createdAt;
   Moniker moniker;
 }

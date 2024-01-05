@@ -153,6 +153,7 @@ public class LoadBalancersSpec extends EcsSpec {
     serviceAttributes.put("minimumHealthyPercent", 10);
     serviceAttributes.put("subnets", Arrays.asList("testSubnet"));
     serviceAttributes.put("securityGroups", Arrays.asList("test-security"));
+    serviceAttributes.put("enableDeploymentCircuitBreaker", false);
     serviceAttributes.put("createdAt", createdAtLong);
 
     DefaultCacheResult testResultForService =
