@@ -61,6 +61,7 @@ subprojects {
       annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
       testAnnotationProcessor enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
       testAnnotationProcessor "org.projectlombok:lombok"
+      testRuntimeOnly enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
       testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
     }
 
