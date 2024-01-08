@@ -9,9 +9,6 @@ dependencies {
   compileOnly "org.projectlombok:lombok"
   testCompileOnly "org.projectlombok:lombok"
 
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
   implementation "commons-io:commons-io"
   implementation "com.amazonaws:aws-java-sdk"
   implementation "com.github.ben-manes.caffeine:guava"

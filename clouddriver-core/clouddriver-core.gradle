@@ -10,8 +10,6 @@ dependencies {
 
   compileOnly "org.projectlombok:lombok"
   testCompileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
 
   // Because a JobRequest constructor takes a org.apache.commons.exec.CommandLine argument
   api "org.apache.commons:commons-exec"

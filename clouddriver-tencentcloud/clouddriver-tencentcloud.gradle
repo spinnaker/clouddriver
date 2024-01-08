@@ -9,8 +9,6 @@ dependencies {
 
   compileOnly "org.projectlombok:lombok"
   testCompileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
 
   implementation "com.netflix.frigga:frigga"
   implementation "com.netflix.spectator:spectator-api"

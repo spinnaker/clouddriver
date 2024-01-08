@@ -5,8 +5,6 @@ dependencies {
   implementation project(":clouddriver-security")
 
   compileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
 
   implementation "io.spinnaker.kork:kork-core"
   implementation "io.spinnaker.kork:kork-exceptions"
