@@ -9,6 +9,4 @@ dependencies {
   implementation "org.spockframework:spock-spring"
   implementation "cglib:cglib-nodep"
   implementation "org.objenesis:objenesis"
-
-  compileOnly "org.projectlombok:lombok"
 }
