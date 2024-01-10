@@ -17,8 +17,11 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.it;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -1843,7 +1846,7 @@ public class DeployManifestIT extends BaseTest {
                 + account1Ns
                 + " get deployment "
                 + DEPLOYMENT_1_NAME
-                + " -o=jsonpath='{.metadata.managedFields[?(@.operation==\"Apply\")].manager}'");
+                + " -o=jsonpath='{.metadata.managedFields[?(@.operation==\"Apply\" && @.manager != \"kubectl-last-applied\")].manager}'");
     assertEquals(
         "kubectl",
         applyManager,
