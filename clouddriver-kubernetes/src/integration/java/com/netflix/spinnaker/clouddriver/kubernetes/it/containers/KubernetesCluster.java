@@ -162,8 +162,7 @@ public class KubernetesCluster {
     if (!kubectl.toFile().exists()) {
       String url =
           String.format(
-              "https://storage.googleapis.com/kubernetes-release/release/v%s/bin/%s/%s/kubectl",
-              getKubectlVersion(), os, arch);
+              "https://cdn.dl.k8s.io/release/v%s/bin/%s/%s/kubectl", getKubectlVersion(), os, arch);
       System.out.println("Downloading kubectl from " + url);
       downloadFile(kubectl, url);
     }
