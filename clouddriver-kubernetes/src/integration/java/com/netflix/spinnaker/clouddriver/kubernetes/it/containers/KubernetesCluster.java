@@ -21,15 +21,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 import com.google.gson.Gson;
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.util.FileCopyUtils;
 
 public class KubernetesCluster {
@@ -37,7 +51,6 @@ public class KubernetesCluster {
   private static KubernetesCluster INSTANCE;
   private static final String IMAGE = System.getenv("IMAGE");
   private static final String KIND_VERSION = "0.20.0";
-  private static final String KUBECTL_VERSION = "1.22.17";
   private static final Path IT_BUILD_HOME = Paths.get(System.getenv("IT_BUILD_HOME"));
   private static final Path KUBECFG_PATH = Paths.get(IT_BUILD_HOME.toString(), "kubecfg.yml");
   private static final Path KUBECTL_PATH = Paths.get(IT_BUILD_HOME.toString(), "kubectl");
@@ -150,7 +163,7 @@ public class KubernetesCluster {
       String url =
           String.format(
               "https://storage.googleapis.com/kubernetes-release/release/v%s/bin/%s/%s/kubectl",
-              KUBECTL_VERSION, os, arch);
+              getKubectlVersion(), os, arch);
       System.out.println("Downloading kubectl from " + url);
       downloadFile(kubectl, url);
     }
@@ -196,5 +209,50 @@ public class KubernetesCluster {
         .as("Running %s returned non-zero exit code. Output:\n%s", cmd, output)
         .isEqualTo(0);
     return output;
+  }
+
+  /**
+   * Returns the kubectl version to use for the given kubernetes version. This is used to download
+   * the correct kubectl binary for the cluster.
+   *
+   * @return The kubectl version to use.
+   */
+  private static String getKubectlVersion() {
+    Pattern pattern = Pattern.compile("v([0-9]*\\.[0-9]*)");
+    Matcher matcher = pattern.matcher(IMAGE);
+    matcher.find();
+    String kubectlVersion;
+    switch (matcher.group(1)) {
+      case "1.21":
+        kubectlVersion = "1.21.14";
+        break;
+      case "1.22":
+        kubectlVersion = "1.22.17";
+        break;
+      case "1.23":
+        kubectlVersion = "1.23.17";
+        break;
+      case "1.24":
+        kubectlVersion = "1.24.17";
+        break;
+      case "1.25":
+        kubectlVersion = "1.25.16";
+        break;
+      case "1.26":
+        kubectlVersion = "1.26.12";
+        break;
+      case "1.27":
+        kubectlVersion = "1.27.9";
+        break;
+      case "1.28":
+        kubectlVersion = "1.28.5";
+        break;
+      case "1.29":
+      default:
+        kubectlVersion = "1.29.0";
+    }
+    System.out.println(
+        "Using kubectl version " + kubectlVersion + " for kubernetes version " + matcher.group(1));
+    return kubectlVersion;
   }
 }
