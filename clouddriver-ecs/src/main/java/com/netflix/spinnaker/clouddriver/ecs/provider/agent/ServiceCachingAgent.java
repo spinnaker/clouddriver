@@ -123,7 +123,9 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
           service.getNetworkConfiguration().getAwsvpcConfiguration().getSecurityGroups());
     }
 
-    attributes.put("enableDeploymentCircuitBreaker", service.getDeploymentConfiguration().getDeploymentCircuitBreaker().getEnable());
+    attributes.put(
+        "enableDeploymentCircuitBreaker",
+        service.getDeploymentConfiguration().getDeploymentCircuitBreaker().getEnable());
     attributes.put("createdAt", service.getCreatedAt().getTime());
     attributes.put("moniker", moniker);
 

@@ -101,7 +101,6 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   boolean enableExecuteCommand;
   boolean enableDeploymentCircuitBreaker;
 
-
   /**
    * @deprecated this field only allows for one container to be specified. ECS supports the ability
    *     to have multiple target groups and container ports to be mapped to one or more containers.
