@@ -161,8 +161,10 @@ public class AccountDefinitionService {
     Set<UserSecretReference> secretReferences = new HashSet<>();
     ReflectionUtils.doWithFields(
         type,
-        field ->
-            UserSecretReference.tryParse(field.get(definition)).ifPresent(secretReferences::add),
+        field -> {
+          field.setAccessible(true);
+          UserSecretReference.tryParse(field.get(definition)).ifPresent(secretReferences::add);
+        },
         field -> field.getType() == String.class);
     // if the account uses any UserSecrets and the user has no roles in common with any of
     // the UserSecrets, then don't allow the user to save this account due to lack of authorization
