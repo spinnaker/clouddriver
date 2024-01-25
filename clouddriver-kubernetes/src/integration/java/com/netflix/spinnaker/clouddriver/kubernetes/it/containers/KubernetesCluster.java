@@ -220,36 +220,22 @@ public class KubernetesCluster {
     Pattern pattern = Pattern.compile("v([0-9]*\\.[0-9]*)");
     Matcher matcher = pattern.matcher(IMAGE);
     matcher.find();
-    String kubectlVersion;
-    switch (matcher.group(1)) {
-      case "1.21":
-        kubectlVersion = "1.21.14";
-        break;
-      case "1.22":
-        kubectlVersion = "1.22.17";
-        break;
-      case "1.23":
-        kubectlVersion = "1.23.17";
-        break;
-      case "1.24":
-        kubectlVersion = "1.24.17";
-        break;
-      case "1.25":
-        kubectlVersion = "1.25.16";
-        break;
-      case "1.26":
-        kubectlVersion = "1.26.12";
-        break;
-      case "1.27":
-        kubectlVersion = "1.27.9";
-        break;
-      case "1.28":
-        kubectlVersion = "1.28.5";
-        break;
-      case "1.29":
-      default:
-        kubectlVersion = "1.29.0";
-    }
+    String kubernetesVersion = matcher.group(1);
+
+    Map<String, String> kubectlVersionMap =
+        Map.of(
+            "1.21", "1.21.14",
+            "1.22", "1.22.17",
+            "1.23", "1.23.17",
+            "1.24", "1.24.17",
+            "1.25", "1.25.16",
+            "1.26", "1.26.12",
+            "1.27", "1.27.9",
+            "1.28", "1.28.5",
+            "1.29", "1.29.0");
+
+    String kubectlVersion = kubectlVersionMap.getOrDefault(kubernetesVersion, "1.29.0");
+
     System.out.println(
         "Using kubectl version " + kubectlVersion + " for kubernetes version " + matcher.group(1));
     return kubectlVersion;
