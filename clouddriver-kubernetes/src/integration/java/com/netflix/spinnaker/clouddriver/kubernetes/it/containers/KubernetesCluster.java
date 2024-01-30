@@ -42,14 +42,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.springframework.util.FileCopyUtils;
 
 public class KubernetesCluster {
 
   private static KubernetesCluster INSTANCE;
   private static final String IMAGE = System.getenv("IMAGE");
+  private static final String KUBECTL_VERSION = System.getenv("KUBECTL_VERSION");
   private static final String KIND_VERSION = "0.20.0";
   private static final Path IT_BUILD_HOME = Paths.get(System.getenv("IT_BUILD_HOME"));
   private static final Path KUBECFG_PATH = Paths.get(IT_BUILD_HOME.toString(), "kubecfg.yml");
@@ -162,7 +161,7 @@ public class KubernetesCluster {
     if (!kubectl.toFile().exists()) {
       String url =
           String.format(
-              "https://cdn.dl.k8s.io/release/v%s/bin/%s/%s/kubectl", getKubectlVersion(), os, arch);
+              "https://cdn.dl.k8s.io/release/v%s/bin/%s/%s/kubectl", KUBECTL_VERSION, os, arch);
       System.out.println("Downloading kubectl from " + url);
       downloadFile(kubectl, url);
     }
@@ -208,36 +207,5 @@ public class KubernetesCluster {
         .as("Running %s returned non-zero exit code. Output:\n%s", cmd, output)
         .isEqualTo(0);
     return output;
-  }
-
-  /**
-   * Returns the kubectl version to use for the given kubernetes version. This is used to download
-   * the correct kubectl binary for the cluster.
-   *
-   * @return The kubectl version to use.
-   */
-  private static String getKubectlVersion() {
-    Pattern pattern = Pattern.compile("v([0-9]*\\.[0-9]*)");
-    Matcher matcher = pattern.matcher(IMAGE);
-    matcher.find();
-    String kubernetesVersion = matcher.group(1);
-
-    Map<String, String> kubectlVersionMap =
-        Map.of(
-            "1.21", "1.21.14",
-            "1.22", "1.22.17",
-            "1.23", "1.23.17",
-            "1.24", "1.24.17",
-            "1.25", "1.25.16",
-            "1.26", "1.26.12",
-            "1.27", "1.27.9",
-            "1.28", "1.28.5",
-            "1.29", "1.29.0");
-
-    String kubectlVersion = kubectlVersionMap.getOrDefault(kubernetesVersion, "1.29.0");
-
-    System.out.println(
-        "Using kubectl version " + kubectlVersion + " for kubernetes version " + matcher.group(1));
-    return kubectlVersion;
   }
 }
