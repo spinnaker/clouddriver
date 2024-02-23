@@ -7,7 +7,7 @@ on:
   pull_request:
 
 env:
-  GRADLE_OPTS: -Dorg.gradle.daemon=false -Xmx16g -Xms16g
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Xmx16g -Xms16g -Xss4096k
 
 jobs:
   it-test-kubernetes:
