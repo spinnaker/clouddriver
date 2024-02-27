@@ -56,11 +56,6 @@ dependencies {
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-security")
 
-  compileOnly "org.projectlombok:lombok"
-  testCompileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
   implementation "org.codehaus.groovy:groovy"
 
   implementation "com.google.code.findbugs:jsr305"
@@ -81,6 +76,7 @@ dependencies {
   implementation "io.spinnaker.kork:kork-secrets"
   implementation "io.spinnaker.kork:kork-security"
   implementation "io.kubernetes:client-java"
+  implementation "io.kubernetes:client-java-api-fluent:13.0.2"
   implementation "org.apache.commons:commons-lang3"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
@@ -130,6 +126,7 @@ task integrationTest(type: Test) {
 
   environment "IT_BUILD_HOME", "$project.buildDir/it"
   environment "IMAGE", project.getProperties().get("kubernetes-image")
+  environment "KUBECTL_VERSION", project.getProperties().get("kubectl-version")
   environment "KUBERNETES_VERSION", project.getProperties().get("kubernetes-version")
   useJUnitPlatform()
 
