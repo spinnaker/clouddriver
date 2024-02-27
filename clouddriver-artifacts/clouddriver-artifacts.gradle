@@ -22,10 +22,6 @@ dependencies {
   implementation project(":clouddriver-api")
   implementation project(":clouddriver-core")
 
-  compileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
   implementation "com.amazonaws:aws-java-sdk-s3"
   implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-xml"
   implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
@@ -48,6 +44,7 @@ dependencies {
   implementation "com.oracle.oci.sdk:oci-java-sdk-core"
   implementation "com.squareup.okhttp:okhttp"
   implementation "com.sun.jersey:jersey-client:1.9.1"
+  implementation 'commons-io:commons-io:2.15.1'
   implementation "org.apache.commons:commons-lang3"
   implementation "org.apache.ivy:ivy:2.4.0"
   implementation "org.apache.maven:maven-resolver-provider:3.5.4"
@@ -92,6 +89,11 @@ task integrationTest(type: Test) {
   testClassesDirs = sourceSets.integration.output.classesDirs
   classpath = sourceSets.integration.runtimeClasspath
   shouldRunAfter test
+
+
+  minHeapSize = "512m"
+  maxHeapSize = "${testJvmMaxMemory}"
+  maxParallelForks = 4
 
   testlogger {
     theme 'standard'
