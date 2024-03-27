@@ -54,16 +54,13 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
   @Autowired
   AzureClusterProvider clusterProvider
 
-  @Autowired
-  AzureLoadBalancerProvider azureLoadBalancerProvider
-
   List<AzureLoadBalancerSummary> list() {
     getSummaryForLoadBalancers().values() as List
   }
 
   private Map<String, AzureLoadBalancerSummary> getSummaryForLoadBalancers() {
     Map<String, AzureLoadBalancerSummary> map = [:]
-    def loadBalancers = azureLoadBalancerProvider.getApplicationLoadBalancers('*')
+    def loadBalancers = getApplicationLoadBalancers('*')
 
     loadBalancers?.each() { lb ->
       def summary = map.get(lb.name)
@@ -86,7 +83,7 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
 
   List<Map> byAccountAndRegionAndName(String account, String region, String name) {
     String appName = AzureUtilities.getAppNameFromAzureResourceName(name)
-    AzureLoadBalancerDescription azureLoadBalancerDescription = azureLoadBalancerProvider.getLoadBalancerDescription(account, appName, region, name)
+    AzureLoadBalancerDescription azureLoadBalancerDescription = getLoadBalancerDescription(account, appName, region, name)
 
     if (azureLoadBalancerDescription) {
       def lbDetail = [
