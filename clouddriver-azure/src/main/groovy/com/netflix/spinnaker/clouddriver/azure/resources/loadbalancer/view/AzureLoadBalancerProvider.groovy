@@ -30,7 +30,6 @@ import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.Azur
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.PathVariable
@@ -47,9 +46,6 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
   private final AzureCloudProvider azureCloudProvider
   private final Cache cacheView
   final ObjectMapper objectMapper
-
-  @Autowired
-  AccountCredentialsProvider accountCredentialsProvider
 
   @Autowired
   AzureClusterProvider clusterProvider
