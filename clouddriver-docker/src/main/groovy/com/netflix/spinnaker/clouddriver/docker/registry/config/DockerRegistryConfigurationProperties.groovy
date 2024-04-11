@@ -18,13 +18,16 @@ package com.netflix.spinnaker.clouddriver.docker.registry.config
 
 import com.fasterxml.jackson.annotation.JsonTypeName
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition
+import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 
 @ToString(includeNames = true)
+@EqualsAndHashCode
 class DockerRegistryConfigurationProperties {
 
   @ToString(includeNames = true)
   @JsonTypeName("dockerRegistry")
+  @EqualsAndHashCode
   static class ManagedAccount implements CredentialsDefinition {
     String name
     String environment
