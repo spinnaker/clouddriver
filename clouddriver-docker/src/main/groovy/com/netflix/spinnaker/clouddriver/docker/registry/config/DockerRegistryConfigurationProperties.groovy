@@ -22,7 +22,6 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 
 @ToString(includeNames = true)
-@EqualsAndHashCode
 class DockerRegistryConfigurationProperties {
 
   @ToString(includeNames = true)
