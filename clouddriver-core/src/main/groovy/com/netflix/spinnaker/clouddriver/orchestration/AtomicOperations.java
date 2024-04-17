@@ -121,6 +121,9 @@ public final class AtomicOperations {
   // AppEngine Config operations
   public static final String DEPLOY_APPENGINE_CONFIG = "deployAppengineConfiguration";
 
+  // Cloudrun Config operations
+  public static final String DEPLOY_CLOUDRUN_CONFIG = "deployCloudrunConfiguration";
+
   // Lambda Function operations
   public static final String CREATE_LAMBDA_FUNCTION = "createLambdaFunction";
   public static final String DELETE_LAMBDA_FUNCTION = "deleteLambdaFunction";
