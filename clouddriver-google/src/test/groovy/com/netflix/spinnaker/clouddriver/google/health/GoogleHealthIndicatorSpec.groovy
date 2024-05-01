@@ -119,7 +119,6 @@ class GoogleHealthIndicatorSpec extends Specification {
   @Unroll
   def "health succeeds when google is unreachable and verifyAccountHealth is false"() {
     setup:
-    def applicationContext = Mock(ApplicationContext)
     def project = new Project()
     project.setName(PROJECT)
 
@@ -137,17 +136,16 @@ class GoogleHealthIndicatorSpec extends Specification {
         .build()
 
     def credentials = [googleNamedAccountCredentials]
-    def credentialsRepository = Stub(CredentialsRepository) {
+    def credentialsRepository = Stub(MapBackedAccountCredentialsRepository) {
       getAll() >> credentials
     }
 
-    def credentialsTypeBaseConfiguration = new CredentialsTypeBaseConfiguration(applicationContext, null)
-    credentialsTypeBaseConfiguration.credentialsRepository = credentialsRepository
+    def accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepository)
+
 
     def indicator = new GoogleHealthIndicator(googleConfigurationProperties: new GoogleConfigurationProperties())
     indicator.googleConfigurationProperties.health.setVerifyAccountHealth(false)
     indicator.registry = REGISTRY
-    indicator.credentialsTypeBaseConfiguration = credentialsTypeBaseConfiguration
 
 
     when:

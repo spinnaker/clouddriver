@@ -65,38 +65,25 @@ class GoogleHealthIndicator implements HealthIndicator, GoogleExecutorTraits {
   @Scheduled(fixedDelay = 300000L)
   void checkHealth() {
     try {
-<<<<<<< HEAD
-      Set<GoogleNamedAccountCredentials> googleCredentialsSet = accountCredentialsProvider.all.findAll {
-        it instanceof GoogleNamedAccountCredentials
-      } as Set<GoogleNamedAccountCredentials>
-
-      for (GoogleNamedAccountCredentials accountCredentials in googleCredentialsSet) {
-        try {
-          // This verifies that the specified credentials are sufficient to access the referenced project.
-          timeExecute(accountCredentials.compute.projects().get(accountCredentials.project),
-                      "compute.projects.get",
-                      TAG_SCOPE, SCOPE_GLOBAL)
-        } catch (IOException e) {
-          throw new GoogleIOException(e)
-        }
-      }
-
-=======
       if (googleConfigurationProperties.getHealth().getVerifyAccountHealth()) {
         LOG.info("google.health.verifyAccountHealth flag is enabled - verifying connection to the Google accounts")
-        credentialsTypeBaseConfiguration.credentialsRepository?.all?.forEach({
+        Set<GoogleNamedAccountCredentials> googleCredentialsSet = accountCredentialsProvider.all.findAll {
+          it instanceof GoogleNamedAccountCredentials
+        } as Set<GoogleNamedAccountCredentials>
+
+        for (GoogleNamedAccountCredentials accountCredentials in googleCredentialsSet) {
           try {
-            timeExecute(it.compute.projects().get(it.project),
-              "compute.projects.get",
-              TAG_SCOPE, SCOPE_GLOBAL)
+            // This verifies that the specified credentials are sufficient to access the referenced project.
+            timeExecute(accountCredentials.compute.projects().get(accountCredentials.project),
+                        "compute.projects.get",
+                        TAG_SCOPE, SCOPE_GLOBAL)
           } catch (IOException e) {
             throw new GoogleIOException(e)
           }
-        })
+        }
       } else {
         LOG.info("google.health.verifyAccountHealth flag is disabled - Not verifying connection to the Google accounts");
       }
->>>>>>> 28599eb1ec (fix(gcp): Relaxed health check for GCP accounts (#6200))
       lastException.set(null)
     } catch (Exception ex) {
       LOG.warn "Unhealthy", ex
