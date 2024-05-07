@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableMap
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.provider.agent.StubComputeFactory
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
@@ -62,7 +63,7 @@ class GoogleHealthIndicatorSpec extends Specification {
 
     def accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepository)
 
-    def indicator = new GoogleHealthIndicator()
+    def indicator = new GoogleHealthIndicator(googleConfigurationProperties: new GoogleConfigurationProperties())
     indicator.registry = REGISTRY
     indicator.accountCredentialsProvider = accountCredentialsProvider
 
@@ -101,7 +102,7 @@ class GoogleHealthIndicatorSpec extends Specification {
 
     def accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepository)
 
-    def indicator = new GoogleHealthIndicator()
+    def indicator = new GoogleHealthIndicator(googleConfigurationProperties: new GoogleConfigurationProperties())
     indicator.registry = REGISTRY
     indicator.accountCredentialsProvider = accountCredentialsProvider
 
@@ -113,5 +114,46 @@ class GoogleHealthIndicatorSpec extends Specification {
     thrown(GoogleHealthIndicator.GoogleIOException)
 
     health == null
+  }
+
+  @Unroll
+  def "health succeeds when google is unreachable and verifyAccountHealth is false"() {
+    setup:
+    def project = new Project()
+    project.setName(PROJECT)
+
+    def compute = new StubComputeFactory()
+      .setProjects(project)
+      .setProjectException(new IOException("Read timed out"))
+      .create()
+
+    def googleNamedAccountCredentials =
+      new GoogleNamedAccountCredentials.Builder()
+        .project(PROJECT)
+        .name(ACCOUNT_NAME)
+        .compute(compute)
+        .regionToZonesMap(ImmutableMap.of(REGION, ImmutableList.of(ZONE)))
+        .build()
+
+    def credentials = [googleNamedAccountCredentials]
+    def credentialsRepository = Stub(MapBackedAccountCredentialsRepository) {
+      getAll() >> credentials
+    }
+
+    def accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepository)
+
+
+    def indicator = new GoogleHealthIndicator(googleConfigurationProperties: new GoogleConfigurationProperties())
+    indicator.googleConfigurationProperties.health.setVerifyAccountHealth(false)
+    indicator.registry = REGISTRY
+
+
+    when:
+    indicator.checkHealth()
+    def health = indicator.health()
+
+    then:
+    health.status == Status.UP
+    health.details.isEmpty()
   }
 }
