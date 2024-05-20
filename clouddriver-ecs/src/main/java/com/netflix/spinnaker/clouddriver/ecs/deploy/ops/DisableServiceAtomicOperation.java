@@ -21,6 +21,7 @@ import com.amazonaws.services.applicationautoscaling.model.*;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription;
+import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import java.util.List;
 
 public class DisableServiceAtomicOperation
@@ -70,7 +71,9 @@ public class DisableServiceAtomicOperation
                       .withDynamicScalingInSuspended(true)
                       .withDynamicScalingOutSuspended(true)
                       .withScheduledScalingSuspended(true));
-      autoScalingClient.registerScalableTarget(suspendRequest);
+
+      OperationPoller.retryWithBackoff(
+          o -> autoScalingClient.registerScalableTarget(suspendRequest), 1000, 3);
       updateTaskStatus(
           String.format("Autoscaling on server group %s suspended for %s.", service, account));
     }
