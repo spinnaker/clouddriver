@@ -6,6 +6,7 @@ dependencies {
   testImplementation "org.testcontainers:testcontainers"
   testImplementation "org.testcontainers:junit-jupiter"
   testRuntimeOnly "ch.qos.logback:logback-classic"
+  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
 }
 
 test.configure {
