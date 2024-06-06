@@ -16,14 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver;
 
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -51,17 +48,14 @@ public class PostgresMigrationContainerTest extends BaseContainerTest {
 
   private GenericContainer<?> clouddriverInitialContainer;
 
-  private static DockerImageName previousDockerImageName;
+  // this is the latest image that is still running on liquibase 3.10.3 which create the conditions
+  // similar to real scenario so that test identifies when validChecksums are not added in the later
+  // version of clouddriver where higher liquibase versions are used
+  private static final DockerImageName previousDockerImageName =
+      DockerImageName.parse(
+          "us-docker.pkg.dev/spinnaker-community/docker/clouddriver:5.82.2-dev-release-1.32.x-7a8e6e8b3-202406051721-unvalidated");
 
   private String jdbcUrl = "";
-
-  @BeforeAll
-  static void setupInitial() {
-    String fullDockerImageName = System.getenv("PREVIOUS_FULL_DOCKER_IMAGE_NAME");
-    // Skip the tests if there's no docker image.  This allows gradlew build to work.
-    assumeTrue(fullDockerImageName != null);
-    previousDockerImageName = DockerImageName.parse(fullDockerImageName);
-  }
 
   @BeforeEach
   void setup() throws Exception {
@@ -83,7 +77,7 @@ public class PostgresMigrationContainerTest extends BaseContainerTest {
     clouddriverInitialContainer =
         new GenericContainer(previousDockerImageName)
             .withNetwork(network)
-            .withExposedPorts(7002)
+            .withExposedPorts(CLOUDDRIVER_PORT)
             .waitingFor(Wait.forHealthcheck().withStartupTimeout(Duration.ofSeconds(120)))
             .dependsOn(postgres)
             .withEnv("SPRING_APPLICATION_JSON", getSpringApplicationJson());
