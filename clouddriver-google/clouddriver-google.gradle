@@ -50,5 +50,6 @@ dependencies {
 }
 
 configurations.all {
-   resolutionStrategy.force 'com.google.apis:google-api-services-compute:beta-rev20201102-1.30.10'
+  resolutionStrategy.force 'com.google.apis:google-api-services-compute:beta-rev20201102-1.30.10'
+//  resolutionStrategy.forcedModules = ['com.google.apis:google-api-services-compute:beta-rev20201102-1.30.10']
 }
