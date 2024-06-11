@@ -60,13 +60,7 @@ public class KubernetesManifestLabeler {
     Map<String, String> labels = manifest.getLabels();
     storeLabels(managedBySuffix, labels, moniker);
 
-    manifest
-        .getSpecTemplateLabels()
-        .flatMap(
-            l -> {
-              storeLabels(managedBySuffix, l, moniker);
-              return Optional.empty();
-            });
+    manifest.getSpecTemplateLabels().ifPresent(l -> storeLabels(managedBySuffix, l, moniker));
   }
 
   public static void storeLabels(
