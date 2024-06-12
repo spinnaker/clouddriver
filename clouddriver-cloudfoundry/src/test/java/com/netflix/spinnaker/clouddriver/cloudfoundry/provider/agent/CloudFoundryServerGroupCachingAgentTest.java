@@ -127,7 +127,7 @@ class CloudFoundryServerGroupCachingAgentTest {
             .findFirst()
             .get();
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(onDemandCacheResults);
+    assertThat(result).usingRecursiveComparison().isEqualTo(onDemandCacheResults);
   }
 
   @Test
@@ -253,7 +253,7 @@ class CloudFoundryServerGroupCachingAgentTest {
     OnDemandAgent.OnDemandResult result =
         cloudFoundryServerGroupCachingAgent.handle(mockProviderCache, data);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedResult);
   }
 
   @Test
@@ -516,7 +516,7 @@ class CloudFoundryServerGroupCachingAgentTest {
 
     CacheResult result = cloudFoundryServerGroupCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedCacheResult);
     verify(mockApplications).all(emptyList());
   }
 
@@ -667,7 +667,7 @@ class CloudFoundryServerGroupCachingAgentTest {
 
     CacheResult result = cloudFoundryServerGroupCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedCacheResult);
   }
 
   @Test
