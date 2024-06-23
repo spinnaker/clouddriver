@@ -339,7 +339,7 @@ class CloudFoundryServerGroupCachingAgentTest {
         cloudFoundryServerGroupCachingAgent.convertOnDemandDetails(
             singletonMap("serverGroupName", "app-stack-detail-v235"));
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedMoniker);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedMoniker);
   }
 
   @Test

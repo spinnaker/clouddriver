@@ -185,7 +185,7 @@ class CloudFoundryLoadBalancerCachingAgentTest {
     OnDemandAgent.OnDemandResult result =
         cloudFoundryLoadBalancerCachingAgent.handle(mockProviderCache, data);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedResult);
   }
 
   @Test
@@ -287,7 +287,7 @@ class CloudFoundryLoadBalancerCachingAgentTest {
 
     CacheResult result = cloudFoundryLoadBalancerCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedCacheResult);
   }
 
   @Test
@@ -361,7 +361,7 @@ class CloudFoundryLoadBalancerCachingAgentTest {
 
     CacheResult result = cloudFoundryLoadBalancerCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedCacheResult);
   }
 
   @Test
@@ -447,7 +447,7 @@ class CloudFoundryLoadBalancerCachingAgentTest {
 
     CacheResult result = cloudFoundryLoadBalancerCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedCacheResult);
   }
 
   @Test
