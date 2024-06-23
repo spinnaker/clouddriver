@@ -15,20 +15,6 @@
  * limitations under the License.
  */
 
-buildscript {
-  ext {
-    junitPlatformVersion = "1.0.2"
-  }
-
-  repositories {
-    gradlePluginPortal()
-  }
-
-  dependencies {
-    classpath "org.junit.platform:junit-platform-gradle-plugin:${junitPlatformVersion}"
-  }
-}
-
 plugins {
   id 'io.spinnaker.project' version "$spinnakerGradleVersion" apply false
   id 'org.jetbrains.kotlin.jvm' version "$kotlinVersion"
