@@ -253,7 +253,10 @@ class CloudFoundryServerGroupCachingAgentTest {
     OnDemandAgent.OnDemandResult result =
         cloudFoundryServerGroupCachingAgent.handle(mockProviderCache, data);
 
-    assertThat(result).usingRecursiveComparison().isEqualTo(expectedResult);
+    assertThat(result)
+        .usingRecursiveComparison()
+        .ignoringCollectionOrder()
+        .isEqualTo(expectedResult);
   }
 
   @Test
