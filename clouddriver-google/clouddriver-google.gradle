@@ -10,7 +10,12 @@ dependencies {
   implementation "org.codehaus.groovy:groovy"
   implementation "org.codehaus.groovy:groovy-json"
   implementation "org.apache.commons:commons-lang3"
-  implementation "com.google.apis:google-api-services-compute"
+  implementation("com.google.apis:google-api-services-compute") {
+    version {
+      // This breaks unless AT LEAST this revision is set.  Should be updated in kork/spinnaker-dependencies nominally as well
+      strictly("beta-rev20201102-1.30.10")
+    }
+  }
   implementation "com.google.guava:guava"
   implementation "com.google.apis:google-api-services-iam"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
@@ -47,8 +52,4 @@ dependencies {
   testImplementation "org.springframework:spring-test"
   testImplementation "org.springframework.boot:spring-boot-test"
   testImplementation "org.codehaus.groovy:groovy-test"
-}
-
-configurations.all {
-   resolutionStrategy.force 'com.google.apis:google-api-services-compute:beta-rev20201102-1.30.10'
 }
