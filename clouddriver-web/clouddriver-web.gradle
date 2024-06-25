@@ -56,3 +56,7 @@ dependencies {
     implementation project(":${it}")
   }
 }
+// See clouddriver-google
+configurations.all {
+   resolutionStrategy.force 'com.google.apis:google-api-services-compute:beta-rev20201102-1.30.10'
+}
