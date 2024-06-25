@@ -13,6 +13,7 @@ dependencies {
   implementation("com.google.apis:google-api-services-compute") {
     version {
       // This breaks unless AT LEAST this revision is set.  Should be updated in kork/spinnaker-dependencies nominally as well
+      // DO NOT remove this - the project WILL compile but this also protects transitive deps in case of parent changes.
       strictly("beta-rev20201102-1.30.10")
     }
   }

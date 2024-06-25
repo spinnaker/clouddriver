@@ -52,7 +52,10 @@ subprojects {
 
     sourceSets.main.java.srcDirs = []
     sourceSets.main.groovy.srcDirs += ["src/main/java"]
-
+    // See clouddriver-google - overrides to deps from kork NEED to be done here.  NOT in sub projects or they wont' apply at the end and compiles will fail
+    configurations.all {
+       resolutionStrategy.force 'com.google.apis:google-api-services-compute:beta-rev20201102-1.30.10'
+    }
     dependencies {
       api enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
 
