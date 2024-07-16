@@ -1,0 +1,12 @@
+# Job has succeeded
+status:
+  completionTime: "2024-07-16T14:51:40Z"
+  conditions:
+  - lastProbeTime: "2024-07-16T14:51:40Z"
+    lastTransitionTime: "2024-07-16T14:51:40Z"
+    status: "True"
+    type: Complete
+  ready: 0
+  startTime: "2024-07-16T14:51:22Z"
+  succeeded: 5
+  uncountedTerminatedPods: {}
