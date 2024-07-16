@@ -95,9 +95,13 @@ public class KubernetesJobProvider implements JobProvider<KubernetesJobStatus> {
                 })
             .collect(Collectors.toList());
 
-    V1Pod mostRecentPod = typedPods.get(typedPods.size() - 1);
-    jobStatus.setMostRecentPodName(
-        mostRecentPod.getMetadata() != null ? mostRecentPod.getMetadata().getName() : "");
+    if (typedPods.size() > 0) {
+      V1Pod mostRecentPod = typedPods.get(typedPods.size() - 1);
+      jobStatus.setMostRecentPodName(
+          mostRecentPod.getMetadata() != null ? mostRecentPod.getMetadata().getName() : "");
+    } else {
+      jobStatus.setMostRecentPodName("");
+    }
 
     jobStatus.setPods(
         typedPods.stream().map(KubernetesJobStatus.PodStatus::new).collect(Collectors.toList()));
