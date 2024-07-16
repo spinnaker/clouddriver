@@ -145,6 +145,40 @@ class KubernetesJobProviderTest {
     assertNull(jobStatus.getFailureDetails());
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testCompleteJobWithDeletedPod(boolean detailedPodStatus) {
+    // setup
+    KubernetesManifest testManifest =
+        Yaml.loadAs(getResource("base-with-completions.yml"), KubernetesManifest.class);
+    KubernetesManifest overlay =
+        Yaml.loadAs(getResource("succeeded-job.yml"), KubernetesManifest.class);
+    testManifest.putAll(overlay);
+    doReturn(
+            KubernetesManifestContainer.builder()
+                .account("mock_account")
+                .name("a")
+                .manifest(testManifest)
+                .build())
+        .when(mockManifestProvider)
+        .getManifest(anyString(), anyString(), anyString(), anyBoolean());
+    doReturn(ImmutableList.of()).when(mockCredentials).list(any(), isNull(), any());
+
+    // when
+    KubernetesJobProvider kubernetesJobProvider =
+        new KubernetesJobProvider(credentialsProvider, mockManifestProvider, detailedPodStatus);
+    KubernetesJobStatus jobStatus = kubernetesJobProvider.collectJob("mock_account", "a", "b");
+
+    // then
+    assertNotNull(jobStatus.getJobState());
+    assertEquals(/* expected= */ JobState.Succeeded, /* actual= */ jobStatus.getJobState());
+
+    assertNull(jobStatus.getMessage());
+    assertNull(jobStatus.getReason());
+
+    assertNull(jobStatus.getFailureDetails());
+  }
+
   private String getResource(String name) {
     try {
       return Resources.toString(
