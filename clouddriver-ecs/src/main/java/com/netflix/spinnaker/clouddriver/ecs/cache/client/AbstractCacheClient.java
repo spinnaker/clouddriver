@@ -65,6 +65,11 @@ abstract class AbstractCacheClient<T> {
     return convertAll(data);
   }
 
+  public Collection<T> getAll(Collection<String> identifiers) {
+    Collection<CacheData> allData = cacheView.getAll(keyNamespace, identifiers);
+    return convertAll(allData);
+  }
+
   /**
    * @param key A key within the key namespace that will be used to retrieve the object.
    * @return An object of the generic type that is associated to the key.
@@ -109,5 +114,9 @@ abstract class AbstractCacheClient<T> {
     }
 
     return allData;
+  }
+
+  public Collection<String> filterIdentifiers(String glob) {
+    return cacheView.filterIdentifiers(keyNamespace, glob);
   }
 }
