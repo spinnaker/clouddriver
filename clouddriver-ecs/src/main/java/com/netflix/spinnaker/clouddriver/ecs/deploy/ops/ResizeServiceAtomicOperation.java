@@ -25,6 +25,7 @@ import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
+import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,7 +90,10 @@ public class ResizeServiceAtomicOperation
         String.format(
             "Resizing Scalable Target of %s to %s instances",
             service.getServiceName(), desiredCount));
-    autoScalingClient.registerScalableTarget(request);
+
+    OperationPoller.retryWithBackoff(
+        o -> autoScalingClient.registerScalableTarget(request), 1000, 3);
+
     updateTaskStatus(
         String.format(
             "Done resizing Scalable Target of %s to %s instances",
