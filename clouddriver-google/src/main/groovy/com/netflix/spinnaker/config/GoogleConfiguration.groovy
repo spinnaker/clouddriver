@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.config
 
-
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.config.GoogleCredentialsConfiguration
 
@@ -46,11 +45,6 @@ class GoogleConfiguration {
   @ConfigurationProperties("google")
   GoogleConfigurationProperties googleConfigurationProperties() {
     new GoogleConfigurationProperties()
-  }
-
-  @Bean
-  GoogleHealthIndicator googleHealthIndicator() {
-    new GoogleHealthIndicator()
   }
 
   @Bean
