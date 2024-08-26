@@ -9,7 +9,7 @@ ENV AWS_AIM_AUTHENTICATOR_VERSION=0.6.14
 ENV GOOGLE_CLOUD_SDK_VERSION=476.0.0
 ENV ECR_TOKEN_VERSION=v1.0.2
 
-ENV PATH "$PATH:/usr/local/bin/:/opt/google-cloud-sdk/bin/:/usr/local/bin/aws-iam-authenticator"
+ENV PATH="$PATH:/usr/local/bin/:/opt/google-cloud-sdk/bin/:/usr/local/bin/aws-iam-authenticator"
 
 RUN apk update \
   && apk upgrade \
