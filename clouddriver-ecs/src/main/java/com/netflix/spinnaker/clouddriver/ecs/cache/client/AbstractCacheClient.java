@@ -67,6 +67,9 @@ abstract class AbstractCacheClient<T> {
 
   public Collection<T> getAll(Collection<String> identifiers) {
     Collection<CacheData> allData = cacheView.getAll(keyNamespace, identifiers);
+    if (allData == null) {
+      return Collections.emptyList();
+    }
     return convertAll(allData);
   }
 

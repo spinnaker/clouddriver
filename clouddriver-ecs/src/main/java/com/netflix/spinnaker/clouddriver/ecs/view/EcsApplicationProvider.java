@@ -51,7 +51,6 @@ public class EcsApplicationProvider implements ApplicationProvider {
 
   @Override
   public Application getApplication(String name) {
-    name = name.toLowerCase();
     String glob = Keys.getServiceKey("*", "*", name + "*");
     Collection<String> ecsServices = serviceCacheClient.filterIdentifiers(glob);
     for (Application application : populateApplicationSet(ecsServices, true)) {
