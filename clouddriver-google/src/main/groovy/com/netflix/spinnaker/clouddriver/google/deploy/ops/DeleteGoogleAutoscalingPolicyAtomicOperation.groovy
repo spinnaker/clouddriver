@@ -17,9 +17,9 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.ops
 
 import com.google.api.services.compute.Compute
-import com.google.api.services.compute.model.InstanceGroupManagersSetAutoHealingRequest
+//import com.google.api.services.compute.model.InstanceGroupManagersSetAutoHealingRequest
 import com.google.api.services.compute.model.InstanceTemplate
-import com.google.api.services.compute.model.RegionInstanceGroupManagersSetAutoHealingRequest
+//import com.google.api.services.compute.model.RegionInstanceGroupManagersSetAutoHealingRequest
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
@@ -85,7 +85,7 @@ class DeleteGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
     if (description.deleteAutoHealingPolicy) {
       task.updateStatus BASE_PHASE, "Initializing deletion of autoHealing policy for $description.serverGroupName..."
       if (isRegional) {
-        def request = new RegionInstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
+//        def request = new RegionInstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
         def deleteOp = timeExecute(
           compute.regionInstanceGroupManagers().setAutoHealingPolicies(project, region, serverGroupName, request),
           "compute.regionInstanceGroupManagers.setAutoHealingPolicies",
@@ -94,7 +94,7 @@ class DeleteGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
           deleteOp.getName(), null, task, "autoHealing policy for $serverGroupName", BASE_PHASE)
         deletePolicyMetadata(compute, credentials, project, GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName))
       } else {
-        def request = new InstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
+//        def request = new InstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
         def deleteOp = timeExecute(
           compute.instanceGroupManagers().setAutoHealingPolicies(project, zone, serverGroupName, request),
           "compute.instanceGroupManagers.setAutoHealingPolicies",
