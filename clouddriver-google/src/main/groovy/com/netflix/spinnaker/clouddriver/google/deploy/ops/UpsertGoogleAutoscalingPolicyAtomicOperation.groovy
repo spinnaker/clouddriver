@@ -153,7 +153,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
         GCEUtil.buildAutoHealingPolicyDescriptionFromAutoHealingPolicy(serverGroup.autoHealingPolicy)
 
       def regionalRequest = { List<InstanceGroupManagerAutoHealingPolicy> policy ->
-        def request = new RegionInstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies(policy)
+//        def request = new RegionInstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies(policy)
         def autoHealingOp = timeExecute(
           compute.regionInstanceGroupManagers().setAutoHealingPolicies(project, region, serverGroupName, request),
           "compute.regionInstanceGroupManagers.setAutoHealingPolicies",
@@ -163,7 +163,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
       }
 
       def zonalRequest = { List<InstanceGroupManagerAutoHealingPolicy> policy ->
-        def request = new InstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies(policy)
+//        def request = new InstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies(policy)
         def autoHealingOp = timeExecute(
           compute.instanceGroupManagers().setAutoHealingPolicies(project, zone, serverGroupName, request),
           "compute.instanceGroupManagers.setAutoHealingPolicies",
