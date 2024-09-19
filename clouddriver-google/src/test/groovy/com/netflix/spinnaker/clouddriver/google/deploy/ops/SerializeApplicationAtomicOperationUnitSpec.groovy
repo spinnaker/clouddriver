@@ -131,8 +131,7 @@ class SerializeApplicationAtomicOperationUnitSpec extends Specification {
                                                       metadata: INSTANCE_TEMPLATE_METADATA,
                                                       scheduling: scheduling,
                                                       disks: [disk],
-                                                      networkInterfaces: [networkInterface],
-                                                      shieldedVmConfig: shieldedVmConfig)
+                                                      networkInterfaces: [networkInterface])
       def instanceTemplate = new InstanceTemplate(description: INSTANCE_TEMPLATE_DESCRIPTION,
                                                   name: INSTANCE_TEMPLATE_NAME,
                                                   properties: instanceProperties)
@@ -203,8 +202,7 @@ class SerializeApplicationAtomicOperationUnitSpec extends Specification {
                                  project: null,
                                  network_interface: [networkInterfaceMap],
                                  scheduling: schedulingMap,
-                                 metadata: metadataMap,
-                                 shielded_vm_config: shieldedVmConfigMap]
+                                 metadata: metadataMap]
       def targetPools = []
       SERVER_GROUP_LOAD_BALANCERS.each {String loadBalancer ->
         targetPools.add("\${google_compute_target_pool.${loadBalancer}.self_link}")
