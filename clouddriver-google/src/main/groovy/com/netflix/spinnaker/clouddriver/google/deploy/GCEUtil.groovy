@@ -827,6 +827,10 @@ class GCEUtil {
     return new Tags(items: tagsList)
   }
 
+  static Map<String, String> buildResourceManagerTagsFromMap(Map<String, String> tagsMap) {
+    return tagsMap
+  }
+
 
   static Autoscaler buildAutoscaler(String serverGroupName,
                                     String targetLink,
@@ -938,23 +942,23 @@ class GCEUtil {
     return scheduling
   }
 
-  static ShieldedVmConfig buildShieldedVmConfig(BaseGoogleInstanceDescription description) {
-    def shieldedVmConfig = new ShieldedVmConfig()
-
-    if (description.enableSecureBoot != null) {
-      shieldedVmConfig.enableSecureBoot = description.enableSecureBoot
-    }
-
-    if (description.enableVtpm != null) {
-      shieldedVmConfig.enableVtpm = description.enableVtpm
-    }
-
-    if (description.enableIntegrityMonitoring != null) {
-      shieldedVmConfig.enableIntegrityMonitoring = description.enableIntegrityMonitoring
-    }
-
-    return shieldedVmConfig
-  }
+//  static ShieldedVmConfig buildShieldedVmConfig(BaseGoogleInstanceDescription description) {
+//    def shieldedVmConfig = new ShieldedVmConfig()
+//
+//    if (description.enableSecureBoot != null) {
+//      shieldedVmConfig.enableSecureBoot = description.enableSecureBoot
+//    }
+//
+//    if (description.enableVtpm != null) {
+//      shieldedVmConfig.enableVtpm = description.enableVtpm
+//    }
+//
+//    if (description.enableIntegrityMonitoring != null) {
+//      shieldedVmConfig.enableIntegrityMonitoring = description.enableIntegrityMonitoring
+//    }
+//
+//    return shieldedVmConfig
+//  }
 
   static void updateStatusAndThrowNotFoundException(String errorMsg, Task task, String phase) {
     task.updateStatus phase, errorMsg

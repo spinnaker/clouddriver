@@ -415,6 +415,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       checkArgument(!description.regional || description.selectZones,
         "Accelerators are only supported with regional server groups if the zones are specified by the user.");
     }
+    def resourceManagerTags = GCEUtil.buildResourceManagerTagsFromMap(description.resourceManagerTags)
 
     def instanceProperties = new InstanceProperties(machineType: machineTypeName,
                                                     disks: attachedDisks,
@@ -425,7 +426,8 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                     tags: tags,
                                                     labels: labels,
                                                     scheduling: scheduling,
-                                                    serviceAccounts: serviceAccount)
+                                                    serviceAccounts: serviceAccount,
+      resourceManagerTags: resourceManagerTags)
 
     if (GCEUtil.isShieldedVmCompatible(bootImage)) {
       def shieldedVmConfig = GCEUtil.buildShieldedVmConfig(description)
