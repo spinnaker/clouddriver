@@ -63,7 +63,6 @@ class BasicGoogleDeployDescription extends BaseGoogleInstanceDescription impleme
   Source source = new Source()
   String userData
   List<AcceleratorConfig> acceleratorConfigs
-  Map<String, String> resourceManagerTags
 
   @Override
   String getName() {
