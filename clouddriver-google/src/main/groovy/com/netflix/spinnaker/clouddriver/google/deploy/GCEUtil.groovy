@@ -52,6 +52,8 @@ import com.netflix.spinnaker.config.GoogleConfiguration
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import groovy.util.logging.Slf4j
 
+import java.util.stream.Collectors
+
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.HEALTH_CHECKS
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.HTTP_HEALTH_CHECKS
 
@@ -827,8 +829,11 @@ class GCEUtil {
     return new Tags(items: tagsList)
   }
 
-  static Map<String, String> buildResourceManagerTagsFromMap(Map<String, String> tagsMap) {
-    return tagsMap
+  static List<String> buildResourceManagerTagsFromMap(Map<String, String> tagsMap) {
+    log.info("resource manager tags size: " + tagsMap.size())
+    return tagsMap.entrySet().stream()
+      .map(entry -> entry.getKey() + ":" + entry.getValue())
+      .collect(Collectors.toList());
   }
 
 

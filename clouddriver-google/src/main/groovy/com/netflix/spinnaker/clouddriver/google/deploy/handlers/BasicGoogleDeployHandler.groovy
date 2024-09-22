@@ -417,6 +417,12 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     }
     def resourceManagerTags = GCEUtil.buildResourceManagerTagsFromMap(description.resourceManagerTags)
 
+    log.info( "getting the resource manager tags")
+    resourceManagerTags.forEach(log::info)
+
+    log.info( "getting normal tags")
+    tags.forEach(log::info)
+
     def instanceProperties = new InstanceProperties(machineType: machineTypeName,
                                                     disks: attachedDisks,
                                                     guestAccelerators: description.acceleratorConfigs ?: [],
