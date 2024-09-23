@@ -17,9 +17,9 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.ops
 
 import com.google.api.services.compute.Compute
-//import com.google.api.services.compute.model.InstanceGroupManagersSetAutoHealingRequest
+import com.google.api.services.compute.model.InstanceGroupManagersSetAutoHealingRequest
 import com.google.api.services.compute.model.InstanceTemplate
-//import com.google.api.services.compute.model.RegionInstanceGroupManagersSetAutoHealingRequest
+import com.google.api.services.compute.model.RegionInstanceGroupManagersSetAutoHealingRequest
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
@@ -105,64 +105,64 @@ class DeleteGoogleAutoscalingPolicyAtomicOperationUnitSpec extends Specification
     isRegional << [true, false]
   }
 
-//  @Unroll
-//  void "should delete zonal and regional autoHealing policy"() {
-//    setup:
-//    def registry = new DefaultRegistry()
-//    def computeMock = Mock(Compute)
-//    def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
-//    def description = new DeleteGoogleAutoscalingPolicyDescription(
-//      serverGroupName: SERVER_GROUP_NAME,
-//      region: REGION,
-//      accountName: ACCOUNT_NAME,
-//      credentials: credentials,
-//      deleteAutoHealingPolicy: true
-//    )
-//    def serverGroup = new GoogleServerGroup(zone: ZONE, regional: isRegional).view
-//
-//    // zonal setup
-////    def zonalRequest = new InstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
-//    def zonalManagerMock = Mock(Compute.InstanceGroupManagers)
-////    def zonalSetAutoHealingPolicyMock = Mock(Compute.InstanceGroupManagers.SetAutoHealingPolicies)
-//    def zonalTimerId = GoogleApiTestUtils.makeOkId(
-//          registry,
-//          "compute.instanceGroupManagers.setAutoHealingPolicies",
-//          [scope: "zonal", zone: ZONE])
-//
-//    // regional setup
-////    def regionalRequest = new RegionInstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
-//    def regionalManagerMock = Mock(Compute.RegionInstanceGroupManagers)
-////    def regionalSetAutoHealingPolicyMock = Mock(Compute.RegionInstanceGroupManagers.SetAutoHealingPolicies)
-//    def regionalTimerId = GoogleApiTestUtils.makeOkId(
-//          registry,
-//          "compute.regionInstanceGroupManagers.setAutoHealingPolicies",
-//          [scope: "regional", region: REGION])
-//
-//    @Subject def operation = Spy(DeleteGoogleAutoscalingPolicyAtomicOperation, constructorArgs: [description, googleClusterProviderMock, operationPollerMock, atomicOperationsRegistry, orchestrationProcessorMock])
-//    operation.registry = registry
-//
-//    when:
-//    operation.operate([])
-//
-//    then:
-//    1 * operation.deletePolicyMetadata(computeMock, credentials, PROJECT_NAME, _) >> null // Tested separately.
-//    1 * googleClusterProviderMock.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME) >> serverGroup
-//
-//    if (isRegional) {
-//      computeMock.regionInstanceGroupManagers() >> regionalManagerMock
-////      regionalManagerMock.setAutoHealingPolicies(PROJECT_NAME, REGION, SERVER_GROUP_NAME, regionalRequest) >> regionalSetAutoHealingPolicyMock
-////      regionalSetAutoHealingPolicyMock.execute() >> [name: 'autoHealingOp']
-//    } else {
-//      computeMock.instanceGroupManagers() >> zonalManagerMock
-////      zonalManagerMock.setAutoHealingPolicies(PROJECT_NAME, ZONE, SERVER_GROUP_NAME, zonalRequest) >> zonalSetAutoHealingPolicyMock
-////      zonalSetAutoHealingPolicyMock.execute() >> [name: 'autoHealingOp']
-//    }
-//    registry.timer(regionalTimerId).count() == (isRegional ? 1 : 0)
-//    registry.timer(zonalTimerId).count() == (isRegional ? 0 : 1)
-//
-//    where:
-//    isRegional << [true, false]
-//  }
+  @Unroll
+  void "should delete zonal and regional autoHealing policy"() {
+    setup:
+    def registry = new DefaultRegistry()
+    def computeMock = Mock(Compute)
+    def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
+    def description = new DeleteGoogleAutoscalingPolicyDescription(
+      serverGroupName: SERVER_GROUP_NAME,
+      region: REGION,
+      accountName: ACCOUNT_NAME,
+      credentials: credentials,
+      deleteAutoHealingPolicy: true
+    )
+    def serverGroup = new GoogleServerGroup(zone: ZONE, regional: isRegional).view
+
+    // zonal setup
+    def zonalRequest = new InstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
+    def zonalManagerMock = Mock(Compute.InstanceGroupManagers)
+    def zonalSetAutoHealingPolicyMock = Mock(Compute.InstanceGroupManagers.SetAutoHealingPolicies)
+    def zonalTimerId = GoogleApiTestUtils.makeOkId(
+          registry,
+          "compute.instanceGroupManagers.setAutoHealingPolicies",
+          [scope: "zonal", zone: ZONE])
+
+    // regional setup
+    def regionalRequest = new RegionInstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
+    def regionalManagerMock = Mock(Compute.RegionInstanceGroupManagers)
+    def regionalSetAutoHealingPolicyMock = Mock(Compute.RegionInstanceGroupManagers.SetAutoHealingPolicies)
+    def regionalTimerId = GoogleApiTestUtils.makeOkId(
+          registry,
+          "compute.regionInstanceGroupManagers.setAutoHealingPolicies",
+          [scope: "regional", region: REGION])
+
+    @Subject def operation = Spy(DeleteGoogleAutoscalingPolicyAtomicOperation, constructorArgs: [description, googleClusterProviderMock, operationPollerMock, atomicOperationsRegistry, orchestrationProcessorMock])
+    operation.registry = registry
+
+    when:
+    operation.operate([])
+
+    then:
+    1 * operation.deletePolicyMetadata(computeMock, credentials, PROJECT_NAME, _) >> null // Tested separately.
+    1 * googleClusterProviderMock.getServerGroup(ACCOUNT_NAME, REGION, SERVER_GROUP_NAME) >> serverGroup
+
+    if (isRegional) {
+      computeMock.regionInstanceGroupManagers() >> regionalManagerMock
+      regionalManagerMock.setAutoHealingPolicies(PROJECT_NAME, REGION, SERVER_GROUP_NAME, regionalRequest) >> regionalSetAutoHealingPolicyMock
+      regionalSetAutoHealingPolicyMock.execute() >> [name: 'autoHealingOp']
+    } else {
+      computeMock.instanceGroupManagers() >> zonalManagerMock
+      zonalManagerMock.setAutoHealingPolicies(PROJECT_NAME, ZONE, SERVER_GROUP_NAME, zonalRequest) >> zonalSetAutoHealingPolicyMock
+      zonalSetAutoHealingPolicyMock.execute() >> [name: 'autoHealingOp']
+    }
+    registry.timer(regionalTimerId).count() == (isRegional ? 1 : 0)
+    registry.timer(zonalTimerId).count() == (isRegional ? 0 : 1)
+
+    where:
+    isRegional << [true, false]
+  }
 
   void "delete the instance template when deletePolicyMetadata is called"() {
     given:

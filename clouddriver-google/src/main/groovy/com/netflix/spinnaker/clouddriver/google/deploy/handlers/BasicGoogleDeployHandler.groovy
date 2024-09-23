@@ -416,9 +416,6 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
         "Accelerators are only supported with regional server groups if the zones are specified by the user.");
     }
 
-    log.info( "getting normal tags")
-    tags.forEach(log::info)
-
     def instanceProperties = new InstanceProperties(machineType: machineTypeName,
                                                     disks: attachedDisks,
                                                     guestAccelerators: description.acceleratorConfigs ?: [],
@@ -428,7 +425,8 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                     tags: tags,
                                                     labels: labels,
                                                     scheduling: scheduling,
-                                                    serviceAccounts: serviceAccount, resourceManagerTags: description.resourceManagerTags,)
+                                                    serviceAccounts: serviceAccount,
+                                                    resourceManagerTags: description.resourceManagerTags,)
 
     if (GCEUtil.isShieldedVmCompatible(bootImage)) {
       def shieldedVmConfig = GCEUtil.buildShieldedVmConfig(description)

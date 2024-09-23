@@ -107,9 +107,9 @@ class SerializeApplicationAtomicOperationUnitSpec extends Specification {
       def scheduling = new Scheduling(automaticRestart: SCHEDULING_AUTOMATIC_RESTART,
                                       onHostMaintenance: SCHEDULING_ON_HOST_MAINTENANCE,
                                       preemptible: SCHEDULING_PREEMPTIBLE)
-//      def shieldedVmConfig = new ShieldedVmConfig(enableSecureBoot: SHIELDEDVMCONFIG_ENABLE_SECURE_BOOT,
-//                                                  enableVtpm: SHIELDEDVMCONFIG_ENABLE_VTPM,
-//                                                  enableIntegrityMonitoring: SHIELDEDVMCONFIG_ENABLE_INTEGRITY_MONITORING)
+      def shieldedVmConfig = new ShieldedVmConfig(enableSecureBoot: SHIELDEDVMCONFIG_ENABLE_SECURE_BOOT,
+                                                  enableVtpm: SHIELDEDVMCONFIG_ENABLE_VTPM,
+                                                  enableIntegrityMonitoring: SHIELDEDVMCONFIG_ENABLE_INTEGRITY_MONITORING)
       def disk = new AttachedDisk(autoDelete: DISK_AUTO_DELETE,
                                   boot: DISK_BOOT,
                                   deviceName: DISK_DEVICE_NAME,
@@ -131,7 +131,8 @@ class SerializeApplicationAtomicOperationUnitSpec extends Specification {
                                                       metadata: INSTANCE_TEMPLATE_METADATA,
                                                       scheduling: scheduling,
                                                       disks: [disk],
-                                                      networkInterfaces: [networkInterface])
+                                                      networkInterfaces: [networkInterface],
+                                                      shieldedVmConfig: shieldedVmConfig)
       def instanceTemplate = new InstanceTemplate(description: INSTANCE_TEMPLATE_DESCRIPTION,
                                                   name: INSTANCE_TEMPLATE_NAME,
                                                   properties: instanceProperties)
@@ -202,7 +203,8 @@ class SerializeApplicationAtomicOperationUnitSpec extends Specification {
                                  project: null,
                                  network_interface: [networkInterfaceMap],
                                  scheduling: schedulingMap,
-                                 metadata: metadataMap]
+                                 metadata: metadataMap,
+                                 shielded_vm_config: shieldedVmConfigMap]
       def targetPools = []
       SERVER_GROUP_LOAD_BALANCERS.each {String loadBalancer ->
         targetPools.add("\${google_compute_target_pool.${loadBalancer}.self_link}")

@@ -10,7 +10,7 @@ dependencies {
   implementation "org.apache.groovy:groovy"
   implementation "org.apache.groovy:groovy-json"
   implementation "org.apache.commons:commons-lang3"
-  implementation "com.google.apis:google-api-services-compute:v1-rev20240903-2.0.0"
+  implementation "com.google.apis:google-api-services-compute:beta-rev20210525-1.31.5"
   implementation "com.google.guava:guava"
   implementation "com.google.apis:google-api-services-iam"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
@@ -51,7 +51,7 @@ dependencies {
 
 configurations.all {
    resolutionStrategy {
-     force 'com.google.apis:google-api-services-compute:v1-rev20240903-2.0.0'
+     force 'com.google.apis:google-api-services-compute:beta-rev20210525-1.31.5'
      force 'com.google.api-client:google-api-client:1.31.1'
    }
 
