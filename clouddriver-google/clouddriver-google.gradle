@@ -10,7 +10,7 @@ dependencies {
   implementation "org.codehaus.groovy:groovy"
   implementation "org.codehaus.groovy:groovy-json"
   implementation "org.apache.commons:commons-lang3"
-  implementation "com.google.apis:google-api-services-compute:beta-rev20210525-1.31.5"
+  implementation "com.google.apis:google-api-services-compute"
   implementation "com.google.guava:guava"
   implementation "com.google.apis:google-api-services-iam"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
@@ -47,6 +47,9 @@ dependencies {
   testImplementation "org.springframework:spring-test"
   testImplementation "org.springframework.boot:spring-boot-test"
   testImplementation "org.codehaus.groovy:groovy-test"
+  testImplementation 'org.spockframework:spock-core:2.0-groovy-3.0'
+  testImplementation 'org.powermock:powermock-api-mockito2:2.0.9'
+  testImplementation 'org.powermock:powermock-module-junit4:2.0.9'
 }
 
 configurations.all {
