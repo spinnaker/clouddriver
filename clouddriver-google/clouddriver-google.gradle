@@ -10,7 +10,7 @@ dependencies {
   implementation "org.apache.groovy:groovy"
   implementation "org.apache.groovy:groovy-json"
   implementation "org.apache.commons:commons-lang3"
-  implementation "com.google.apis:google-api-services-compute:beta-rev20210525-1.31.5"
+  implementation "com.google.apis:google-api-services-compute"
   implementation "com.google.guava:guava"
   implementation "com.google.apis:google-api-services-iam"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
