@@ -46,7 +46,10 @@ dependencies {
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
   testImplementation "org.springframework.boot:spring-boot-test"
-  testImplementation "org.apache.groovy:groovy-test"
+  testImplementation "org.codehaus.groovy:groovy-test"
+  testImplementation 'org.spockframework:spock-core:2.0-groovy-3.0'
+  testImplementation 'org.powermock:powermock-api-mockito2:2.0.9'
+  testImplementation 'org.powermock:powermock-module-junit4:2.0.9'
 }
 
 configurations.all {
