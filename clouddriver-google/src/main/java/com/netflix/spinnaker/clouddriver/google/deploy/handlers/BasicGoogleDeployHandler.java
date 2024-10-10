@@ -738,7 +738,8 @@ public class BasicGoogleDeployHandler
 
   protected void validateAcceleratorConfig(BasicGoogleDeployDescription description) {
     // Accelerators are supported for zonal server groups only.
-    if (!description.getAcceleratorConfigs().isEmpty()
+    if (description.getAcceleratorConfigs() != null
+        && !description.getAcceleratorConfigs().isEmpty()
         && (!description.getRegional() || description.getSelectZones())) {
       throw new IllegalArgumentException(
           "Accelerators are only supported with regional server groups if the zones are specified by the user.");

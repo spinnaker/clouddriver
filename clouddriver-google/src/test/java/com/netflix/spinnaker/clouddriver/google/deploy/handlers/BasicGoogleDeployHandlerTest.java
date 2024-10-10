@@ -1173,6 +1173,12 @@ public class BasicGoogleDeployHandlerTest {
   }
 
   @Test
+  void validateAcceleratorConfig_noExceptionForNullConfig() {
+    when(mockDescription.getAcceleratorConfigs()).thenReturn(null);
+    assertDoesNotThrow(() -> basicGoogleDeployHandler.validateAcceleratorConfig(mockDescription));
+  }
+
+  @Test
   void validateAcceleratorConfig_validRegionalWithZones() {
     BasicGoogleDeployDescription description = mock(BasicGoogleDeployDescription.class);
     when(description.getAcceleratorConfigs()).thenReturn(List.of(new AcceleratorConfig()));
