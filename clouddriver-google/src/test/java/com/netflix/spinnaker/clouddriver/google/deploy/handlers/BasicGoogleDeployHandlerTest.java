@@ -1273,6 +1273,47 @@ public class BasicGoogleDeployHandlerTest {
   }
 
   @Test
+  void buildInstancePropertiesFromInput_nullAcceleratorConfigs_emptyGuestAccelerators() {
+    String machineTypeName = "n1-standard-1";
+    List<AttachedDisk> attachedDisks = List.of(mock(AttachedDisk.class));
+    NetworkInterface networkInterface = mock(NetworkInterface.class);
+    Metadata metadata = mock(Metadata.class);
+    Tags tags = mock(Tags.class);
+    List<ServiceAccount> serviceAccounts = List.of(mock(ServiceAccount.class));
+    Scheduling scheduling = mock(Scheduling.class);
+    Map<String, String> labels = Map.of("key1", "value1");
+
+    when(mockDescription.getAcceleratorConfigs()).thenReturn(null);
+    when(mockDescription.getCanIpForward()).thenReturn(false);
+    when(mockDescription.getResourceManagerTags()).thenReturn(Collections.emptyMap());
+
+    InstanceProperties result =
+        basicGoogleDeployHandler.buildInstancePropertiesFromInput(
+            mockDescription,
+            machineTypeName,
+            attachedDisks,
+            networkInterface,
+            metadata,
+            tags,
+            serviceAccounts,
+            scheduling,
+            labels);
+
+    assertEquals(machineTypeName, result.getMachineType());
+    assertEquals(attachedDisks, result.getDisks());
+    assertTrue(result.getGuestAccelerators().isEmpty());
+    assertEquals(1, result.getNetworkInterfaces().size());
+    assertEquals(networkInterface, result.getNetworkInterfaces().get(0));
+    assertFalse(result.getCanIpForward());
+    assertEquals(metadata, result.getMetadata());
+    assertEquals(tags, result.getTags());
+    assertEquals(labels, result.getLabels());
+    assertEquals(scheduling, result.getScheduling());
+    assertEquals(serviceAccounts, result.getServiceAccounts());
+    assertTrue(result.getResourceManagerTags().isEmpty());
+  }
+
+  @Test
   void addShieldedVmConfigToInstanceProperties_shieldedVmCompatible_configAdded() {
     InstanceProperties instanceProperties = new InstanceProperties();
     Image bootImage = mock(Image.class);

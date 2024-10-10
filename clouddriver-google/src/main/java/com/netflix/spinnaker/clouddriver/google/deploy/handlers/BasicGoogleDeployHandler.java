@@ -760,7 +760,8 @@ public class BasicGoogleDeployHandler
         .setMachineType(machineTypeName)
         .setDisks(attachedDisks)
         .setGuestAccelerators(
-            !description.getAcceleratorConfigs().isEmpty()
+            description.getAcceleratorConfigs() != null
+                    && !description.getAcceleratorConfigs().isEmpty()
                 ? description.getAcceleratorConfigs()
                 : Collections.emptyList())
         .setNetworkInterfaces(List.of(networkInterface))
