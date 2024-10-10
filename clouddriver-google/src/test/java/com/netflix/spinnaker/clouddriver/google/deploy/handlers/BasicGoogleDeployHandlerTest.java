@@ -1535,6 +1535,19 @@ public class BasicGoogleDeployHandlerTest {
   }
 
   @Test
+  void setCapacityFromSource_whenUseSourceCapacityIsNull_doesNothing() {
+    BasicGoogleDeployDescription description = new BasicGoogleDeployDescription();
+    BasicGoogleDeployDescription.Source mockSource =
+        mock(BasicGoogleDeployDescription.Source.class);
+    description.setSource(mockSource);
+    when(mockSource.getUseSourceCapacity()).thenReturn(null);
+
+    basicGoogleDeployHandler.setCapacityFromSource(description, mockTask);
+    verify(mockTask, never()).updateStatus(anyString(), anyString());
+    assertNull(description.getTargetSize());
+  }
+
+  @Test
   void setCapacityFromSource_whenValidSource_updatesDescriptionCapacityAndPolicy() {
     BasicGoogleDeployDescription description = new BasicGoogleDeployDescription();
     BasicGoogleDeployDescription.Source mockSource =

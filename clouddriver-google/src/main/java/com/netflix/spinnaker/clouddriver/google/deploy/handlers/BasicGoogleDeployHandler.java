@@ -821,6 +821,7 @@ public class BasicGoogleDeployHandler
   protected void setCapacityFromSource(BasicGoogleDeployDescription description, Task task) {
     BasicGoogleDeployDescription.Source source = description.getSource();
     if (source != null
+        && source.getUseSourceCapacity() != null
         && source.getUseSourceCapacity()
         && StringUtils.isNotBlank(source.getRegion())
         && StringUtils.isNotBlank(source.getServerGroupName())) {
