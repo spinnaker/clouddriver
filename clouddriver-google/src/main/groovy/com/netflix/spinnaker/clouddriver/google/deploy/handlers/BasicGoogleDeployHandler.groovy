@@ -426,7 +426,9 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                     labels: labels,
                                                     scheduling: scheduling,
                                                     serviceAccounts: serviceAccount,
-                                                    resourceManagerTags: description.resourceManagerTags,)
+                                                    resourceManagerTags: description.resourceManagerTags,
+      partnerMetadata: description.partnerMetadata,
+    )
 
     if (GCEUtil.isShieldedVmCompatible(bootImage)) {
       def shieldedVmConfig = GCEUtil.buildShieldedVmConfig(description)
