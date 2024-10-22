@@ -40,24 +40,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.services.compute.model.AcceleratorConfig;
-import com.google.api.services.compute.model.AttachedDisk;
-import com.google.api.services.compute.model.Backend;
-import com.google.api.services.compute.model.BackendService;
-import com.google.api.services.compute.model.DistributionPolicyZoneConfiguration;
-import com.google.api.services.compute.model.FixedOrPercent;
-import com.google.api.services.compute.model.Image;
-import com.google.api.services.compute.model.InstanceGroupManager;
-import com.google.api.services.compute.model.InstanceGroupManagerAutoHealingPolicy;
-import com.google.api.services.compute.model.InstanceProperties;
-import com.google.api.services.compute.model.InstanceTemplate;
-import com.google.api.services.compute.model.Metadata;
-import com.google.api.services.compute.model.NamedPort;
-import com.google.api.services.compute.model.NetworkInterface;
-import com.google.api.services.compute.model.Scheduling;
-import com.google.api.services.compute.model.ServiceAccount;
-import com.google.api.services.compute.model.ShieldedVmConfig;
-import com.google.api.services.compute.model.Tags;
+import com.google.api.services.compute.model.*;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
@@ -92,13 +75,7 @@ import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCrede
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.config.GoogleConfiguration;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -1204,6 +1181,11 @@ public class BasicGoogleDeployHandlerTest {
     when(mockDescription.getCanIpForward()).thenReturn(true);
     when(mockDescription.getResourceManagerTags())
         .thenReturn(Map.of("resource-tag-key", "resource-tag-value"));
+    when(mockDescription.getPartnerMetadata())
+        .thenReturn(
+            Map.of(
+                "partner-metadata-key",
+                new StructuredEntries().setEntries(Map.of("entries", new Object()))));
 
     InstanceProperties result =
         basicGoogleDeployHandler.buildInstancePropertiesFromInput(
@@ -1229,6 +1211,7 @@ public class BasicGoogleDeployHandlerTest {
     assertEquals(scheduling, result.getScheduling());
     assertEquals(serviceAccounts, result.getServiceAccounts());
     assertEquals(mockDescription.getResourceManagerTags(), result.getResourceManagerTags());
+    assertEquals(mockDescription.getPartnerMetadata(), result.getPartnerMetadata());
   }
 
   @Test
@@ -1245,6 +1228,7 @@ public class BasicGoogleDeployHandlerTest {
     when(mockDescription.getAcceleratorConfigs()).thenReturn(Collections.emptyList());
     when(mockDescription.getCanIpForward()).thenReturn(false);
     when(mockDescription.getResourceManagerTags()).thenReturn(Collections.emptyMap());
+    when(mockDescription.getPartnerMetadata()).thenReturn(Collections.emptyMap());
 
     InstanceProperties result =
         basicGoogleDeployHandler.buildInstancePropertiesFromInput(
@@ -1270,6 +1254,7 @@ public class BasicGoogleDeployHandlerTest {
     assertEquals(scheduling, result.getScheduling());
     assertEquals(serviceAccounts, result.getServiceAccounts());
     assertTrue(result.getResourceManagerTags().isEmpty());
+    assertTrue(result.getPartnerMetadata().isEmpty());
   }
 
   @Test
@@ -1286,6 +1271,7 @@ public class BasicGoogleDeployHandlerTest {
     when(mockDescription.getAcceleratorConfigs()).thenReturn(null);
     when(mockDescription.getCanIpForward()).thenReturn(false);
     when(mockDescription.getResourceManagerTags()).thenReturn(Collections.emptyMap());
+    when(mockDescription.getPartnerMetadata()).thenReturn(Collections.emptyMap());
 
     InstanceProperties result =
         basicGoogleDeployHandler.buildInstancePropertiesFromInput(
@@ -1311,6 +1297,7 @@ public class BasicGoogleDeployHandlerTest {
     assertEquals(scheduling, result.getScheduling());
     assertEquals(serviceAccounts, result.getServiceAccounts());
     assertTrue(result.getResourceManagerTags().isEmpty());
+    assertTrue(result.getPartnerMetadata().isEmpty());
   }
 
   @Test

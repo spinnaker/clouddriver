@@ -771,7 +771,8 @@ public class BasicGoogleDeployHandler
         .setLabels(labels)
         .setScheduling(scheduling)
         .setServiceAccounts(serviceAccounts)
-        .setResourceManagerTags(description.getResourceManagerTags());
+        .setResourceManagerTags(description.getResourceManagerTags())
+        .setPartnerMetadata(description.getPartnerMetadata());
   }
 
   protected void addShieldedVmConfigToInstanceProperties(
