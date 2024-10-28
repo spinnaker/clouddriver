@@ -138,134 +138,133 @@ public class BasicGoogleDeployHandler
   public DeploymentResult handle(BasicGoogleDeployDescription description, List priorOutputs) {
     Task task = getTask();
 
-    String region = getRegionFromInput(description);
-    String location = getLocationFromInput(description, region);
-    GCEServerGroupNameResolver nameResolver = getServerGroupNameResolver(description, region);
-    String clusterName =
-        nameResolver.getClusterName(
-            description.getApplication(), description.getStack(), description.getFreeFormDetails());
-
-    task.updateStatus(
-        BASE_PHASE,
-        String.format(
-            "Initializing creation of server group for cluster %s in %s...",
-            clusterName, location));
-    task.updateStatus(BASE_PHASE, "Looking up next sequence...");
-
-    String nextServerGroupName =
-        nameResolver.resolveNextServerGroupName(
-            description.getApplication(),
-            description.getStack(),
-            description.getFreeFormDetails(),
-            false);
-    task.updateStatus(
-        BASE_PHASE, String.format("Produced server group name: %s", nextServerGroupName));
-
-    String machineTypeName = getMachineTypeNameFromInput(description, task, location);
-    GoogleNetwork network = buildNetworkFromInput(description, task);
-    GoogleSubnet subnet = buildSubnetFromInput(description, task, network, region);
-    LoadBalancerInfo lbToUpdate = getLoadBalancerToUpdateFromInput(description, task);
-
-    task.updateStatus(
-        BASE_PHASE, String.format("Composing server group %s...", nextServerGroupName));
-
-    description.setBaseDeviceName(
-        nextServerGroupName); // I left this because I assumed GCEUtils use it at some point.
-    Image bootImage = buildBootImage(description, task);
-    List<AttachedDisk> attachedDisks = buildAttachedDisks(description, task, bootImage);
-    NetworkInterface networkInterface = buildNetworkInterface(description, network, subnet);
-    GoogleHttpLoadBalancingPolicy lbPolicy = null;
     try {
-      lbPolicy = buildLoadBalancerPolicyFromInput(description);
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Unexpected error in handler: " + e.getMessage());
-    }
-    List<BackendService> backendServicesToUpdate =
-        getBackendServiceToUpdate(description, nextServerGroupName, lbToUpdate, lbPolicy, region);
-    List<BackendService> regionBackendServicesToUpdate =
-        getRegionBackendServicesToUpdate(
-            description, nextServerGroupName, lbToUpdate, lbPolicy, region);
+      String region = getRegionFromInput(description);
+      String location = getLocationFromInput(description, region);
+      GCEServerGroupNameResolver nameResolver = getServerGroupNameResolver(description, region);
+      String clusterName =
+          nameResolver.getClusterName(
+              description.getApplication(),
+              description.getStack(),
+              description.getFreeFormDetails());
 
-    String now = String.valueOf(System.currentTimeMillis());
-    String suffix = now.substring(now.length() - TEMPLATE_UUID_SIZE);
-    String instanceTemplateName = String.format("%s-%s", nextServerGroupName, suffix);
-    if (instanceTemplateName.length() > MAX_NAME_SIZE) {
-      throw new IllegalArgumentException(
-          "Max name length ${MAX_NAME_SIZE} exceeded in resolved instance template name ${instanceTemplateName}.");
-    }
+      task.updateStatus(
+          BASE_PHASE,
+          String.format(
+              "Initializing creation of server group for cluster %s in %s...",
+              clusterName, location));
+      task.updateStatus(BASE_PHASE, "Looking up next sequence...");
 
-    addUserDataToInstanceMetadata(description, nextServerGroupName, instanceTemplateName, task);
-    addSelectZonesToInstanceMetadata(description);
+      String nextServerGroupName =
+          nameResolver.resolveNextServerGroupName(
+              description.getApplication(),
+              description.getStack(),
+              description.getFreeFormDetails(),
+              false);
+      task.updateStatus(
+          BASE_PHASE, String.format("Produced server group name: %s", nextServerGroupName));
 
-    Metadata metadata = buildMetadataFromInstanceMetadata(description);
-    Tags tags = buildTagsFromInput(description);
-    List<ServiceAccount> serviceAccounts = buildServiceAccountFromInput(description);
-    Scheduling scheduling = buildSchedulingFromInput(description);
-    Map<String, String> labels = buildLabelsFromInput(description, nextServerGroupName, region);
+      String machineTypeName = getMachineTypeNameFromInput(description, task, location);
+      GoogleNetwork network = buildNetworkFromInput(description, task);
+      GoogleSubnet subnet = buildSubnetFromInput(description, task, network, region);
+      LoadBalancerInfo lbToUpdate = getLoadBalancerToUpdateFromInput(description, task);
 
-    setupMonikerForOperation(description, nextServerGroupName, clusterName);
-    validateAcceleratorConfig(description);
+      task.updateStatus(
+          BASE_PHASE, String.format("Composing server group %s...", nextServerGroupName));
 
-    InstanceProperties instanceProperties =
-        buildInstancePropertiesFromInput(
-            description,
-            machineTypeName,
-            attachedDisks,
-            networkInterface,
-            metadata,
-            tags,
-            serviceAccounts,
-            scheduling,
-            labels);
-    addShieldedVmConfigToInstanceProperties(description, instanceProperties, bootImage);
-    addMinCpuPlatformToInstanceProperties(description, instanceProperties);
-    InstanceTemplate instanceTemplate =
-        buildInstanceTemplate(instanceTemplateName, instanceProperties);
+      description.setBaseDeviceName(
+          nextServerGroupName); // I left this because I assumed GCEUtils use it at some point.
+      Image bootImage = buildBootImage(description, task);
+      List<AttachedDisk> attachedDisks = buildAttachedDisks(description, task, bootImage);
+      NetworkInterface networkInterface = buildNetworkInterface(description, network, subnet);
+      GoogleHttpLoadBalancingPolicy lbPolicy = null;
+      List<BackendService> backendServicesToUpdate =
+          getBackendServiceToUpdate(description, nextServerGroupName, lbToUpdate, lbPolicy, region);
+      List<BackendService> regionBackendServicesToUpdate =
+          getRegionBackendServicesToUpdate(
+              description, nextServerGroupName, lbToUpdate, lbPolicy, region);
 
-    String instanceTemplateUrl = "";
-    try {
+      String now = String.valueOf(System.currentTimeMillis());
+      String suffix = now.substring(now.length() - TEMPLATE_UUID_SIZE);
+      String instanceTemplateName = String.format("%s-%s", nextServerGroupName, suffix);
+      if (instanceTemplateName.length() > MAX_NAME_SIZE) {
+        throw new IllegalArgumentException(
+            "Max name length ${MAX_NAME_SIZE} exceeded in resolved instance template name ${instanceTemplateName}.");
+      }
+
+      addUserDataToInstanceMetadata(description, nextServerGroupName, instanceTemplateName, task);
+      addSelectZonesToInstanceMetadata(description);
+
+      Metadata metadata = buildMetadataFromInstanceMetadata(description);
+      Tags tags = buildTagsFromInput(description);
+      List<ServiceAccount> serviceAccounts = buildServiceAccountFromInput(description);
+      Scheduling scheduling = buildSchedulingFromInput(description);
+      Map<String, String> labels = buildLabelsFromInput(description, nextServerGroupName, region);
+
+      setupMonikerForOperation(description, nextServerGroupName, clusterName);
+      validateAcceleratorConfig(description);
+
+      InstanceProperties instanceProperties =
+          buildInstancePropertiesFromInput(
+              description,
+              machineTypeName,
+              attachedDisks,
+              networkInterface,
+              metadata,
+              tags,
+              serviceAccounts,
+              scheduling,
+              labels);
+      addShieldedVmConfigToInstanceProperties(description, instanceProperties, bootImage);
+      addMinCpuPlatformToInstanceProperties(description, instanceProperties);
+      InstanceTemplate instanceTemplate =
+          buildInstanceTemplate(instanceTemplateName, instanceProperties);
+
+      String instanceTemplateUrl = "";
       instanceTemplateUrl =
           createInstanceTemplateAndWait(description.getCredentials(), instanceTemplate, task);
-    } catch (IOException e) {
-      throw new IllegalStateException("Unexpected error in handler: " + e.getMessage());
-    }
 
-    setCapacityFromInput(description);
-    setAutoscalerCapacityFromInput(description);
-    setCapacityFromSource(description, task);
+      setCapacityFromInput(description);
+      setAutoscalerCapacityFromInput(description);
+      setCapacityFromSource(description, task);
 
-    List<InstanceGroupManagerAutoHealingPolicy> autoHealingPolicy =
-        buildAutoHealingPolicyFromInput(description, task);
-    InstanceGroupManager instanceGroupManager =
-        buildInstanceGroupFromInput(
-            description,
-            nextServerGroupName,
-            instanceTemplateUrl,
-            lbToUpdate.targetPools,
-            autoHealingPolicy);
-    setNamedPortsToInstanceGroup(description, lbToUpdate, instanceGroupManager);
+      List<InstanceGroupManagerAutoHealingPolicy> autoHealingPolicy =
+          buildAutoHealingPolicyFromInput(description, task);
+      InstanceGroupManager instanceGroupManager =
+          buildInstanceGroupFromInput(
+              description,
+              nextServerGroupName,
+              instanceTemplateUrl,
+              lbToUpdate.targetPools,
+              autoHealingPolicy);
+      setNamedPortsToInstanceGroup(description, lbToUpdate, instanceGroupManager);
 
-    try {
       createInstanceGroupManagerFromInput(
           description, instanceGroupManager, lbToUpdate, nextServerGroupName, region, task);
+
+      task.updateStatus(
+          BASE_PHASE,
+          String.format("Done creating server group %s in %s.", nextServerGroupName, location));
+
+      updateBackendServices(
+          description, lbToUpdate, nextServerGroupName, backendServicesToUpdate, task);
+      updateRegionalBackendServices(
+          description,
+          lbToUpdate,
+          nextServerGroupName,
+          region,
+          regionBackendServicesToUpdate,
+          task);
+
+      DeploymentResult deploymentResult = new DeploymentResult();
+      deploymentResult.setServerGroupNames(
+          List.of(String.format("%s:%s", region, nextServerGroupName)));
+      deploymentResult.setServerGroupNameByRegion(Map.of(region, nextServerGroupName));
+      return deploymentResult;
+
     } catch (IOException e) {
       throw new IllegalStateException("Unexpected error in handler: " + e.getMessage());
     }
-
-    task.updateStatus(
-        BASE_PHASE,
-        String.format("Done creating server group %s in %s.", nextServerGroupName, location));
-
-    updateBackendServices(
-        description, lbToUpdate, nextServerGroupName, backendServicesToUpdate, task);
-    updateRegionalBackendServices(
-        description, lbToUpdate, nextServerGroupName, region, regionBackendServicesToUpdate, task);
-
-    DeploymentResult deploymentResult = new DeploymentResult();
-    deploymentResult.setServerGroupNames(
-        List.of(String.format("%s:%s", region, nextServerGroupName)));
-    deploymentResult.setServerGroupNameByRegion(Map.of(region, nextServerGroupName));
-    return deploymentResult;
   }
 
   protected GCEServerGroupNameResolver getServerGroupNameResolver(
