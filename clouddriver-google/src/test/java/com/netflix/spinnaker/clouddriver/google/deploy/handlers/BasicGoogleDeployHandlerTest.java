@@ -165,9 +165,8 @@ public class BasicGoogleDeployHandlerTest {
   void testGetLocationFromInput_RegionalTrue() {
     String region = "us-central1";
     when(mockDescription.getRegional()).thenReturn(true);
-    doReturn(region).when(basicGoogleDeployHandler).getRegionFromInput(mockDescription);
 
-    String result = basicGoogleDeployHandler.getLocationFromInput(mockDescription);
+    String result = basicGoogleDeployHandler.getLocationFromInput(mockDescription, region);
     assertEquals(region, result);
   }
 
@@ -177,7 +176,7 @@ public class BasicGoogleDeployHandlerTest {
     when(mockDescription.getRegional()).thenReturn(false);
     when(mockDescription.getZone()).thenReturn(zone);
 
-    String result = basicGoogleDeployHandler.getLocationFromInput(mockDescription);
+    String result = basicGoogleDeployHandler.getLocationFromInput(mockDescription, "");
     assertEquals(zone, result);
   }
 
@@ -186,7 +185,8 @@ public class BasicGoogleDeployHandlerTest {
     String instanceType = "custom-4-16384";
     when(mockDescription.getInstanceType()).thenReturn(instanceType);
 
-    String result = basicGoogleDeployHandler.getMachineTypeNameFromInput(mockDescription, mockTask);
+    String result =
+        basicGoogleDeployHandler.getMachineTypeNameFromInput(mockDescription, mockTask, "location");
     assertEquals(instanceType, result);
   }
 
@@ -198,7 +198,6 @@ public class BasicGoogleDeployHandlerTest {
 
     when(mockDescription.getInstanceType()).thenReturn(instanceType);
     when(mockDescription.getCredentials()).thenReturn(mockCredentials);
-    doReturn(location).when(basicGoogleDeployHandler).getLocationFromInput(mockDescription);
 
     mockedGCEUtil
         .when(
@@ -211,7 +210,8 @@ public class BasicGoogleDeployHandlerTest {
                     eq("DEPLOY")))
         .thenReturn(machineTypeName);
 
-    String result = basicGoogleDeployHandler.getMachineTypeNameFromInput(mockDescription, mockTask);
+    String result =
+        basicGoogleDeployHandler.getMachineTypeNameFromInput(mockDescription, mockTask, location);
 
     assertEquals(machineTypeName, result);
     mockedGCEUtil.verify(
@@ -272,7 +272,6 @@ public class BasicGoogleDeployHandlerTest {
 
     when(mockDescription.getSubnet()).thenReturn(subnetName);
     when(mockDescription.getAccountName()).thenReturn("test-account");
-    doReturn(region).when(basicGoogleDeployHandler).getRegionFromInput(mockDescription);
     when(mockNetwork.getId()).thenReturn(networkId);
 
     mockedGCEUtil
@@ -288,7 +287,8 @@ public class BasicGoogleDeployHandlerTest {
         .thenReturn(mockSubnet);
 
     GoogleSubnet result =
-        basicGoogleDeployHandler.buildSubnetFromInput(mockDescription, mockTask, mockNetwork);
+        basicGoogleDeployHandler.buildSubnetFromInput(
+            mockDescription, mockTask, mockNetwork, region);
     assertEquals(mockSubnet, result);
   }
 
@@ -300,8 +300,6 @@ public class BasicGoogleDeployHandlerTest {
 
     when(mockDescription.getSubnet()).thenReturn(subnetName);
     when(mockDescription.getAccountName()).thenReturn("test-account");
-    doReturn(region).when(basicGoogleDeployHandler).getRegionFromInput(mockDescription);
-
     GoogleNetwork mockNetwork = mock(GoogleNetwork.class);
     GoogleSubnet mockSubnet = mock(GoogleSubnet.class);
     when(mockNetwork.getId()).thenReturn(networkId);
@@ -331,7 +329,8 @@ public class BasicGoogleDeployHandlerTest {
         .thenReturn(mockSubnet);
 
     GoogleSubnet result =
-        basicGoogleDeployHandler.buildSubnetFromInput(mockDescription, mockTask, mockNetwork);
+        basicGoogleDeployHandler.buildSubnetFromInput(
+            mockDescription, mockTask, mockNetwork, region);
     assertEquals(mockSubnet, result);
     mockedGCEUtil.verify(
         () -> GCEUtil.querySubnet(any(), any(), any(), any(), any(), any()), times(2));
@@ -342,12 +341,11 @@ public class BasicGoogleDeployHandlerTest {
     String region = "us-central1";
 
     when(mockDescription.getSubnet()).thenReturn(""); // Blank subnet
-    doReturn(region).when(basicGoogleDeployHandler).getRegionFromInput(mockDescription);
-
     GoogleNetwork mockNetwork = mock(GoogleNetwork.class);
 
     GoogleSubnet result =
-        basicGoogleDeployHandler.buildSubnetFromInput(mockDescription, mockTask, mockNetwork);
+        basicGoogleDeployHandler.buildSubnetFromInput(
+            mockDescription, mockTask, mockNetwork, region);
     assertNull(result);
     mockedGCEUtil.verifyNoInteractions();
   }
@@ -723,7 +721,7 @@ public class BasicGoogleDeployHandlerTest {
 
     List<BackendService> result =
         basicGoogleDeployHandler.getBackendServiceToUpdate(
-            mockDescription, "serverGroupName", lbInfoMock, null);
+            mockDescription, "serverGroupName", lbInfoMock, null, "region");
     assertTrue(result.isEmpty());
   }
 
@@ -769,7 +767,7 @@ public class BasicGoogleDeployHandlerTest {
 
     List<BackendService> result =
         basicGoogleDeployHandler.getBackendServiceToUpdate(
-            mockDescription, "serverGroupName", lbInfoMock, policyMock);
+            mockDescription, "serverGroupName", lbInfoMock, policyMock, "region");
     assertNotNull(result);
     assertEquals(3, result.size());
   }
@@ -784,7 +782,7 @@ public class BasicGoogleDeployHandlerTest {
 
     List<BackendService> result =
         basicGoogleDeployHandler.getRegionBackendServicesToUpdate(
-            mockDescription, "server-group-name", lbInfoMock, policyMock);
+            mockDescription, "server-group-name", lbInfoMock, policyMock, "region");
 
     assertNotNull(result);
     assertTrue(result.isEmpty());
@@ -819,7 +817,6 @@ public class BasicGoogleDeployHandlerTest {
     when(mockDescription.getZone()).thenReturn("us-central1-a");
 
     String region = "us-central1";
-    doReturn(region).when(basicGoogleDeployHandler).getRegionFromInput(mockDescription);
     doReturn(mock(BackendService.class))
         .when(basicGoogleDeployHandler)
         .getRegionBackendServiceFromProvider(any(), any(), any());
@@ -835,7 +832,7 @@ public class BasicGoogleDeployHandlerTest {
 
     List<BackendService> result =
         basicGoogleDeployHandler.getRegionBackendServicesToUpdate(
-            mockDescription, "server-group-name", lbInfoMock, policyMock);
+            mockDescription, "server-group-name", lbInfoMock, policyMock, region);
     assertNotNull(result);
     assertEquals(2, result.size());
     assertEquals(
@@ -1098,10 +1095,10 @@ public class BasicGoogleDeployHandlerTest {
     existingLabels.put("key1", "value1");
 
     when(mockDescription.getLabels()).thenReturn(existingLabels);
-    doReturn("us-central1").when(basicGoogleDeployHandler).getRegionFromInput(mockDescription);
 
     Map<String, String> labels =
-        basicGoogleDeployHandler.buildLabelsFromInput(mockDescription, "my-server-group");
+        basicGoogleDeployHandler.buildLabelsFromInput(
+            mockDescription, "my-server-group", "us-central1");
 
     assertEquals(3, labels.size());
     assertEquals("us-central1", labels.get("spinnaker-region"));
@@ -1114,10 +1111,10 @@ public class BasicGoogleDeployHandlerTest {
   @Test
   void testBuildLabelsFromInput_NullLabels() {
     when(mockDescription.getLabels()).thenReturn(null);
-    doReturn("us-central1").when(basicGoogleDeployHandler).getRegionFromInput(mockDescription);
 
     Map<String, String> labels =
-        basicGoogleDeployHandler.buildLabelsFromInput(mockDescription, "my-server-group");
+        basicGoogleDeployHandler.buildLabelsFromInput(
+            mockDescription, "my-server-group", "us-central1");
 
     assertEquals(2, labels.size());
     assertEquals("us-central1", labels.get("spinnaker-region"));

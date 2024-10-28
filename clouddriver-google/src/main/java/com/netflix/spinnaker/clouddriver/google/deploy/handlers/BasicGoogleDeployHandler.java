@@ -138,7 +138,9 @@ public class BasicGoogleDeployHandler
   public DeploymentResult handle(BasicGoogleDeployDescription description, List priorOutputs) {
     Task task = getTask();
 
-    GCEServerGroupNameResolver nameResolver = getServerGroupNameResolver(description);
+    String region = getRegionFromInput(description);
+    String location = getLocationFromInput(description, region);
+    GCEServerGroupNameResolver nameResolver = getServerGroupNameResolver(description, region);
     String clusterName =
         nameResolver.getClusterName(
             description.getApplication(), description.getStack(), description.getFreeFormDetails());
@@ -147,7 +149,7 @@ public class BasicGoogleDeployHandler
         BASE_PHASE,
         String.format(
             "Initializing creation of server group for cluster %s in %s...",
-            clusterName, getLocationFromInput(description)));
+            clusterName, location));
     task.updateStatus(BASE_PHASE, "Looking up next sequence...");
 
     String nextServerGroupName =
@@ -159,9 +161,9 @@ public class BasicGoogleDeployHandler
     task.updateStatus(
         BASE_PHASE, String.format("Produced server group name: %s", nextServerGroupName));
 
-    String machineTypeName = getMachineTypeNameFromInput(description, task);
+    String machineTypeName = getMachineTypeNameFromInput(description, task, location);
     GoogleNetwork network = buildNetworkFromInput(description, task);
-    GoogleSubnet subnet = buildSubnetFromInput(description, task, network);
+    GoogleSubnet subnet = buildSubnetFromInput(description, task, network, region);
     LoadBalancerInfo lbToUpdate = getLoadBalancerToUpdateFromInput(description, task);
 
     task.updateStatus(
@@ -179,9 +181,10 @@ public class BasicGoogleDeployHandler
       throw new IllegalStateException("Unexpected error in handler: " + e.getMessage());
     }
     List<BackendService> backendServicesToUpdate =
-        getBackendServiceToUpdate(description, nextServerGroupName, lbToUpdate, lbPolicy);
+        getBackendServiceToUpdate(description, nextServerGroupName, lbToUpdate, lbPolicy, region);
     List<BackendService> regionBackendServicesToUpdate =
-        getRegionBackendServicesToUpdate(description, nextServerGroupName, lbToUpdate, lbPolicy);
+        getRegionBackendServicesToUpdate(
+            description, nextServerGroupName, lbToUpdate, lbPolicy, region);
 
     String now = String.valueOf(System.currentTimeMillis());
     String suffix = now.substring(now.length() - TEMPLATE_UUID_SIZE);
@@ -198,7 +201,7 @@ public class BasicGoogleDeployHandler
     Tags tags = buildTagsFromInput(description);
     List<ServiceAccount> serviceAccounts = buildServiceAccountFromInput(description);
     Scheduling scheduling = buildSchedulingFromInput(description);
-    Map<String, String> labels = buildLabelsFromInput(description, nextServerGroupName);
+    Map<String, String> labels = buildLabelsFromInput(description, nextServerGroupName, region);
 
     setupMonikerForOperation(description, nextServerGroupName, clusterName);
     validateAcceleratorConfig(description);
@@ -244,44 +247,30 @@ public class BasicGoogleDeployHandler
 
     try {
       createInstanceGroupManagerFromInput(
-          description,
-          instanceGroupManager,
-          lbToUpdate,
-          nextServerGroupName,
-          getRegionFromInput(description),
-          task);
+          description, instanceGroupManager, lbToUpdate, nextServerGroupName, region, task);
     } catch (IOException e) {
       throw new IllegalStateException("Unexpected error in handler: " + e.getMessage());
     }
 
     task.updateStatus(
         BASE_PHASE,
-        String.format(
-            "Done creating server group %s in %s.",
-            nextServerGroupName, getLocationFromInput(description)));
+        String.format("Done creating server group %s in %s.", nextServerGroupName, location));
 
     updateBackendServices(
         description, lbToUpdate, nextServerGroupName, backendServicesToUpdate, task);
     updateRegionalBackendServices(
-        description,
-        lbToUpdate,
-        nextServerGroupName,
-        getRegionFromInput(description),
-        regionBackendServicesToUpdate,
-        task);
+        description, lbToUpdate, nextServerGroupName, region, regionBackendServicesToUpdate, task);
 
     DeploymentResult deploymentResult = new DeploymentResult();
     deploymentResult.setServerGroupNames(
-        List.of(String.format("%s:%s", getRegionFromInput(description), nextServerGroupName)));
-    deploymentResult.setServerGroupNameByRegion(
-        Map.of(getRegionFromInput(description), nextServerGroupName));
+        List.of(String.format("%s:%s", region, nextServerGroupName)));
+    deploymentResult.setServerGroupNameByRegion(Map.of(region, nextServerGroupName));
     return deploymentResult;
   }
 
   protected GCEServerGroupNameResolver getServerGroupNameResolver(
-      BasicGoogleDeployDescription description) {
+      BasicGoogleDeployDescription description, String region) {
     GoogleNamedAccountCredentials credentials = description.getCredentials();
-    String region = getRegionFromInput(description);
     return new GCEServerGroupNameResolver(
         credentials.getProject(), region, credentials, googleClusterProvider, safeRetry, this);
   }
@@ -292,16 +281,15 @@ public class BasicGoogleDeployHandler
         : description.getCredentials().regionFromZone(description.getZone());
   }
 
-  protected String getLocationFromInput(BasicGoogleDeployDescription description) {
-    return description.getRegional() ? getRegionFromInput(description) : description.getZone();
+  protected String getLocationFromInput(BasicGoogleDeployDescription description, String region) {
+    return description.getRegional() ? region : description.getZone();
   }
 
   protected String getMachineTypeNameFromInput(
-      BasicGoogleDeployDescription description, Task task) {
+      BasicGoogleDeployDescription description, Task task, String location) {
     if (description.getInstanceType().contains("custom-")) {
       return description.getInstanceType();
     } else {
-      String location = getLocationFromInput(description);
       return GCEUtil.queryMachineType(
           description.getInstanceType(), location, description.getCredentials(), task, BASE_PHASE);
     }
@@ -318,8 +306,7 @@ public class BasicGoogleDeployHandler
   }
 
   protected GoogleSubnet buildSubnetFromInput(
-      BasicGoogleDeployDescription description, Task task, GoogleNetwork network) {
-    String region = getRegionFromInput(description);
+      BasicGoogleDeployDescription description, Task task, GoogleNetwork network, String region) {
     GoogleSubnet subnet =
         StringUtils.isNotBlank(description.getSubnet())
             ? GCEUtil.querySubnet(
@@ -466,7 +453,8 @@ public class BasicGoogleDeployHandler
       BasicGoogleDeployDescription description,
       String serverGroupName,
       LoadBalancerInfo lbInfo,
-      GoogleHttpLoadBalancingPolicy policy) {
+      GoogleHttpLoadBalancingPolicy policy,
+      String region) {
     // Resolve and queue the backend service updates, but don't execute yet.
     // We need to resolve this information to set metadata in the template so enable can know about
     // the
@@ -508,7 +496,6 @@ public class BasicGoogleDeployHandler
               this));
       instanceMetadata.put(GLOBAL_LOAD_BALANCER_NAMES, String.join(",", globalLbNames));
 
-      String region = getRegionFromInput(description);
       backendServices.forEach(
           backendServiceName -> {
             try {
@@ -545,7 +532,8 @@ public class BasicGoogleDeployHandler
       BasicGoogleDeployDescription description,
       String serverGroupName,
       LoadBalancerInfo lbInfo,
-      GoogleHttpLoadBalancingPolicy policy) {
+      GoogleHttpLoadBalancingPolicy policy,
+      String region) {
     if (!lbInfo.getInternalLoadBalancers().isEmpty()
         || !lbInfo.getInternalHttpLoadBalancers().isEmpty()) {
       List<BackendService> regionBackendServicesToUpdate = new ArrayList<>();
@@ -592,15 +580,12 @@ public class BasicGoogleDeployHandler
               .map(GoogleBackendService::getName)
               .collect(Collectors.toList());
 
-      String region = getRegionFromInput(description);
       ilbServices.forEach(
           backendServiceName -> {
             try {
               BackendService backendService =
                   getRegionBackendServiceFromProvider(
-                      description.getCredentials(),
-                      getRegionFromInput(description),
-                      serverGroupName);
+                      description.getCredentials(), region, serverGroupName);
               Backend backendToAdd;
               if (internalHttpLbBackendServices.contains(backendServiceName)) {
                 backendToAdd = GCEUtil.backendFromLoadBalancingPolicy(policy);
@@ -698,13 +683,12 @@ public class BasicGoogleDeployHandler
   }
 
   protected Map<String, String> buildLabelsFromInput(
-      BasicGoogleDeployDescription description, String serverGroupName) {
+      BasicGoogleDeployDescription description, String serverGroupName, String region) {
     Map<String, String> labels = description.getLabels();
     if (labels == null) {
       labels = new HashMap<>();
     }
 
-    String region = getRegionFromInput(description);
     // Used to group instances when querying for metrics from kayenta.
     labels.put("spinnaker-region", region);
     labels.put("spinnaker-server-group", serverGroupName);
