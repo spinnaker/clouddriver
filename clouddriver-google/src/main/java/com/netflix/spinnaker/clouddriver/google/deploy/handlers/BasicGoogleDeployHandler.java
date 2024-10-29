@@ -966,7 +966,7 @@ public class BasicGoogleDeployHandler
         log.info(
             String.format(
                 "Configuring explicit zones selected for regional server group: %s",
-                description.getDistributionPolicy().getZones().get(0)));
+                String.join(", ", description.getDistributionPolicy().getZones())));
         List<DistributionPolicyZoneConfiguration> selectedZones =
             description.getDistributionPolicy().getZones().stream()
                 .map(
