@@ -288,6 +288,43 @@ class ContainerInformationServiceSpec extends Specification {
     retrievedHealthStatus == expectedHealthStatus
   }
 
+  def 'should return Up health check status if task is running and healthcheck status is null'() {
+    given:
+    def taskId = 'task-id'
+    def serviceName = 'test-service-name'
+    def type = 'loadBalancer'
+
+    def cachedService = new Service(
+      serviceName: serviceName,
+      loadBalancers: [new LoadBalancer()]
+    )
+
+    serviceCacheClient.get(_) >> cachedService
+    taskCacheClient.get(_) >> new Task(lastStatus: "RUNNING", healthStatus: "UNKNOWN")
+    taskDefinitionCacheClient.get(_) >> new TaskDefinition(containerDefinitions:  Lists.newArrayList(new ContainerDefinition(healthCheck: null)))
+    targetHealthCacheClient.get(_) >> null
+
+    def expectedHealthStatus = [
+      [
+        instanceId: taskId,
+        state     : 'Unknown',
+        type      : type
+      ],
+      [
+        instanceId: taskId,
+        state     : "Up",
+        type      : 'ecs',
+        healthClass: 'platform'
+      ]
+    ]
+
+    when:
+    def retrievedHealthStatus = service.getHealthStatus(taskId, serviceName, 'test-account', 'us-west-1')
+
+    then:
+    retrievedHealthStatus == expectedHealthStatus
+  }
+
   def 'should return Down status if task is running but healthcheck in TargetGroups is unhealthy'() {
     given:
     def taskId = 'task-id'

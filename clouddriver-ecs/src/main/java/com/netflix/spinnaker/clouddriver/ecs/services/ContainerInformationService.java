@@ -112,9 +112,11 @@ public class ContainerInformationService {
       if (service != null) {
         hasHealthCheck = taskHasHealthCheck(service, accountName, region);
         LoadBalancer loadBalancer = service.getLoadBalancers().stream().findFirst().orElse(null);
-        String targetGroupKey =
-            Keys.getTargetHealthKey(accountName, region, loadBalancer.getTargetGroupArn());
-        targetHealth = targetHealthCacheClient.get(targetGroupKey);
+        if (loadBalancer != null) {
+          String targetGroupKey =
+              Keys.getTargetHealthKey(accountName, region, loadBalancer.getTargetGroupArn());
+          targetHealth = targetHealthCacheClient.get(targetGroupKey);
+        }
       }
 
       Map<String, Object> taskPlatformHealth = new HashMap<>();
