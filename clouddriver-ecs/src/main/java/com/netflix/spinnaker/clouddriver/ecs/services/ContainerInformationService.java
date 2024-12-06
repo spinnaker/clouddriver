@@ -123,17 +123,10 @@ public class ContainerInformationService {
       taskPlatformHealth.put("instanceId", taskId);
       taskPlatformHealth.put("type", "ecs");
       taskPlatformHealth.put("healthClass", "platform");
-
-      // Check healthcheck in targetHealth
-      if (!hasHealthCheck && targetHealth != null) {
-        taskPlatformHealth.put(
-            "state",
-            toPlatformHealthState(task.getLastStatus(), getTargetHealthStatus(targetHealth), true));
-      } else {
-        taskPlatformHealth.put(
-            "state",
-            toPlatformHealthState(task.getLastStatus(), task.getHealthStatus(), hasHealthCheck));
-      }
+      taskPlatformHealth.put(
+          "state",
+          toPlatformHealthState(
+              task.getLastStatus(), task.getHealthStatus(), hasHealthCheck, targetHealth));
       healthMetrics.add(taskPlatformHealth);
     }
 
@@ -159,28 +152,26 @@ public class ContainerInformationService {
     return false;
   }
 
-  private String getTargetHealthStatus(EcsTargetHealth ecsTargetHealth) {
-    List<String> statuses =
-        ecsTargetHealth.getTargetHealthDescriptions().stream()
-            .map(tg -> tg.getTargetHealth().getState())
-            .distinct()
-            .collect(Collectors.toList());
-
-    if (statuses.stream().anyMatch(it -> it.equalsIgnoreCase("unhealthy"))) {
-      return "UNHEALTHY";
-    }
-    if (statuses.stream().anyMatch(it -> it.equalsIgnoreCase("healthy"))) {
-      return "HEALTHY";
-    }
-    return "UNKNOWN";
-  }
-
   private String toPlatformHealthState(
-      String ecsTaskStatus, String ecsTaskHealthStatus, boolean hasHealthCheck) {
+      String ecsTaskStatus,
+      String ecsTaskHealthStatus,
+      boolean hasHealthCheck,
+      EcsTargetHealth ecsTargetHealth) {
     if (hasHealthCheck && "UNKNOWN".equals(ecsTaskHealthStatus)) {
       return "Starting";
     } else if ("UNHEALTHY".equals(ecsTaskHealthStatus)) {
       return "Down";
+    }
+
+    if (ecsTargetHealth != null) {
+      List<String> statuses =
+          ecsTargetHealth.getTargetHealthDescriptions().stream()
+              .map(tg -> tg.getTargetHealth().getState())
+              .distinct()
+              .collect(Collectors.toList());
+      if (statuses.stream().anyMatch(it -> it.equalsIgnoreCase("unhealthy"))) {
+        return "Down";
+      }
     }
 
     switch (ecsTaskStatus) {
