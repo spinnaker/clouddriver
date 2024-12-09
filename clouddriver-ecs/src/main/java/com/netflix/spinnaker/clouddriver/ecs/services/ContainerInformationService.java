@@ -164,14 +164,7 @@ public class ContainerInformationService {
     }
 
     if (ecsTargetHealth != null) {
-      List<String> statuses =
-          ecsTargetHealth.getTargetHealthDescriptions().stream()
-              .map(tg -> tg.getTargetHealth().getState())
-              .distinct()
-              .collect(Collectors.toList());
-      if (statuses.stream().anyMatch(it -> it.equalsIgnoreCase("unhealthy"))) {
-        return "Down";
-      }
+      return getPlatformHealthStateFromTargetGroup(ecsTargetHealth);
     }
 
     switch (ecsTaskStatus) {
@@ -184,6 +177,27 @@ public class ContainerInformationService {
       default:
         return "Down";
     }
+  }
+
+  // based on:
+  // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-health-checks.html#target-health-states
+  private String getPlatformHealthStateFromTargetGroup(EcsTargetHealth targetHealth) {
+    Set<String> statuses =
+        targetHealth.getTargetHealthDescriptions().stream()
+            .map(tg -> tg.getTargetHealth().getState())
+            .collect(Collectors.toSet());
+
+    for (String status : statuses) {
+      if ("healthy".equalsIgnoreCase(status)) {
+        return "Up";
+      }
+      if ("initial".equalsIgnoreCase(status)) {
+        return "Starting";
+      }
+    }
+
+    // statuses: unhealthy, unused, draining, unavailable
+    return "Down";
   }
 
   public String getClusterArn(String accountName, String region, String taskId) {
