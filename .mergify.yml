@@ -3,8 +3,10 @@ queue_rules:
     merge_method: squash 
     queue_conditions:
       - check-success=build
+      - check-sucess=it-test
     merge_conditions:
       - check-success=build
+      - check-sucess=it-test
 
 pull_request_rules:
   - name: Make sure PR are up to date before merging
