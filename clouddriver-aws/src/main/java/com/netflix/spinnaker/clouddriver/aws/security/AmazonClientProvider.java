@@ -25,6 +25,8 @@ import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
 import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScalingClientBuilder;
 import com.amazonaws.services.autoscaling.AmazonAutoScaling;
 import com.amazonaws.services.autoscaling.AmazonAutoScalingClientBuilder;
+import com.amazonaws.services.certificatemanager.AWSCertificateManager;
+import com.amazonaws.services.certificatemanager.AWSCertificateManagerClientBuilder;
 import com.amazonaws.services.cloudformation.AmazonCloudFormation;
 import com.amazonaws.services.cloudformation.AmazonCloudFormationClientBuilder;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
@@ -681,5 +683,20 @@ public class AmazonClientProvider {
   public AWSSupport getAmazonSupport(NetflixAmazonCredentials amazonCredentials, String region) {
     return proxyHandlerBuilder.getProxyHandler(
         AWSSupport.class, AWSSupportClientBuilder.class, amazonCredentials, region, true);
+  }
+
+  public AWSCertificateManager getAwsCertificateManager(
+      NetflixAmazonCredentials amazonCredentials, String region) {
+    return getAwsCertificateManager(amazonCredentials, region, false);
+  }
+
+  public AWSCertificateManager getAwsCertificateManager(
+      NetflixAmazonCredentials amazonCredentials, String region, boolean skipEdda) {
+    return proxyHandlerBuilder.getProxyHandler(
+        AWSCertificateManager.class,
+        AWSCertificateManagerClientBuilder.class,
+        amazonCredentials,
+        region,
+        skipEdda);
   }
 }
