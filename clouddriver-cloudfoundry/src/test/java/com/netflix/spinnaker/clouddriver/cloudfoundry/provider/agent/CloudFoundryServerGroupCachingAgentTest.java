@@ -4,9 +4,13 @@ import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.Keys.Namespac
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.provider.agent.CloudFoundryServerGroupCachingAgent.cacheView;
 import static java.util.Collections.*;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.refEq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -123,7 +127,7 @@ class CloudFoundryServerGroupCachingAgentTest {
             .findFirst()
             .get();
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(onDemandCacheResults);
+    assertThat(result).usingRecursiveComparison().isEqualTo(onDemandCacheResults);
   }
 
   @Test
@@ -249,7 +253,10 @@ class CloudFoundryServerGroupCachingAgentTest {
     OnDemandAgent.OnDemandResult result =
         cloudFoundryServerGroupCachingAgent.handle(mockProviderCache, data);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedResult);
+    assertThat(result)
+        .usingRecursiveComparison()
+        .ignoringCollectionOrder()
+        .isEqualTo(expectedResult);
   }
 
   @Test
@@ -335,7 +342,7 @@ class CloudFoundryServerGroupCachingAgentTest {
         cloudFoundryServerGroupCachingAgent.convertOnDemandDetails(
             singletonMap("serverGroupName", "app-stack-detail-v235"));
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedMoniker);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedMoniker);
   }
 
   @Test
@@ -512,7 +519,7 @@ class CloudFoundryServerGroupCachingAgentTest {
 
     CacheResult result = cloudFoundryServerGroupCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedCacheResult);
     verify(mockApplications).all(emptyList());
   }
 
@@ -663,7 +670,7 @@ class CloudFoundryServerGroupCachingAgentTest {
 
     CacheResult result = cloudFoundryServerGroupCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedCacheResult);
   }
 
   @Test

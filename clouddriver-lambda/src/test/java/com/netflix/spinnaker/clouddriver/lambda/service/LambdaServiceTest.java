@@ -14,9 +14,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
-import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
+import com.netflix.spinnaker.config.LambdaServiceConfig;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class LambdaServiceTest {
@@ -29,22 +30,21 @@ class LambdaServiceTest {
   private String REGION = "us-west-2";
   private NetflixAmazonCredentials netflixAmazonCredentials = mock(NetflixAmazonCredentials.class);
 
+  @BeforeEach
+  public void makeSureBaseSettings() {
+    when(netflixAmazonCredentials.getLambdaEnabled()).thenReturn(true);
+  }
+
   @Test
   void getAllFunctionsWhenFunctionsResultIsNullExpectEmpty() throws InterruptedException {
     when(lambdaServiceConfig.getRetry()).thenReturn(new LambdaServiceConfig.Retry());
-    when(lambdaServiceConfig.getConcurrency()).thenReturn(new LambdaServiceConfig.Concurrency());
     when(serviceLimitConfiguration.getLimit(any(), any(), any(), any(), any())).thenReturn(1.0);
     AWSLambda lambda = mock(AWSLambda.class); // returns null by default
-    when(clientProvider.getAmazonLambda(any(), any())).thenReturn(lambda);
+    when(clientProvider.getAmazonLambda(any(), any(), any())).thenReturn(lambda);
 
     LambdaService lambdaService =
         new LambdaService(
-            clientProvider,
-            netflixAmazonCredentials,
-            REGION,
-            objectMapper,
-            lambdaServiceConfig,
-            serviceLimitConfiguration);
+            clientProvider, netflixAmazonCredentials, REGION, objectMapper, lambdaServiceConfig);
 
     List<Map<String, Object>> allFunctions = lambdaService.getAllFunctions();
 
@@ -54,7 +54,6 @@ class LambdaServiceTest {
   @Test
   void getAllFunctionsWhenFunctionsResultIsEmptyExpectEmpty() throws InterruptedException {
     when(lambdaServiceConfig.getRetry()).thenReturn(new LambdaServiceConfig.Retry());
-    when(lambdaServiceConfig.getConcurrency()).thenReturn(new LambdaServiceConfig.Concurrency());
     when(serviceLimitConfiguration.getLimit(any(), any(), any(), any(), any())).thenReturn(1.0);
 
     ListFunctionsResult functionsResult = mock(ListFunctionsResult.class);
@@ -62,16 +61,11 @@ class LambdaServiceTest {
 
     AWSLambda lambda = mock(AWSLambda.class);
     when(lambda.listFunctions()).thenReturn(functionsResult);
-    when(clientProvider.getAmazonLambda(any(), any())).thenReturn(lambda);
+    when(clientProvider.getAmazonLambda(any(), any(), any())).thenReturn(lambda);
 
     LambdaService lambdaService =
         new LambdaService(
-            clientProvider,
-            netflixAmazonCredentials,
-            REGION,
-            objectMapper,
-            lambdaServiceConfig,
-            serviceLimitConfiguration);
+            clientProvider, netflixAmazonCredentials, REGION, objectMapper, lambdaServiceConfig);
 
     List<Map<String, Object>> allFunctions = lambdaService.getAllFunctions();
 
@@ -81,7 +75,6 @@ class LambdaServiceTest {
   @Test
   void getAllFunctionsWhenFunctionNameIsEmptyExpectEmpty() throws InterruptedException {
     when(lambdaServiceConfig.getRetry()).thenReturn(new LambdaServiceConfig.Retry());
-    when(lambdaServiceConfig.getConcurrency()).thenReturn(new LambdaServiceConfig.Concurrency());
     when(serviceLimitConfiguration.getLimit(any(), any(), any(), any(), any())).thenReturn(1.0);
 
     ListFunctionsResult functionsResult = mock(ListFunctionsResult.class);
@@ -89,16 +82,11 @@ class LambdaServiceTest {
 
     AWSLambda lambda = mock(AWSLambda.class);
     when(lambda.listFunctions(any())).thenReturn(functionsResult);
-    when(clientProvider.getAmazonLambda(any(), any())).thenReturn(lambda);
+    when(clientProvider.getAmazonLambda(any(), any(), any())).thenReturn(lambda);
 
     LambdaService lambdaService =
         new LambdaService(
-            clientProvider,
-            netflixAmazonCredentials,
-            REGION,
-            objectMapper,
-            lambdaServiceConfig,
-            serviceLimitConfiguration);
+            clientProvider, netflixAmazonCredentials, REGION, objectMapper, lambdaServiceConfig);
 
     List<Map<String, Object>> allFunctions = lambdaService.getAllFunctions();
 
@@ -108,7 +96,6 @@ class LambdaServiceTest {
   @Test
   void getAllFunctionsWhenFunctionNameIsNotEmptyExpectNotEmpty() throws InterruptedException {
     when(lambdaServiceConfig.getRetry()).thenReturn(new LambdaServiceConfig.Retry());
-    when(lambdaServiceConfig.getConcurrency()).thenReturn(new LambdaServiceConfig.Concurrency());
     when(serviceLimitConfiguration.getLimit(any(), any(), any(), any(), any())).thenReturn(1.0);
 
     ListFunctionsResult functionsResult = mock(ListFunctionsResult.class);
@@ -156,16 +143,11 @@ class LambdaServiceTest {
             + "  ]\n"
             + "}");
     when(lambda.getPolicy(any())).thenReturn(getPolicyResult);
-    when(clientProvider.getAmazonLambda(any(), any())).thenReturn(lambda);
+    when(clientProvider.getAmazonLambda(any(), any(), any())).thenReturn(lambda);
 
     LambdaService lambdaService =
         new LambdaService(
-            clientProvider,
-            netflixAmazonCredentials,
-            REGION,
-            objectMapper,
-            lambdaServiceConfig,
-            serviceLimitConfiguration);
+            clientProvider, netflixAmazonCredentials, REGION, objectMapper, lambdaServiceConfig);
 
     List<Map<String, Object>> allFunctions = lambdaService.getAllFunctions();
 

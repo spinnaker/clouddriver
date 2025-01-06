@@ -21,10 +21,11 @@ import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerOkC
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryClient
 import com.netflix.spinnaker.clouddriver.docker.registry.exception.DockerRegistryConfigException
 import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials
-
+import com.netflix.spinnaker.fiat.model.Authorization
+import com.netflix.spinnaker.fiat.model.resources.Permissions
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
-import retrofit.RetrofitError
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -54,6 +55,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
     List<String> skip
     String catalogFile
     String repositoriesRegex
+    Permissions permissions
     DockerOkClientProvider dockerOkClientProvider
 
     Builder() {}
@@ -178,6 +180,11 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
       return this
     }
 
+    Builder permissions(Permissions permissions) {
+      this.permissions = permissions
+      this
+    }
+
     Builder dockerOkClientProvider(DockerOkClientProvider dockerOkClientProvider) {
       this.dockerOkClientProvider = dockerOkClientProvider
       return this
@@ -185,28 +192,30 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
 
     DockerRegistryNamedAccountCredentials build() {
       return new DockerRegistryNamedAccountCredentials(accountName,
-                                                       environment,
-                                                       accountType,
-                                                       address,
-                                                       username,
-                                                       password,
-                                                       passwordCommand,
-                                                       passwordFile,
-                                                       dockerconfigFile,
-                                                       email,
-                                                       repositories,
-                                                       skip,
-                                                       cacheThreads,
-                                                       cacheIntervalSeconds,
-                                                       clientTimeoutMillis,
-                                                       paginateSize,
-                                                       trackDigests,
-                                                       inspectDigests,
-                                                       sortTagsByDate,
-                                                       catalogFile,
-                                                       repositoriesRegex,
-                                                       insecureRegistry,
-                                                       dockerOkClientProvider)
+        environment,
+        accountType,
+        address,
+        username,
+        password,
+        passwordCommand,
+        passwordFile,
+        dockerconfigFile,
+        email,
+        repositories,
+        skip,
+        cacheThreads,
+        cacheIntervalSeconds,
+        clientTimeoutMillis,
+        paginateSize,
+        trackDigests,
+        inspectDigests,
+        sortTagsByDate,
+        catalogFile,
+        repositoriesRegex,
+        insecureRegistry,
+        null,
+        permissions,
+        dockerOkClientProvider)
     }
   }
 
@@ -234,29 +243,30 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
                                         boolean insecureRegistry,
                                         DockerOkClientProvider dockerOkClientProvider) {
     this(accountName,
-         environment,
-         accountType,
-         address,
-         username,
-         password,
-         passwordCommand,
-         passwordFile,
-         dockerconfigFile,
-         email,
-         repositories,
-         skip,
-         cacheThreads,
-         cacheIntervalSeconds,
-         clientTimeoutMillis,
-         paginateSize,
-         trackDigests,
-         inspectDigests,
-         sortTagsByDate,
-         catalogFile,
-         repositoriesRegex,
-         insecureRegistry,
-         null,
-         dockerOkClientProvider)
+      environment,
+      accountType,
+      address,
+      username,
+      password,
+      passwordCommand,
+      passwordFile,
+      dockerconfigFile,
+      email,
+      repositories,
+      skip,
+      cacheThreads,
+      cacheIntervalSeconds,
+      clientTimeoutMillis,
+      paginateSize,
+      trackDigests,
+      inspectDigests,
+      sortTagsByDate,
+      catalogFile,
+      repositoriesRegex,
+      insecureRegistry,
+      null,
+      null,
+      dockerOkClientProvider)
   }
 
   DockerRegistryNamedAccountCredentials(String accountName,
@@ -282,6 +292,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
                                         String repositoriesRegex,
                                         boolean insecureRegistry,
                                         List<String> requiredGroupMembership,
+                                        Permissions permissions,
                                         DockerOkClientProvider dockerOkClientProvider) {
     if (!accountName) {
       throw new IllegalArgumentException("Docker Registry account must be provided with a name.")
@@ -291,7 +302,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
       throw new IllegalArgumentException("repositories and catalogFile may not be specified together.")
     }
 
-    if(repositoriesRegex && (repositories || catalogFile)){
+    if (repositoriesRegex && (repositories || catalogFile)) {
       throw new IllegalArgumentException("repositoriesRegex may not be specified at the same time than repositories or catalogFile.")
     }
 
@@ -337,8 +348,8 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
     this.sortTagsByDate = sortTagsByDate
     this.insecureRegistry = insecureRegistry;
     this.skip = skip ?: []
-    this.requiredGroupMembership = requiredGroupMembership == null ? Collections.emptyList() : Collections.unmodifiableList(requiredGroupMembership)
-    this.credentials = buildCredentials(repositories, catalogFile)
+    this.permissions = permissions ?: buildPermissionsFromRequiredGroupMembership(requiredGroupMembership)
+    this.credentials = buildCredentials(repositories, catalogFile, dockerconfigFile)
   }
 
   @JsonIgnore
@@ -365,7 +376,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
   List<String> getTags(String repository) {
     def tags = credentials.client.getTags(repository).tags
     if (sortTagsByDate) {
-      tags = KeyBasedSorter.sort(tags, { String t -> getCreationDate(repository, t)}, Comparator.reverseOrder())
+      tags = KeyBasedSorter.sort(tags, { String t -> getCreationDate(repository, t) }, Comparator.reverseOrder())
     }
     tags
   }
@@ -384,11 +395,11 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
     return "$address/v2"
   }
 
-  boolean getTrackDigests(){
+  boolean getTrackDigests() {
     return trackDigests
   }
 
-  boolean getInspectDigests(){
+  boolean getInspectDigests() {
     return inspectDigests
   }
 
@@ -409,7 +420,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
     return CLOUD_PROVIDER
   }
 
-  private DockerRegistryCredentials buildCredentials(List<String> repositories, String catalogFile) {
+  private DockerRegistryCredentials buildCredentials(List<String> repositories, String catalogFile, File dockerconfigFile) {
     try {
       DockerRegistryClient client = (new DockerRegistryClient.Builder())
         .address(address)
@@ -421,19 +432,31 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
         .clientTimeoutMillis(clientTimeoutMillis)
         .paginateSize(paginateSize)
         .catalogFile(catalogFile)
+        .dockerconfigFile(dockerconfigFile)
         .repositoriesRegex(repositoriesRegex)
         .insecureRegistry(insecureRegistry)
         .okClientProvider(dockerOkClientProvider)
         .build()
 
-      return new DockerRegistryCredentials(client, repositories, trackDigests,  inspectDigests, skip, sortTagsByDate)
-    } catch (RetrofitError e) {
-      if (e.response?.status == 404) {
+      return new DockerRegistryCredentials(client, repositories, trackDigests, inspectDigests, skip, sortTagsByDate)
+    } catch (SpinnakerHttpException e) {
+      if(e.getResponseCode() == 404) {
         throw new DockerRegistryConfigException("No repositories specified for ${name}, and the provided endpoint ${address} does not support /_catalog.")
       } else {
         throw e
       }
     }
+  }
+
+  private static Permissions buildPermissionsFromRequiredGroupMembership(List<String> requiredGroupMembership) {
+    if (requiredGroupMembership?.empty ?: true) {
+      return Permissions.EMPTY
+    }
+    def builder = new Permissions.Builder()
+    requiredGroupMembership.forEach {
+      builder.add(Authorization.READ, it).add(Authorization.WRITE, it)
+    }
+    builder.build()
   }
 
   private static final String CLOUD_PROVIDER = "dockerRegistry"
@@ -459,7 +482,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
   final boolean insecureRegistry
   @JsonIgnore
   final DockerRegistryCredentials credentials
-  final List<String> requiredGroupMembership
+  final Permissions permissions
   final List<String> skip
   final String catalogFile
   final String repositoriesRegex

@@ -7,16 +7,10 @@ dependencies {
   implementation project(":clouddriver-google-common")
   implementation project(":clouddriver-security")
 
-  compileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
-  implementation "org.codehaus.groovy:groovy"
-  implementation "org.codehaus.groovy:groovy-json"
+  implementation "org.apache.groovy:groovy"
+  implementation "org.apache.groovy:groovy-json"
   implementation "org.apache.commons:commons-lang3"
-  implementation ("com.google.apis:google-api-services-compute:beta-rev20201102-1.30.10") {
-    force = true
-  }
+  implementation "com.google.apis:google-api-services-compute"
   implementation "com.google.guava:guava"
   implementation "com.google.apis:google-api-services-iam"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
@@ -31,6 +25,8 @@ dependencies {
   implementation "io.spinnaker.kork:kork-config"
   implementation "io.spinnaker.kork:kork-cloud-config-server"
   implementation "io.spinnaker.kork:kork-moniker"
+  implementation "io.spinnaker.kork:kork-retrofit"
+  implementation "io.spinnaker.kork:kork-exceptions"
   implementation "com.squareup.retrofit:retrofit"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
@@ -43,12 +39,13 @@ dependencies {
   testImplementation "org.apache.httpcomponents:httpmime"
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
-  testImplementation "org.junit.platform:junit-platform-runner"
   testImplementation "org.mockito:mockito-core"
+  testImplementation "org.mockito:mockito-inline"
   testImplementation "org.mockito:mockito-junit-jupiter"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
   testImplementation "org.springframework.boot:spring-boot-test"
+  testImplementation "org.apache.groovy:groovy-test"
 }

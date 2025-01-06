@@ -18,10 +18,11 @@ package com.netflix.spinnaker.clouddriver.google.model
 
 public enum GoogleDiskType {
   PD_STANDARD("pd-standard", true),
+  PD_EXTREME("pd-extreme", true),    
   PD_BALANCED("pd-balanced", true),    
   PD_SSD("pd-ssd", true),
-  PD_EXTREME("pd-extreme", true),    
-  LOCAL_SSD("local-ssd", false)
+  LOCAL_SSD("local-ssd", false),
+  HYPERDISK_BALANCED("hyperdisk-balanced", true)
 
   String text
   boolean persistent

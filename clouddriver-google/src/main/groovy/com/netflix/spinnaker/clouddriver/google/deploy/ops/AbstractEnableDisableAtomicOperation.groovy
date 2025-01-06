@@ -28,8 +28,8 @@ import com.netflix.spinnaker.clouddriver.google.deploy.description.EnableDisable
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
 import org.springframework.beans.factory.annotation.Autowired
-import retrofit.RetrofitError
 
 abstract class AbstractEnableDisableAtomicOperation extends GoogleAtomicOperation<Void> {
   private static final List<Integer> RETRY_ERROR_CODES = [400, 403, 412]
@@ -107,7 +107,7 @@ abstract class AbstractEnableDisableAtomicOperation extends GoogleAtomicOperatio
                                               disable
                                               ? EnableDisableConsulInstance.State.disable
                                               : EnableDisableConsulInstance.State.enable)
-        } catch (RetrofitError e) {
+        } catch (SpinnakerServerException ignored) {
           // Consul isn't running
         }
       }
@@ -188,7 +188,7 @@ abstract class AbstractEnableDisableAtomicOperation extends GoogleAtomicOperatio
           getTargetPool(compute, project, region, targetPoolLocalName),
           "target pool",
           task,
-          RETRY_ERROR_CODES,
+          AbstractEnableDisableAtomicOperation.RETRY_ERROR_CODES,
           [],
           [operation: "getTargetPool", action: "destroy", phase: phaseName, (TAG_SCOPE): SCOPE_REGIONAL, (TAG_REGION): region],
           registry
@@ -206,7 +206,7 @@ abstract class AbstractEnableDisableAtomicOperation extends GoogleAtomicOperatio
             removeInstancesFromTargetPool(compute, project, region, targetPoolLocalName, targetPoolsRemoveInstanceRequest),
             "instances",
             task,
-            RETRY_ERROR_CODES,
+            AbstractEnableDisableAtomicOperation.RETRY_ERROR_CODES,
             [],
             [operation: "removeInstancesFromTargetPool", action: "deregister", phase: phaseName, (TAG_SCOPE): SCOPE_REGIONAL, (TAG_REGION): region],
             registry
@@ -351,7 +351,7 @@ abstract class AbstractEnableDisableAtomicOperation extends GoogleAtomicOperatio
             addInstancesToTargetPool(compute, project, region, targetPoolLocalName, targetPoolsAddInstanceRequest),
             "instances",
             task,
-            RETRY_ERROR_CODES,
+            AbstractEnableDisableAtomicOperation.RETRY_ERROR_CODES,
             [],
             [operation: "addInstancesToTargetPool", action: "register", phase: phaseName, (TAG_SCOPE): SCOPE_REGIONAL, (TAG_REGION): region],
             registry

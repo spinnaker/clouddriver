@@ -2,8 +2,8 @@ dependencies {
   implementation project(":clouddriver-core")
 
   implementation "com.fasterxml.jackson.core:jackson-annotations"
-  implementation "junit:junit"
+  implementation "org.junit.jupiter:junit-jupiter-api"
   implementation "org.apache.commons:commons-lang3"
   implementation "org.assertj:assertj-core"
-  implementation "org.codehaus.groovy:groovy"
+  implementation "org.apache.groovy:groovy"
 }

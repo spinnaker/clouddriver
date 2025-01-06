@@ -4,10 +4,6 @@ dependencies {
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-security")
 
-  compileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
   implementation "com.github.ben-manes.caffeine:guava"
   implementation "com.netflix.frigga:frigga"
   implementation "com.netflix.spectator:spectator-api"
@@ -18,16 +14,17 @@ dependencies {
   implementation "com.oracle.oci.sdk:oci-java-sdk-identity"
   implementation "com.oracle.oci.sdk:oci-java-sdk-loadbalancer"
   implementation "com.oracle.oci.sdk:oci-java-sdk-objectstorage"
-  implementation "org.codehaus.groovy:groovy"
+  implementation "org.apache.groovy:groovy"
   implementation "org.springframework.boot:spring-boot-starter-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
 
   testImplementation "cglib:cglib-nodep"
-  testImplementation "org.codehaus.groovy:groovy-console"
+  testImplementation "org.apache.groovy:groovy-console"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
+  testRuntimeOnly "net.bytebuddy:byte-buddy"
 }
 
 def allSourceSets = sourceSets

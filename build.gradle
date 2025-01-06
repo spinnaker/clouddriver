@@ -15,21 +15,6 @@
  * limitations under the License.
  */
 
-buildscript {
-  ext {
-    kotlinVersion = "1.4.10"
-    junitPlatformVersion = "1.0.2"
-  }
-
-  repositories {
-    gradlePluginPortal()
-  }
-
-  dependencies {
-    classpath "org.junit.platform:junit-platform-gradle-plugin:${junitPlatformVersion}"
-  }
-}
-
 plugins {
   id 'io.spinnaker.project' version "$spinnakerGradleVersion" apply false
   id 'org.jetbrains.kotlin.jvm' version "$kotlinVersion"
@@ -55,14 +40,23 @@ subprojects {
     sourceSets.main.groovy.srcDirs += ["src/main/java"]
 
     dependencies {
-      implementation enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
+      api enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
 
-      annotationProcessor platform("io.spinnaker.kork:kork-bom:$korkVersion")
+      compileOnly enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
+      compileOnly "org.projectlombok:lombok"
+
+      annotationProcessor enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
       annotationProcessor "org.projectlombok:lombok"
       annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
-      testAnnotationProcessor platform("io.spinnaker.kork:kork-bom:$korkVersion")
+
+      testAnnotationProcessor enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
       testAnnotationProcessor "org.projectlombok:lombok"
-      testRuntimeOnly "org.junit.vintage:junit-vintage-engine" // Required for Spock tests to execute along with Junit5 tests.
+
+      testCompileOnly enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
+      testCompileOnly "org.projectlombok:lombok"
+
+      testRuntimeOnly enforcedPlatform("io.spinnaker.kork:kork-bom:$korkVersion")
+      testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
     }
 
     test {
@@ -82,9 +76,11 @@ subprojects {
             }
           }
         }
-        minHeapSize = "512m"
-        maxHeapSize = "512m"
+
       }
+      minHeapSize = "512m"
+      maxHeapSize = "1g"
+      maxParallelForks = 4
       jacoco {
         enabled = project.hasProperty('testCoverage')
       }

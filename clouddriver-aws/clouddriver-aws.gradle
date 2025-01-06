@@ -24,10 +24,6 @@ dependencies {
   implementation project(":clouddriver-security")
   implementation project(":clouddriver-saga")
 
-  compileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
   implementation "javax.inject:javax.inject:1"
   implementation "com.amazonaws:aws-java-sdk"
   implementation "com.github.ben-manes.caffeine:guava"
@@ -44,15 +40,12 @@ dependencies {
   implementation "io.spinnaker.kork:kork-credentials"
   implementation "io.spinnaker.kork:kork-moniker"
   implementation "io.spinnaker.kork:kork-retrofit"
-  implementation "com.squareup.okhttp:okhttp"
-  implementation "com.squareup.okhttp:okhttp-apache"
-  implementation "com.squareup.okhttp:okhttp-urlconnection"
   implementation "com.squareup.retrofit:converter-jackson"
   implementation "com.squareup.retrofit:retrofit"
   implementation "io.reactivex:rxjava"
   implementation "org.apache.httpcomponents:httpclient"
   implementation "org.apache.httpcomponents:httpcore"
-  implementation "org.codehaus.groovy:groovy"
+  implementation "org.apache.groovy:groovy"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation 'com.aestasit.infrastructure.sshoogr:sshoogr:0.9.25'
@@ -65,7 +58,6 @@ dependencies {
   testImplementation "com.natpryce:hamkrest"
   testImplementation "com.google.guava:guava"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
-  testImplementation "org.junit.platform:junit-platform-runner"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
@@ -76,9 +68,7 @@ dependencies {
   integrationImplementation "org.springframework:spring-test"
   integrationImplementation sourceSets.test.output
   integrationImplementation sourceSets.main.output
-  integrationImplementation ("io.rest-assured:rest-assured:4.0.0") {
-    exclude group: "org.codehaus.groovy", module: "groovy" // use kork's version
-  }
+  integrationImplementation "io.rest-assured:rest-assured"
 }
 
 task integrationTest(type: Test) {
@@ -91,6 +81,10 @@ task integrationTest(type: Test) {
   testClassesDirs = sourceSets.integration.output.classesDirs
   classpath = sourceSets.integration.runtimeClasspath
   shouldRunAfter test
+  maxParallelForks = 4
+
+  minHeapSize = "512m"
+  maxHeapSize = "${testJvmMaxMemory}"
 
   testlogger {
     theme 'mocha'

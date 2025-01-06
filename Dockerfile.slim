@@ -1,30 +1,30 @@
-FROM python:3.7-alpine3.16
+FROM python:3.12-alpine3.20
 LABEL maintainer="sig-platform@spinnaker.io"
 ARG TARGETARCH
 
-# KUBECTL_RELEASE kept one minor version behind latest to maximise compatibility overlap
-ENV KUBECTL_RELEASE=1.20.6
-ENV AWS_CLI_VERSION=1.18.152
-ENV AWS_CLI_S3_CMD=2.0.2
-ENV AWS_AIM_AUTHENTICATOR_VERSION=0.5.9
-ENV GOOGLE_CLOUD_SDK_VERSION=412.0.0
+ENV KUBECTL_DEFAULT_RELEASE=1.22.17
+ENV KUBECTL_RELEASES="${KUBECTL_DEFAULT_RELEASE} 1.26.12 1.27.9 1.28.5 1.29.0"
+ENV AWS_CLI_VERSION=2.15.57
+ENV AWS_AIM_AUTHENTICATOR_VERSION=0.6.14
+ENV GOOGLE_CLOUD_SDK_VERSION=476.0.0
 ENV ECR_TOKEN_VERSION=v1.0.2
 
-ENV PATH "$PATH:/usr/local/bin/:/opt/google-cloud-sdk/bin/:/usr/local/bin/aws-iam-authenticator"
+ENV PATH="$PATH:/usr/local/bin/:/opt/google-cloud-sdk/bin/:/usr/local/bin/aws-iam-authenticator"
 
 RUN apk update \
   && apk upgrade \
   && apk --no-cache add --update \
     bash \
     ca-certificates \
+    curl \
     wget \
-    openjdk11 \
+    openjdk17 \
     git \
-    openssh-client
+    openssh-client \
+    unzip
 
-# AWS CLI
-RUN pip install --upgrade awscli==${AWS_CLI_VERSION} s3cmd==${AWS_CLI_S3_CMD} python-magic \
-  && pip uninstall -y pip
+# AWS CLI 2
+RUN apk add aws-cli=${AWS_CLI_VERSION}-r0
 
 # Google cloud SDK
 RUN [ $TARGETARCH == 'amd64' ] &&  export GCP_ARCH="x86_64" || export GCP_ARCH="arm"  \
@@ -38,13 +38,16 @@ RUN [ $TARGETARCH == 'amd64' ] &&  export GCP_ARCH="x86_64" || export GCP_ARCH="
   && rm -rf /opt/google-cloud-sdk/.install/.backup
 
 # kubectl + AWS IAM authenticator
-RUN wget https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_RELEASE}/bin/linux/${TARGETARCH}/kubectl \
-  && chmod +x kubectl \
-  && mv ./kubectl /usr/local/bin/kubectl \
-  && wget -O aws-iam-authenticator https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_AIM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_AIM_AUTHENTICATOR_VERSION}_linux_${TARGETARCH} \
-	&& chmod +x ./aws-iam-authenticator \
-	&& mv ./aws-iam-authenticator /usr/local/bin/aws-iam-authenticator\
-    && ln -sf /usr/local/bin/aws-iam-authenticator /usr/local/bin/heptio-authenticator-aws
+RUN for version in $KUBECTL_RELEASES; do \
+      release_version=$(echo ${version} | cut -d. -f1,2); \
+      wget -nv https://cdn.dl.k8s.io/release/v${version}/bin/linux/${TARGETARCH}/kubectl -O /usr/local/bin/kubectl-${release_version}; \
+      chmod +x /usr/local/bin/kubectl-${release_version}; \
+      done \
+  && ln -sf "/usr/local/bin/kubectl-$(echo ${KUBECTL_DEFAULT_RELEASE} | cut -d. -f1,2)" /usr/local/bin/kubectl \
+  && wget -nv -O aws-iam-authenticator https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_AIM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_AIM_AUTHENTICATOR_VERSION}_linux_${TARGETARCH} \
+  && chmod +x ./aws-iam-authenticator \
+  && mv ./aws-iam-authenticator /usr/local/bin/aws-iam-authenticator\
+  && ln -sf /usr/local/bin/aws-iam-authenticator /usr/local/bin/heptio-authenticator-aws
 
 RUN rm /var/cache/apk/*
 
@@ -55,5 +58,5 @@ COPY clouddriver-web/build/install/clouddriver /opt/clouddriver
 RUN mkdir -p /opt/clouddriver/plugins && chown -R spinnaker:nogroup /opt/clouddriver/plugins
 
 USER spinnaker
-
+HEALTHCHECK CMD curl --fail http://localhost:7002/health
 CMD ["/opt/clouddriver/bin/clouddriver"]

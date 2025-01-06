@@ -22,8 +22,8 @@ import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Las
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.Type.UPDATE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.atIndex;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.when;
 
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.ServiceInstanceResponse;
@@ -63,7 +63,7 @@ class DeployCloudFoundryServiceAtomicOperationTest extends AbstractCloudFoundryA
     Object o = resultObjects.get(0);
     assertThat(o).isInstanceOf(ServiceInstanceResponse.class);
     ServiceInstanceResponse response = (ServiceInstanceResponse) o;
-    assertThat(response).isEqualToComparingFieldByFieldRecursively(serviceInstanceResponse);
+    assertThat(response).usingRecursiveComparison().isEqualTo(serviceInstanceResponse);
     assertThat(task.getHistory())
         .has(
             status(
@@ -99,7 +99,7 @@ class DeployCloudFoundryServiceAtomicOperationTest extends AbstractCloudFoundryA
     Object o = resultObjects.get(0);
     assertThat(o).isInstanceOf(ServiceInstanceResponse.class);
     ServiceInstanceResponse response = (ServiceInstanceResponse) o;
-    assertThat(response).isEqualToComparingFieldByFieldRecursively(serviceInstanceResponse);
+    assertThat(response).usingRecursiveComparison().isEqualTo(serviceInstanceResponse);
     assertThat(task.getHistory())
         .has(status("Creating user-provided service instance 'some-up-service-name'"), atIndex(1))
         .has(status("Created user-provided service instance 'some-up-service-name'"), atIndex(2));

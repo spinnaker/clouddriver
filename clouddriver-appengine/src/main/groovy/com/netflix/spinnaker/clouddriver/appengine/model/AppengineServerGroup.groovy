@@ -66,6 +66,9 @@ class AppengineServerGroup implements ServerGroup, Serializable {
     this.allowsGradualTrafficMigration = versionAllowsGradualTrafficMigration(version)
   }
 
+  Boolean isDisabled() {
+    disabled
+  }
   @Override
   ServerGroup.InstanceCounts getInstanceCounts() {
     new ServerGroup.InstanceCounts(
@@ -166,11 +169,6 @@ class AppengineServerGroup implements ServerGroup, Serializable {
   @Override
   ServerGroup.ImagesSummary getImagesSummary() {
     null
-  }
-
-  @Override
-  Boolean isDisabled() {
-    disabled
   }
 
   enum ServingStatus {

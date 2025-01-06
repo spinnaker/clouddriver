@@ -83,10 +83,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.platform.runner.JUnitPlatform;
-import org.junit.runner.RunWith;
 
-@RunWith(JUnitPlatform.class)
 class AbstractGoogleServerGroupCachingAgentTest {
 
   private static final String ACCOUNT_NAME = "partypups";
@@ -790,9 +787,10 @@ class AbstractGoogleServerGroupCachingAgentTest {
       assertThat(convertedCustomMetric.getMetric()).isEqualTo(inputCustomMetric.getMetric());
       assertThat(convertedCustomMetric.getUtilizationTarget())
           .isEqualTo(inputCustomMetric.getUtilizationTarget());
-      assertThat(convertedCustomMetric.getUtilizationTargetType())
-          .extracting(
-              enumValue -> Optional.ofNullable(enumValue).map(Object::toString).orElse(null))
+      assertThat(
+              Optional.ofNullable(convertedCustomMetric.getUtilizationTargetType())
+                  .map(Object::toString)
+                  .orElse(null))
           .isEqualTo(inputCustomMetric.getUtilizationTargetType());
     }
   }

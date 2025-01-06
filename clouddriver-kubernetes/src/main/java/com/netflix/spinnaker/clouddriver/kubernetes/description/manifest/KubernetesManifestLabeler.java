@@ -20,7 +20,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.description.manifest;
 import com.google.common.base.Strings;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Map;
-import java.util.Optional;
 
 public class KubernetesManifestLabeler {
   private static final String SPINNAKER_LABEL = "spinnaker.io";
@@ -56,17 +55,22 @@ public class KubernetesManifestLabeler {
   }
 
   public static void labelManifest(
-      String managedBySuffix, KubernetesManifest manifest, Moniker moniker) {
+      String managedBySuffix,
+      KubernetesManifest manifest,
+      Moniker moniker,
+      Boolean skipSpecTemplateLabels) {
     Map<String, String> labels = manifest.getLabels();
     storeLabels(managedBySuffix, labels, moniker);
 
-    manifest
-        .getSpecTemplateLabels()
-        .flatMap(
-            l -> {
-              storeLabels(managedBySuffix, l, moniker);
-              return Optional.empty();
-            });
+    // Deployment fails for some Kubernetes resources (e.g. Karpenter NodePool) when
+    // the app.kubernetes.io/* labels are applied to the manifest's
+    // .spec.template.metadata.labels. If skipSpecTemplateLabels is
+    // set to true in the manifest description, Spinnaker won't apply
+    // the Kubernetes and Moniker labels
+    // to the .spec.template.metadata.labels of the manifest.
+    if (!skipSpecTemplateLabels) {
+      manifest.getSpecTemplateLabels().ifPresent(l -> storeLabels(managedBySuffix, l, moniker));
+    }
   }
 
   public static void storeLabels(

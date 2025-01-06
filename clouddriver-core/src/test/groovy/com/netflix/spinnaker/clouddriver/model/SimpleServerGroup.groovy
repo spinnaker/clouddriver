@@ -34,8 +34,7 @@ class SimpleServerGroup implements ServerGroup {
   ImagesSummary imagesSummary
   ImageSummary imageSummary
 
-  @Override
   Boolean isDisabled() {
-    return disabled
+    disabled
   }
 }

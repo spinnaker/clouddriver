@@ -17,7 +17,11 @@
 package com.netflix.spinnaker.clouddriver
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.netflix.spinnaker.clouddriver.security.config.SecurityConfig
+import com.netflix.spinnaker.kork.artifacts.artifactstore.ArtifactDeserializer
+import com.netflix.spinnaker.kork.artifacts.artifactstore.ArtifactStoreConfiguration
+import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import com.netflix.spinnaker.kork.boot.DefaultPropertiesBuilder
 import com.netflix.spinnaker.kork.configserver.ConfigServerBootstrap
 import org.springframework.boot.actuate.autoconfigure.elasticsearch.ElasticSearchRestHealthContributorAutoConfiguration
@@ -36,7 +40,6 @@ import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder
 import org.springframework.scheduling.annotation.EnableScheduling
-import sun.net.InetAddressCachePolicy
 
 import java.security.Security
 
@@ -44,6 +47,7 @@ import java.security.Security
 @Import([
   WebConfig,
   SecurityConfig,
+  ArtifactStoreConfiguration,
 ])
 @ComponentScan([
   'com.netflix.spinnaker.config',
@@ -66,7 +70,6 @@ class Main extends SpringBootServletInitializer {
      * We often operate in an environment where we expect resolution of DNS names for remote dependencies to change
      * frequently, so it's best to tell the JVM to avoid caching DNS results internally.
      */
-    InetAddressCachePolicy.cachePolicy = InetAddressCachePolicy.NEVER
     Security.setProperty('networkaddress.cache.ttl', '0')
     System.setProperty("spring.main.allow-bean-definition-overriding", "true")
   }
@@ -81,8 +84,10 @@ class Main extends SpringBootServletInitializer {
 
   @Bean
   @Primary
-  ObjectMapper jacksonObjectMapper(Jackson2ObjectMapperBuilder builder) {
-    return builder.createXmlMapper(false).build()
+  ObjectMapper objectMapper(Jackson2ObjectMapperBuilder builder) {
+    return builder.createXmlMapper(false)
+      .mixIn(Artifact.class, ArtifactMixin.class)
+      .build()
   }
 
   @Override
@@ -91,5 +96,12 @@ class Main extends SpringBootServletInitializer {
       .properties(DEFAULT_PROPS)
       .sources(Main)
   }
+
+  /**
+   * Used to deserialize artifacts utilizing an artifact store, and thus
+   * bypassing the default deserializer on the artifact object itself.
+   */
+  @JsonDeserialize(using = ArtifactDeserializer.class)
+  private static interface ArtifactMixin{}
 }
 

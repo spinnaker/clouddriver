@@ -1,5 +1,4 @@
 apply plugin: 'com.google.protobuf'
-apply plugin: "org.junit.platform.gradle.plugin"
 
 ext {
   protobufVersion = '3.21.12'
@@ -11,22 +10,6 @@ protobuf {
   }
 }
 
-
-configurations {
-  all {
-    exclude group: 'junit'
-    exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
-  }
-}
-
-junitPlatform {
-  filters {
-    engines {
-      include "junit-jupiter"
-    }
-  }
-}
-
 dependencies {
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-api")
@@ -35,11 +18,7 @@ dependencies {
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-docker")
 
-  compileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
-  implementation "org.codehaus.groovy:groovy"
+  implementation "org.apache.groovy:groovy"
 
   implementation "io.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "org.apache.commons:commons-lang3"
@@ -71,7 +50,6 @@ dependencies {
 
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
-  testImplementation "org.junit.jupiter:junit-jupiter-engine"
   testImplementation "org.junit.jupiter:junit-jupiter-params"
   testImplementation "org.mockito:mockito-core"
   testImplementation "com.github.tomakehurst:wiremock-jre8-standalone"

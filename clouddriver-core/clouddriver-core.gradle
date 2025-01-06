@@ -8,17 +8,12 @@ dependencies {
   implementation project(":clouddriver-security")
   implementation project(":clouddriver-saga")
 
-  compileOnly "org.projectlombok:lombok"
-  testCompileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
   // Because a JobRequest constructor takes a org.apache.commons.exec.CommandLine argument
   api "org.apache.commons:commons-exec"
 
   // This is because some classes in this module use the Groovy @Immutable annotation,
   // which appears to require consumers to have core groovy on the classpath
-  api "org.codehaus.groovy:groovy"
+  api "org.apache.groovy:groovy"
 
   implementation "javax.inject:javax.inject:1"
   implementation "javax.validation:validation-api"
@@ -38,16 +33,13 @@ dependencies {
   implementation "io.spinnaker.kork:kork-annotations"
   implementation "io.spinnaker.kork:kork-moniker"
   implementation "io.spinnaker.kork:kork-secrets"
-  implementation "com.squareup.okhttp:okhttp"
-  implementation "com.squareup.okhttp:okhttp-apache"
-  implementation "com.squareup.okhttp:okhttp-urlconnection"
   implementation "com.squareup.retrofit:converter-jackson"
   implementation "com.squareup.retrofit:retrofit"
   implementation "com.jakewharton.retrofit:retrofit1-okhttp3-client"
   implementation "io.reactivex:rxjava"
   implementation "net.jodah:failsafe:1.0.4"
-  implementation "org.codehaus.groovy:groovy"
-  implementation "org.codehaus.groovy:groovy-templates"
+  implementation "org.apache.groovy:groovy"
+  implementation "org.apache.groovy:groovy-templates"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "redis.clients:jedis"
   implementation "org.jooq:jooq"
@@ -56,7 +48,8 @@ dependencies {
   testImplementation project(":clouddriver-core-tck")
 
   testImplementation "cglib:cglib-nodep"
-  testImplementation "com.github.stefanbirkner:system-lambda:1.2.1"
+  testImplementation "uk.org.webcompere:system-stubs-core:2.1.5"
+  testImplementation "uk.org.webcompere:system-stubs-jupiter:2.1.5"
   testImplementation "io.spinnaker.kork:kork-jedis-test"
   testImplementation "io.spinnaker.kork:kork-test"
   testImplementation "org.objenesis:objenesis"
@@ -64,7 +57,6 @@ dependencies {
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
-  testImplementation "org.junit.jupiter:junit-jupiter-engine"
   testImplementation "org.junit.jupiter:junit-jupiter-params"
   testImplementation "org.mockito:mockito-core"
   testImplementation "org.springframework.boot:spring-boot-test"

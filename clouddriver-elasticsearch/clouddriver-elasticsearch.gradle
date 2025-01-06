@@ -6,10 +6,11 @@ dependencies {
   implementation "com.netflix.frigga:frigga"
   implementation "io.searchbox:jest:6.3.1"
   implementation "io.spinnaker.kork:kork-exceptions"
+  implementation "io.spinnaker.kork:kork-moniker"
   implementation "io.spinnaker.kork:kork-retrofit"
   implementation "io.spinnaker.kork:kork-security"
   implementation "com.squareup.retrofit:retrofit"
-  implementation "org.codehaus.groovy:groovy"
+  implementation "org.apache.groovy:groovy"
   implementation "org.elasticsearch:elasticsearch"
   implementation "org.springframework.boot:spring-boot-starter-web"
 
@@ -19,5 +20,6 @@ dependencies {
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
+  testRuntimeOnly "net.bytebuddy:byte-buddy"
 
 }

@@ -29,7 +29,7 @@ configurations.all {
 
 compileKotlin {
   kotlinOptions {
-    languageVersion = "1.4"
-    jvmTarget = "11"
+    languageVersion = "1.6"
+    jvmTarget = "17"
   }
 }

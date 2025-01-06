@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Armory, Inc.
+ * Copyright 2023 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,28 +14,14 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.lambda.service.config;
+package com.netflix.spinnaker.clouddriver.cloudrun.model;
 
 import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import lombok.NoArgsConstructor;
 
-@Component
-@ConfigurationProperties(prefix = "aws.lambda")
 @Data
-public class LambdaServiceConfig {
+@NoArgsConstructor
+public class CloudrunSpecContainerResources {
 
-  private Retry retry = new Retry();
-  private Concurrency concurrency = new Concurrency();
-
-  @Data
-  public static class Retry {
-    private int timeout = 15;
-    private int retries = 5;
-  }
-
-  @Data
-  public static class Concurrency {
-    private int threads = 10;
-  }
+  private CloudrunSpecResourceLimits limits;
 }

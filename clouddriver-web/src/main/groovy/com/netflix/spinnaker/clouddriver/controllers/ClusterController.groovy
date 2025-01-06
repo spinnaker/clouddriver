@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.controllers
 
+import com.netflix.spinnaker.clouddriver.ecs.model.EcsApplication
 import com.netflix.spinnaker.clouddriver.model.*
 import com.netflix.spinnaker.clouddriver.model.view.ClusterViewModelPostProcessor
 import com.netflix.spinnaker.clouddriver.model.view.ServerGroupViewModelPostProcessor
@@ -79,24 +80,18 @@ class ClusterController {
       .sorted(Comparator.comparing({ Application it -> it.getName().toLowerCase() }))
       .collect(Collectors.toList())
 
-    Map<String, Set<String>> clusterNames = Map.of()
-    def lastApp = null
-    for (app in apps) {
-      if (!lastApp) {
-        clusterNames = app.getClusterNames()
-      } else {
-        clusterNames = mergeClusters(lastApp, app)
-      }
-      lastApp = app
-    }
+    Map<String, Set<String>> clusterNames = mergeClusters(apps)
     return clusterNames
   }
 
-  private Map<String, Set<String>> mergeClusters(Application a, Application b) {
+  private Map<String, Set<String>> mergeClusters(List<Application> a) {
     Map<String, Set<String>> map = new HashMap<>()
-
-    Stream.of(a, b)
-      .flatMap({ it.getClusterNames().entrySet().stream() })
+    a.stream()
+      .flatMap({
+        it instanceof EcsApplication
+        ? it.getClusterNameMetadata().entrySet().stream()
+        : it.getClusterNames().entrySet().stream()
+      })
       .forEach({ entry ->
         map.computeIfAbsent(entry.getKey(), { new HashSet<>() }).addAll(entry.getValue())
       })

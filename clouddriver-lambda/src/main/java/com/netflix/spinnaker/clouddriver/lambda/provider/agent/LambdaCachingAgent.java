@@ -48,7 +48,7 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandType;
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
 import com.netflix.spinnaker.clouddriver.lambda.service.LambdaService;
-import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
+import com.netflix.spinnaker.config.LambdaServiceConfig;
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -91,13 +91,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
             this,
             AmazonCloudProvider.ID + ":" + AmazonCloudProvider.ID + ":" + OnDemandType.Function);
     this.lambdaService =
-        new LambdaService(
-            amazonClientProvider,
-            account,
-            region,
-            objectMapper,
-            lambdaServiceConfig,
-            serviceLimitConfiguration);
+        new LambdaService(amazonClientProvider, account, region, objectMapper, lambdaServiceConfig);
   }
 
   @Override

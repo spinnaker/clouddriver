@@ -20,12 +20,15 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ALARMS;
 
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -71,31 +74,28 @@ public class EcsCloudWatchAlarmCacheClient extends AbstractCacheClient<EcsMetric
   }
 
   public List<EcsMetricAlarm> getMetricAlarms(
-      String serviceName, String accountName, String region) {
+      String serviceName, String accountName, String region, String ecsClusterName) {
     List<EcsMetricAlarm> metricAlarms = new LinkedList<>();
-    Collection<EcsMetricAlarm> allMetricAlarms = getAll(accountName, region);
 
-    outLoop:
+    String glob = Keys.getAlarmKey(accountName, region, "*", ecsClusterName);
+    Collection<String> metricAlarmsIds = filterIdentifiers(glob);
+    String globEmptyDimension = Keys.getAlarmKey(accountName, region, "*", "");
+    Collection<String> otherMetricAlarmsIds = filterIdentifiers(globEmptyDimension);
+
+    Collection<String> combinedMetricIds =
+        Stream.of(metricAlarmsIds, otherMetricAlarmsIds)
+            .filter(m -> m != null)
+            .flatMap(Collection::stream)
+            .collect(Collectors.toList());
+
+    Collection<EcsMetricAlarm> allMetricAlarms = getAll(combinedMetricIds);
+
     for (EcsMetricAlarm metricAlarm : allMetricAlarms) {
-      for (String action : metricAlarm.getAlarmActions()) {
-        if (action.contains(serviceName)) {
-          metricAlarms.add(metricAlarm);
-          continue outLoop;
-        }
-      }
-
-      for (String action : metricAlarm.getOKActions()) {
-        if (action.contains(serviceName)) {
-          metricAlarms.add(metricAlarm);
-          continue outLoop;
-        }
-      }
-
-      for (String action : metricAlarm.getInsufficientDataActions()) {
-        if (action.contains(serviceName)) {
-          metricAlarms.add(metricAlarm);
-          continue outLoop;
-        }
+      if (metricAlarm.getAlarmActions().stream().anyMatch(action -> action.contains(serviceName))
+          || metricAlarm.getOKActions().stream().anyMatch(action -> action.contains(serviceName))
+          || metricAlarm.getInsufficientDataActions().stream()
+              .anyMatch(action -> action.contains(serviceName))) {
+        metricAlarms.add(metricAlarm);
       }
     }
 

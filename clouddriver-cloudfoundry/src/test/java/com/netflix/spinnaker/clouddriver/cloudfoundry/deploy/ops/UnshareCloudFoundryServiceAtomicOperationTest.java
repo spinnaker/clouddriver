@@ -20,10 +20,12 @@ import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Las
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.Type.UNSHARE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.atIndex;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.matches;
-import static org.mockito.Matchers.same;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.matches;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.ServiceInstanceResponse;
@@ -75,7 +77,7 @@ class UnshareCloudFoundryServiceAtomicOperationTest
     Object o = resultObjects.get(0);
     assertThat(o).isInstanceOf(ServiceInstanceResponse.class);
     ServiceInstanceResponse response = (ServiceInstanceResponse) o;
-    assertThat(response).isEqualToComparingFieldByFieldRecursively(serviceInstanceResponse);
+    assertThat(response).usingRecursiveComparison().isEqualTo(serviceInstanceResponse);
   }
 
   @Test

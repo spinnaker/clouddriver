@@ -25,19 +25,27 @@ import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesSelectorList;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
+import java.util.ArrayList;
+import java.util.List;
 
 public interface CanDeploy {
   default OperationResult deploy(
       KubernetesCredentials credentials,
       KubernetesManifest manifest,
       KubernetesManifestStrategy.DeployStrategy deployStrategy,
+      KubernetesManifestStrategy.ServerSideApplyStrategy serverSideApplyStrategy,
       Task task,
-      String opName) {
+      String opName,
+      KubernetesSelectorList labelSelectors) {
     // If the manifest has a generateName, we must apply with kubectl create as all other operations
     // require looking up a manifest by name, which will fail.
     if (manifest.hasGenerateName()) {
-      KubernetesManifest result = credentials.create(manifest, task, opName);
-      return new OperationResult().addManifest(result);
+      KubernetesManifest result = credentials.create(manifest, task, opName, labelSelectors);
+      OperationResult operationResult = new OperationResult();
+      if (result != null) {
+        operationResult.addManifest(result);
+      }
+      return operationResult;
     }
 
     KubernetesManifest deployedManifest;
@@ -48,23 +56,42 @@ public interface CanDeploy {
               manifest.getKind(),
               manifest.getNamespace(),
               manifest.getName(),
-              new KubernetesSelectorList(),
+              labelSelectors,
               new V1DeleteOptions(),
               task,
               opName);
         } catch (KubectlJobExecutor.KubectlException ignored) {
         }
-        deployedManifest = credentials.deploy(manifest, task, opName);
+        deployedManifest = credentials.deploy(manifest, task, opName, labelSelectors);
         break;
       case REPLACE:
         deployedManifest = credentials.createOrReplace(manifest, task, opName);
         break;
+      case SERVER_SIDE_APPLY:
+        List<String> cmdArgs = new ArrayList<>();
+        cmdArgs.add("--server-side=true");
+        if (serverSideApplyStrategy.equals(
+            KubernetesManifestStrategy.ServerSideApplyStrategy.FORCE_CONFLICTS)) {
+          cmdArgs.add("--force-conflicts=true");
+        }
+        deployedManifest =
+            credentials.deploy(
+                manifest,
+                task,
+                opName,
+                labelSelectors,
+                cmdArgs.toArray(new String[cmdArgs.size()]));
+        break;
       case APPLY:
-        deployedManifest = credentials.deploy(manifest, task, opName);
+        deployedManifest = credentials.deploy(manifest, task, opName, labelSelectors);
         break;
       default:
         throw new AssertionError(String.format("Unknown deploy strategy: %s", deployStrategy));
     }
-    return new OperationResult().addManifest(deployedManifest);
+    OperationResult operationResult = new OperationResult();
+    if (deployedManifest != null) {
+      operationResult.addManifest(deployedManifest);
+    }
+    return operationResult;
   }
 }

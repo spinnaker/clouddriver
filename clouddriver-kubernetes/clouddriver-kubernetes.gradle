@@ -1,5 +1,5 @@
 plugins {
-  id("net.ltgt.errorprone") version "1.2.1"
+  id("net.ltgt.errorprone") version "4.0.0"
   id 'com.adarshr.test-logger' version '2.1.0'
 }
 
@@ -48,7 +48,7 @@ tasks.withType(JavaCompile) {
 }
 
 dependencies {
-  errorprone("com.google.errorprone:error_prone_core:2.4.0")
+  errorprone("com.google.errorprone:error_prone_core:2.28.0")
   implementation project(":clouddriver-api")
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-core")
@@ -56,12 +56,7 @@ dependencies {
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-security")
 
-  compileOnly "org.projectlombok:lombok"
-  testCompileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
-  implementation "org.codehaus.groovy:groovy"
+  implementation "org.apache.groovy:groovy"
 
   implementation "com.google.code.findbugs:jsr305"
   implementation "com.google.guava:guava"
@@ -81,6 +76,7 @@ dependencies {
   implementation "io.spinnaker.kork:kork-secrets"
   implementation "io.spinnaker.kork:kork-security"
   implementation "io.kubernetes:client-java"
+  implementation "io.kubernetes:client-java-api-fluent:13.0.2"
   implementation "org.apache.commons:commons-lang3"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
@@ -89,13 +85,13 @@ dependencies {
   implementation "org.springframework.cloud:spring-cloud-config-server"
   implementation "io.github.resilience4j:resilience4j-retry"
   implementation "io.github.resilience4j:resilience4j-micrometer"
+  implementation "io.swagger.core.v3:swagger-annotations"
 
   testImplementation "io.spinnaker.kork:kork-test"
   testImplementation "org.apache.commons:commons-exec"
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
   testImplementation "org.junit.jupiter:junit-jupiter-params"
-  testImplementation "org.junit.platform:junit-platform-runner"
   testImplementation "org.mockito:mockito-core"
   testImplementation "org.mockito:mockito-junit-jupiter"
   testImplementation "cglib:cglib-nodep"
@@ -104,19 +100,15 @@ dependencies {
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
   testImplementation "org.springframework.boot:spring-boot-test"
-
-  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+  testImplementation "org.apache.groovy:groovy-templates"
 
   integrationImplementation project(":clouddriver-web")
   integrationImplementation "org.springframework.boot:spring-boot-starter-test"
   integrationImplementation "org.testcontainers:testcontainers"
   integrationImplementation "org.testcontainers:mysql"
   integrationImplementation "org.testcontainers:junit-jupiter"
-  integrationImplementation "mysql:mysql-connector-java"
-  integrationImplementation ("io.rest-assured:rest-assured:4.0.0") {
-    // Exclude groovy pulled in by rest-assured, so we use kork's version
-    exclude group: "org.codehaus.groovy", module: "groovy"
-  }
+  integrationImplementation "com.mysql:mysql-connector-j"
+  integrationImplementation "io.rest-assured:rest-assured"
   integrationImplementation "org.yaml:snakeyaml"
 }
 
@@ -131,6 +123,9 @@ task integrationTest(type: Test) {
   group = 'verification'
 
   environment "IT_BUILD_HOME", "$project.buildDir/it"
+  environment "IMAGE", project.getProperties().get("kubernetes-image")
+  environment "KUBECTL_VERSION", project.getProperties().get("kubectl-version")
+  environment "KUBERNETES_VERSION", project.getProperties().get("kubernetes-version")
   useJUnitPlatform()
 
   testClassesDirs = sourceSets.integration.output.classesDirs

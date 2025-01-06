@@ -47,15 +47,13 @@ import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregis
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ManifestFetcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesSelectorList;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Namer;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.platform.runner.JUnitPlatform;
-import org.junit.runner.RunWith;
 
-@RunWith(JUnitPlatform.class)
 final class KubernetesRunJobOperationTest {
   private static final String NAMESPACE = "my-namespace";
   private static final String GENERATE_SUFFIX = "-abcd";
@@ -142,7 +140,11 @@ final class KubernetesRunJobOperationTest {
                 KubernetesKindProperties.withDefaultProperties(
                     invocation.getArgument(0, KubernetesKind.class)));
     when(credentialsMock.getResourcePropertyRegistry()).thenReturn(resourcePropertyRegistry);
-    when(credentialsMock.deploy(any(KubernetesManifest.class), any(Task.class), anyString()))
+    when(credentialsMock.deploy(
+            any(KubernetesManifest.class),
+            any(Task.class),
+            anyString(),
+            any(KubernetesSelectorList.class)))
         .thenAnswer(
             invocation -> {
               KubernetesManifest result =
@@ -154,7 +156,11 @@ final class KubernetesRunJobOperationTest {
               }
               return result;
             });
-    when(credentialsMock.create(any(KubernetesManifest.class), any(Task.class), anyString()))
+    when(credentialsMock.create(
+            any(KubernetesManifest.class),
+            any(Task.class),
+            anyString(),
+            any(KubernetesSelectorList.class)))
         .thenAnswer(
             invocation -> {
               // This simulates the fact that the Kubernetes API will add a suffix to a generated

@@ -37,17 +37,12 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesSelectorList;
 import com.netflix.spinnaker.kork.annotations.VisibleForTesting;
-import io.github.resilience4j.core.EventConsumer;
+import com.netflix.spinnaker.kork.resilience4j.Resilience4jHelper;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.micrometer.tagged.TaggedRetryMetrics;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
-import io.github.resilience4j.retry.event.RetryEvent;
-import io.github.resilience4j.retry.event.RetryOnErrorEvent;
-import io.github.resilience4j.retry.event.RetryOnIgnoredErrorEvent;
-import io.github.resilience4j.retry.event.RetryOnRetryEvent;
-import io.github.resilience4j.retry.event.RetryOnSuccessEvent;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.BufferedReader;
@@ -71,6 +66,11 @@ import org.springframework.stereotype.Component;
 public class KubectlJobExecutor {
   private static final Logger log = LoggerFactory.getLogger(KubectlJobExecutor.class);
   private static final String NOT_FOUND_STRING = "(NotFound)";
+  private static final String NO_OBJECTS_PASSED_TO_STRING = "error: no objects passed to";
+  private static final String NO_OBJECTS_PASSED_TO_APPLY_STRING =
+      NO_OBJECTS_PASSED_TO_STRING + " apply";
+  private static final String NO_OBJECTS_PASSED_TO_CREATE_STRING =
+      NO_OBJECTS_PASSED_TO_STRING + " create";
   private static final String KUBECTL_COMMAND_OPTION_TOKEN = "--token=";
   private static final String KUBECTL_COMMAND_OPTION_KUBECONFIG = "--kubeconfig=";
   private static final String KUBECTL_COMMAND_OPTION_CONTEXT = "--context=";
@@ -131,66 +131,7 @@ public class KubectlJobExecutor {
       // create the retry registry
       RetryRegistry retryRegistry = RetryRegistry.of(retryConfig.build());
 
-      // log whenever a new retry instance is added, removed or replaced from the registry
-      retryRegistry
-          .getEventPublisher()
-          .onEntryAdded(
-              entryAddedEvent -> {
-                Retry addedRetry = entryAddedEvent.getAddedEntry();
-                log.info("Kubectl retries configured for: {}", addedRetry.getName());
-              })
-          .onEntryRemoved(
-              entryRemovedEvent -> {
-                Retry removedRetry = entryRemovedEvent.getRemovedEntry();
-                log.info("Kubectl retries removed for: {}", removedRetry.getName());
-              })
-          .onEntryReplaced(
-              entryReplacedEvent -> {
-                Retry oldEntry = entryReplacedEvent.getOldEntry();
-                Retry newEntry = entryReplacedEvent.getNewEntry();
-                log.info(
-                    "Kubectl retry: {} updated to: {}", oldEntry.getName(), newEntry.getName());
-              });
-
-      // define an event consumer once for the entire registry as mentioned here:
-      // https://github.com/resilience4j/resilience4j/issues/974#issuecomment-619956673
-      // If we don't do this once, but add it for each individual retry instance, and if
-      // that retry instance is invoked by multiple threads, then there is a lot of log duplication.
-      // For example, if 10 threads invoke an action to get the top pod, and it is
-      // configured to use the retry instance with the identifier "mock-account.topPod.test-pod",
-      // then we will see 10*10 log lines showing up for each retry event instead of just 10 that
-      // we expect.
-      EventConsumer<RetryEvent> eventConsumer =
-          retryEvent -> {
-            if (retryEvent instanceof RetryOnErrorEvent) {
-              log.error(
-                  "Kubectl command for {} failed after {} attempts. Exception: {}",
-                  retryEvent.getName(),
-                  retryEvent.getNumberOfRetryAttempts(),
-                  retryEvent.getLastThrowable().toString());
-            } else if (retryEvent instanceof RetryOnSuccessEvent) {
-              log.info(
-                  "Kubectl command for {} is now successful in attempt #{}. Last attempt had failed with exception: {}",
-                  retryEvent.getName(),
-                  retryEvent.getNumberOfRetryAttempts() + 1,
-                  retryEvent.getLastThrowable().toString());
-            } else if (retryEvent instanceof RetryOnRetryEvent) {
-              log.info(
-                  "Retrying Kubectl command for {}. Attempt #{} failed with exception: {}",
-                  retryEvent.getName(),
-                  retryEvent.getNumberOfRetryAttempts(),
-                  retryEvent.getLastThrowable().toString());
-            } else if (!(retryEvent instanceof RetryOnIgnoredErrorEvent)) {
-              // don't log anything for Ignored exceptions as it just leads to noise in the logs
-              log.info(retryEvent.toString());
-            }
-          };
-      retryRegistry
-          .getAllRetries()
-          .forEach(retry -> retry.getEventPublisher().onEvent(eventConsumer));
-      retryRegistry
-          .getEventPublisher()
-          .onEntryAdded(event -> event.getAddedEntry().getEventPublisher().onEvent(eventConsumer));
+      Resilience4jHelper.configureLogging(retryRegistry, "Kubectl command", log);
 
       if (this.kubernetesConfigurationProperties
           .getJobExecutor()
@@ -586,23 +527,50 @@ public class KubectlJobExecutor {
     return status.getOutput();
   }
 
+  /**
+   * Invoke kubectl apply with the given manifest and (if present) label selectors.
+   *
+   * @param credentials k8s account credentials
+   * @param manifest the manifest to apply
+   * @param task the task performing this kubectl invocation
+   * @param opName the name of the operation performing this kubectl invocation
+   * @param labelSelectors label selectors
+   * @return the manifest parsed from stdout of the kubectl invocation, or null if a label selector
+   *     is present and kubectl returned "no objects passed to apply"
+   */
   public KubernetesManifest deploy(
-      KubernetesCredentials credentials, KubernetesManifest manifest, Task task, String opName) {
+      KubernetesCredentials credentials,
+      KubernetesManifest manifest,
+      Task task,
+      String opName,
+      KubernetesSelectorList labelSelectors,
+      String... cmdArgs) {
     log.info("Deploying manifest {}", manifest.getFullResourceName());
     List<String> command = kubectlAuthPrefix(credentials);
 
     // Read from stdin
     command.add("apply");
+    command.addAll(List.of(cmdArgs));
     command.add("-o");
     command.add("json");
     command.add("-f");
     command.add("-");
+    addLabelSelectors(command, labelSelectors);
 
     JobResult<String> status = executeKubectlCommand(credentials, command, Optional.of(manifest));
 
     persistKubectlJobOutput(credentials, status, manifest.getFullResourceName(), task, opName);
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
+      // If the caller provided a label selector, kubectl returns "no objects
+      // passed to apply" if none of the given objects satisfy the selector.
+      // Instead of throwing an exception, leave it to higher level logic to
+      // decide how to behave.
+      if (labelSelectors.isNotEmpty()
+          && status.getError().contains(NO_OBJECTS_PASSED_TO_APPLY_STRING)) {
+        return null;
+      }
+
       throw new KubectlException(
           "Deploy failed for manifest: "
               + manifest.getFullResourceName()
@@ -613,6 +581,16 @@ public class KubectlJobExecutor {
     return getKubernetesManifestFromJobResult(status, manifest);
   }
 
+  /**
+   * Invoke kubectl replace with the given manifest. Note that kubectl replace doesn't support label
+   * selectors.
+   *
+   * @param credentials k8s account credentials
+   * @param manifest the manifest to replace
+   * @param task the task performing this kubectl invocation
+   * @param opName the name of the operation performing this kubectl invocation
+   * @return the manifest parsed from stdout of the kubectl invocation
+   */
   public KubernetesManifest replace(
       KubernetesCredentials credentials, KubernetesManifest manifest, Task task, String opName) {
     log.info("Replacing manifest {}", manifest.getFullResourceName());
@@ -647,9 +625,24 @@ public class KubectlJobExecutor {
     return getKubernetesManifestFromJobResult(status, manifest);
   }
 
+  /**
+   * Invoke kubectl create with the given manifest and (if present) label selectors.
+   *
+   * @param credentials k8s account credentials
+   * @param manifest the manifest to create
+   * @param task the task performing this kubectl invocation
+   * @param opName the name of the operation performing this kubectl invocation
+   * @param labelSelectors label selectors
+   * @return the manifest parsed from stdout of the kubectl invocation, or null if a label selector
+   *     is present and kubectl returned "no objects passed to create"
+   */
   public KubernetesManifest create(
-      KubernetesCredentials credentials, KubernetesManifest manifest, Task task, String opName) {
-    log.info("Creating manifest {}", manifest.getName());
+      KubernetesCredentials credentials,
+      KubernetesManifest manifest,
+      Task task,
+      String opName,
+      KubernetesSelectorList labelSelectors) {
+    log.info("Creating manifest {}", manifest.getFullResourceName());
     List<String> command = kubectlAuthPrefix(credentials);
 
     // Read from stdin
@@ -658,12 +651,22 @@ public class KubectlJobExecutor {
     command.add("json");
     command.add("-f");
     command.add("-");
+    addLabelSelectors(command, labelSelectors);
 
     JobResult<String> status = executeKubectlCommand(credentials, command, Optional.of(manifest));
 
     persistKubectlJobOutput(credentials, status, manifest.getFullResourceName(), task, opName);
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
+      // If the caller provided a label selector, kubectl returns "no objects
+      // passed to create" if none of the given objects satisfy the selector.
+      // Instead of throwing an exception, leave it to higher level logic to
+      // decide how to behave.
+      if (labelSelectors.isNotEmpty()
+          && status.getError().contains(NO_OBJECTS_PASSED_TO_CREATE_STRING)) {
+        return null;
+      }
+
       throw new KubectlException(
           "Create failed for manifest: "
               + manifest.getFullResourceName()
@@ -735,10 +738,7 @@ public class KubectlJobExecutor {
     } else {
       command.add(kind.toString());
     }
-
-    if (labelSelectors != null && !labelSelectors.isEmpty()) {
-      command.add("-l=" + labelSelectors);
-    }
+    addLabelSelectors(command, labelSelectors);
 
     return command;
   }
@@ -1124,6 +1124,12 @@ public class KubectlJobExecutor {
           || credentials.isDebug()) {
         task.updateOutput(manifestName, taskName, status.getOutput(), status.getError());
       }
+    }
+  }
+
+  private void addLabelSelectors(List<String> command, KubernetesSelectorList labelSelectors) {
+    if (labelSelectors != null && !labelSelectors.isEmpty()) {
+      command.add("-l=" + labelSelectors);
     }
   }
 

@@ -1,8 +1,4 @@
 dependencies {
-  compileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
-
   implementation "com.google.api-client:google-api-client"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
   implementation "io.spinnaker.kork:kork-annotations"
@@ -11,7 +7,7 @@ dependencies {
   implementation "com.netflix.spectator:spectator-api"
   implementation "io.spinnaker.fiat:fiat-api:$fiatVersion"
   implementation "io.spinnaker.fiat:fiat-core:$fiatVersion"
-  implementation "org.codehaus.groovy:groovy"
+  implementation "org.apache.groovy:groovy"
   implementation "org.slf4j:slf4j-api"
   implementation "org.springframework.security:spring-security-config"
   implementation "org.springframework.security:spring-security-core"
@@ -20,4 +16,5 @@ dependencies {
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
+  testRuntimeOnly "net.bytebuddy:byte-buddy"
 }

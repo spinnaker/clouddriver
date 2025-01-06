@@ -21,7 +21,6 @@
     includeBuild projectPath
   }
 }
-enableFeaturePreview("VERSION_ORDERING_V2")
 
 rootProject.name = "clouddriver"
 
@@ -66,6 +65,7 @@ include 'cats:cats-core',
   'clouddriver-core-tck',
   'clouddriver-elasticsearch',
   'clouddriver-event',
+  'clouddriver-integration',
   'clouddriver-saga',
   'clouddriver-saga-test',
   'clouddriver-security',

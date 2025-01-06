@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIOException;
 
 import com.google.api.client.http.HttpTransport;
-import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.testing.http.MockHttpTransport;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.api.services.compute.Compute;
@@ -39,11 +39,8 @@ import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry;
 import com.netflix.spinnaker.clouddriver.google.security.FakeGoogleCredentials;
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials;
 import java.io.IOException;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.Test;
 
-@RunWith(JUnit4.class)
 public class ZoneGoogleServerGroupManagersTest {
 
   private static final String ZONE = "us-central1-f";
@@ -249,7 +246,7 @@ public class ZoneGoogleServerGroupManagersTest {
       HttpTransport transport, Registry registry) {
     Compute compute =
         new Compute(
-            transport, JacksonFactory.getDefaultInstance(), /* httpRequestInitializer= */ null);
+            transport, GsonFactory.getDefaultInstance(), /* httpRequestInitializer= */ null);
     GoogleNamedAccountCredentials credentials =
         new GoogleNamedAccountCredentials.Builder()
             .name("spin-user")

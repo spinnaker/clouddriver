@@ -34,10 +34,12 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
+@Log4j2
 public class InvokeLambdaAtomicOperation
     extends AbstractLambdaAtomicOperation<
         InvokeLambdaFunctionDescription, InvokeLambdaFunctionOutputDescription>
@@ -66,7 +68,6 @@ public class InvokeLambdaAtomicOperation
   private InvokeLambdaFunctionOutputDescription invokeFunction(
       String functionName, String payload) {
     AWSLambda client = getLambdaClient();
-
     InvokeRequest req =
         new InvokeRequest()
             .withFunctionName(functionName)
@@ -78,6 +79,11 @@ public class InvokeLambdaAtomicOperation
       req.setQualifier(description.getQualifier());
     }
 
+    if (description.getTimeout() != -1) {
+      // UI & API are in seconds, SDK is in MS.
+      req.setSdkRequestTimeout(description.getTimeout() * 1000);
+    }
+    log.info("Invoking Lmabda function {} and waiting for it to complete", functionName);
     InvokeResult result = client.invoke(req);
     String ans = byteBuffer2String(result.getPayload(), Charset.forName("UTF-8"));
     InvokeLambdaFunctionOutputDescription is = new InvokeLambdaFunctionOutputDescription();

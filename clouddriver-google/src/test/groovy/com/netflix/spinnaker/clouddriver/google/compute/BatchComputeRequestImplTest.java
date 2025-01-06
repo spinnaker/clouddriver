@@ -26,7 +26,7 @@ import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.LowLevelHttpRequest;
 import com.google.api.client.http.LowLevelHttpResponse;
-import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.Compute.Images.Get;
@@ -42,12 +42,9 @@ import com.netflix.spectator.api.Timer;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.client.HttpResponseException;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-@RunWith(JUnit4.class)
 public class BatchComputeRequestImplTest {
 
   private static final String USER_AGENT = "spinnaker-test";
@@ -58,7 +55,7 @@ public class BatchComputeRequestImplTest {
 
   private Registry registry;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     registry = new DefaultRegistry();
   }
@@ -344,9 +341,7 @@ public class BatchComputeRequestImplTest {
 
   private static Compute computeWithResponses(ResponseSupplier... responses) {
     return new Compute(
-        responses(responses),
-        JacksonFactory.getDefaultInstance(),
-        /* httpRequestInitializer= */ null);
+        responses(responses), GsonFactory.getDefaultInstance(), /* httpRequestInitializer= */ null);
   }
 
   private static HttpTransport responses(ResponseSupplier... responses) {

@@ -4,9 +4,12 @@ import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.Keys.Namespac
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.provider.agent.CloudFoundryServerGroupCachingAgent.cacheView;
 import static java.util.Collections.*;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -182,7 +185,10 @@ class CloudFoundryLoadBalancerCachingAgentTest {
     OnDemandAgent.OnDemandResult result =
         cloudFoundryLoadBalancerCachingAgent.handle(mockProviderCache, data);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedResult);
+    assertThat(result)
+        .usingRecursiveComparison()
+        .ignoringCollectionOrder()
+        .isEqualTo(expectedResult);
   }
 
   @Test
@@ -284,7 +290,10 @@ class CloudFoundryLoadBalancerCachingAgentTest {
 
     CacheResult result = cloudFoundryLoadBalancerCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result)
+        .usingRecursiveComparison()
+        .ignoringCollectionOrder()
+        .isEqualTo(expectedCacheResult);
   }
 
   @Test
@@ -358,7 +367,10 @@ class CloudFoundryLoadBalancerCachingAgentTest {
 
     CacheResult result = cloudFoundryLoadBalancerCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result)
+        .usingRecursiveComparison()
+        .ignoringCollectionOrder()
+        .isEqualTo(expectedCacheResult);
   }
 
   @Test
@@ -444,7 +456,7 @@ class CloudFoundryLoadBalancerCachingAgentTest {
 
     CacheResult result = cloudFoundryLoadBalancerCachingAgent.loadData(mockProviderCache);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedCacheResult);
   }
 
   @Test

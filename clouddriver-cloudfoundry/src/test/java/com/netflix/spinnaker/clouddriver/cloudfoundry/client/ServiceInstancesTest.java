@@ -25,7 +25,15 @@ import static com.netflix.spinnaker.clouddriver.cloudfoundry.utils.TestUtils.ass
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singleton;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.ConfigService;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.ServiceInstanceService;
@@ -196,7 +204,7 @@ class ServiceInstancesTest {
     when(serviceInstanceService.all(any(), any()))
         .thenAnswer(
             invocation -> Calls.response(Response.success(createEmptyOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createEmptyUserProvidedServiceInstancePage())));
@@ -227,10 +235,10 @@ class ServiceInstancesTest {
   @Test
   void shouldThrowExceptionWhenCreationReturnsHttpNotFound() {
 
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(
             invocation -> Calls.response(Response.success(createEmptyOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createEmptyUserProvidedServiceInstancePage())));
@@ -265,7 +273,7 @@ class ServiceInstancesTest {
     servicePlansPageOne.setTotalResults(0);
     servicePlansPageOne.setTotalPages(1);
     servicePlansPageOne.setResources(Collections.emptyList());
-    when(serviceInstanceService.findServicePlans(any(), anyListOf(String.class)))
+    when(serviceInstanceService.findServicePlans(any(), anyList()))
         .thenAnswer(invocation -> Calls.response(Response.success(servicePlansPageOne)));
 
     assertThrows(
@@ -284,9 +292,9 @@ class ServiceInstancesTest {
 
   @Test
   void shouldUpdateTheServiceIfAlreadyExists() {
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(invocation -> Calls.response(Response.success(createOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createEmptyUserProvidedServiceInstancePage())));
@@ -316,9 +324,9 @@ class ServiceInstancesTest {
 
   @Test
   void shouldNotUpdateTheServiceIfAlreadyExists() {
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(invocation -> Calls.response(Response.success(createOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createEmptyUserProvidedServiceInstancePage())));
@@ -348,9 +356,9 @@ class ServiceInstancesTest {
 
   @Test
   void shouldThrowExceptionIfServiceExistsAndNeedsChangingButUpdateFails() {
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(invocation -> Calls.response(Response.success(createOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createEmptyUserProvidedServiceInstancePage())));
@@ -394,9 +402,9 @@ class ServiceInstancesTest {
     serviceInstancePage.setResources(
         Arrays.asList(serviceInstanceResource, serviceInstanceResource));
 
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(invocation -> Calls.response(Response.success(serviceInstancePage)));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createEmptyUserProvidedServiceInstancePage())));
@@ -420,7 +428,7 @@ class ServiceInstancesTest {
     when(serviceInstanceService.all(any(), any()))
         .thenAnswer(
             invocation -> Calls.response(Response.success(createEmptyOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createEmptyUserProvidedServiceInstancePage())));
@@ -454,7 +462,7 @@ class ServiceInstancesTest {
     when(serviceInstanceService.all(any(), any()))
         .thenAnswer(
             invocation -> Calls.response(Response.success(createEmptyOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createUserProvidedServiceInstancePage())));
@@ -488,7 +496,7 @@ class ServiceInstancesTest {
     when(serviceInstanceService.all(any(), any()))
         .thenAnswer(
             invocation -> Calls.response(Response.success(createEmptyOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createUserProvidedServiceInstancePage())));
@@ -743,8 +751,8 @@ class ServiceInstancesTest {
     verify(serviceInstanceService)
         .shareServiceInstanceToSpaceIds(serviceInstanceIdCaptor.capture(), shareToCaptor.capture());
     assertThat(serviceInstanceIdCaptor.getValue()).isEqualTo("service-instance-guid");
-    assertThat(shareToCaptor.getValue()).isEqualToComparingFieldByFieldRecursively(expectedBody);
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedResult);
+    assertThat(shareToCaptor.getValue()).usingRecursiveComparison().isEqualTo(expectedBody);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedResult);
   }
 
   @Test
@@ -822,8 +830,8 @@ class ServiceInstancesTest {
     verify(serviceInstanceService)
         .shareServiceInstanceToSpaceIds(serviceInstanceIdCaptor.capture(), shareToCaptor.capture());
     assertThat(serviceInstanceIdCaptor.getValue()).isEqualTo("service-instance-guid");
-    assertThat(shareToCaptor.getValue()).isEqualToComparingFieldByFieldRecursively(expectedBody);
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedResult);
+    assertThat(shareToCaptor.getValue()).usingRecursiveComparison().isEqualTo(expectedBody);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedResult);
   }
 
   @Test
@@ -887,7 +895,7 @@ class ServiceInstancesTest {
             "org > space", "service-instance-name", sharingToRegions);
 
     verify(serviceInstanceService, never()).shareServiceInstanceToSpaceIds(any(), any());
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedResult);
   }
 
   @Test
@@ -1006,7 +1014,7 @@ class ServiceInstancesTest {
     ServiceInstanceResponse result =
         serviceInstances.unshareServiceInstance("service-instance-name", unshareFromRegions);
 
-    assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedResult);
+    assertThat(result).usingRecursiveComparison().isEqualTo(expectedResult);
     verify(serviceInstanceService)
         .unshareServiceInstanceFromSpaceId("service-instance-guid-1", "space-guid-1");
     verify(serviceInstanceService)
@@ -1046,7 +1054,7 @@ class ServiceInstancesTest {
             .status(SUCCEEDED.toString())
             .build();
 
-    assertThat(results).isEqualToComparingFieldByFieldRecursively(expected);
+    assertThat(results).usingRecursiveComparison().isEqualTo(expected);
   }
 
   @Test
@@ -1072,7 +1080,7 @@ class ServiceInstancesTest {
             .status(SUCCEEDED.toString())
             .build();
 
-    assertThat(results).isEqualToComparingFieldByFieldRecursively(expected);
+    assertThat(results).usingRecursiveComparison().isEqualTo(expected);
   }
 
   @Test
@@ -1092,7 +1100,7 @@ class ServiceInstancesTest {
             .build();
 
     assertThat(service).isNotNull();
-    assertThat(service).isEqualToComparingFieldByFieldRecursively(expected);
+    assertThat(service).usingRecursiveComparison().isEqualTo(expected);
   }
 
   @Test
@@ -1114,7 +1122,7 @@ class ServiceInstancesTest {
             .serviceInstanceName("up-service-instance-name")
             .status(SUCCEEDED.toString())
             .build();
-    assertThat(service).isEqualToComparingFieldByFieldRecursively(expected);
+    assertThat(service).usingRecursiveComparison().isEqualTo(expected);
   }
 
   @Test
@@ -1134,7 +1142,7 @@ class ServiceInstancesTest {
             .status(FAILED.toString())
             .lastOperationDescription("Custom description")
             .build();
-    assertThat(service).isEqualToComparingFieldByFieldRecursively(expected);
+    assertThat(service).usingRecursiveComparison().isEqualTo(expected);
   }
 
   @Test
@@ -1175,7 +1183,7 @@ class ServiceInstancesTest {
 
   @Test
   void destroyServiceInstanceShouldSucceedWhenNoServiceBindingsExist() {
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(invocation -> Calls.response(Response.success(createOsbServiceInstancePage())));
     when(serviceInstanceService.getBindingsForServiceInstance("service-instance-guid", null, null))
         .thenAnswer(invocation -> Calls.response(Response.success(new Page<>())));
@@ -1191,7 +1199,7 @@ class ServiceInstancesTest {
                 .setServiceInstanceName("new-service-instance-name")
                 .setType(DELETE)
                 .setState(IN_PROGRESS));
-    verify(serviceInstanceService, times(1)).all(any(), anyListOf(String.class));
+    verify(serviceInstanceService, times(1)).all(any(), anyList());
     verify(serviceInstanceService, times(1)).destroyServiceInstance(any());
     verify(serviceInstanceService, never()).allUserProvided(any(), any());
   }
@@ -1222,10 +1230,10 @@ class ServiceInstancesTest {
 
   @Test
   void destroyServiceInstanceShouldReturnSuccessWhenServiceInstanceDoesNotExist() {
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(
             invocation -> Calls.response(Response.success(createEmptyOsbServiceInstancePage())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createEmptyUserProvidedServiceInstancePage())));
@@ -1244,7 +1252,7 @@ class ServiceInstancesTest {
 
   @Test
   void destroyServiceInstanceShouldFailIfServiceBindingsExists() {
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(invocation -> Calls.response(Response.success(createOsbServiceInstancePage())));
     when(serviceInstanceService.getBindingsForServiceInstance("service-instance-guid", null, null))
         .thenReturn(
@@ -1262,9 +1270,9 @@ class ServiceInstancesTest {
 
   @Test
   void destroyUserProvidedServiceInstanceShouldSucceedWhenNoServiceBindingsExist() {
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(invocation -> Calls.response(Response.success(new Page<>())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createUserProvidedServiceInstancePage())));
@@ -1283,7 +1291,7 @@ class ServiceInstancesTest {
                 .setServiceInstanceName("new-service-instance-name")
                 .setType(DELETE)
                 .setState(IN_PROGRESS));
-    verify(serviceInstanceService, times(1)).all(any(), anyListOf(String.class));
+    verify(serviceInstanceService, times(1)).all(any(), anyList());
     verify(serviceInstanceService, times(1)).allUserProvided(any(), any());
     verify(serviceInstanceService, times(1)).destroyUserProvidedServiceInstance(any());
     verify(serviceInstanceService, times(1))
@@ -1297,9 +1305,9 @@ class ServiceInstancesTest {
     serviceBindingPage.setTotalResults(0);
     serviceBindingPage.setTotalPages(1);
 
-    when(serviceInstanceService.all(any(), anyListOf(String.class)))
+    when(serviceInstanceService.all(any(), anyList()))
         .thenAnswer(invocation -> Calls.response(Response.success(new Page<>())));
-    when(serviceInstanceService.allUserProvided(any(), anyListOf(String.class)))
+    when(serviceInstanceService.allUserProvided(any(), anyList()))
         .thenAnswer(
             invocation ->
                 Calls.response(Response.success(createUserProvidedServiceInstancePage())));

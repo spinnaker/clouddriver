@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIOException;
 
 import com.google.api.client.http.HttpTransport;
-import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.Image;
@@ -35,10 +35,7 @@ import com.netflix.spinnaker.clouddriver.google.security.FakeGoogleCredentials;
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
-import org.junit.platform.runner.JUnitPlatform;
-import org.junit.runner.RunWith;
 
-@RunWith(JUnitPlatform.class)
 final class ImagesTest {
 
   private static final int CLOCK_STEP_TIME_MS = 1234;
@@ -133,7 +130,7 @@ final class ImagesTest {
   private static Images createImages(HttpTransport transport, Registry registry) {
     Compute compute =
         new Compute(
-            transport, JacksonFactory.getDefaultInstance(), /* httpRequestInitializer= */ null);
+            transport, GsonFactory.getDefaultInstance(), /* httpRequestInitializer= */ null);
     GoogleNamedAccountCredentials credentials =
         new GoogleNamedAccountCredentials.Builder()
             .name("plumpy")

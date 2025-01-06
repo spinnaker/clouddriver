@@ -17,8 +17,12 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.it;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -90,6 +94,48 @@ public class DeployManifestIT extends BaseTest {
         "1",
         readyPods,
         "Expected one ready pod for " + DEPLOYMENT_1_NAME + " deployment. Pods:\n" + pods);
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given mutiple manifests\n"
+          + "  where only one satisfies the given label selector\n"
+          + "When sending deploy manifest request\n"
+          + "  And waiting on manifest stable\n"
+          + "Then only one manifest has been deployed\n===")
+  @Test
+  public void labelSelectors() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String appName = "deploy-from-text";
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/configmaps_with_selectors.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .asList();
+    Map<String, Object> labelSelectors =
+        Map.of(
+            "selectors",
+            List.of(
+                Map.of(
+                    "kind", "EQUALS",
+                    "key", "sample-configmap-selector",
+                    "values", List.of("one"))));
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.labelSelectors", labelSelectors)
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "configMap sample-config-map-with-selector-one-v000");
+
+    // ------------------------- then --------------------------
+    String configMaps =
+        kubeCluster.execKubectl("-n " + account1Ns + " get configmap -lselector-test=test -o name");
+    assertThat(configMaps).hasLineCount(1);
   }
 
   @DisplayName(
@@ -1366,12 +1412,18 @@ public class DeployManifestIT extends BaseTest {
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
     String imageNoTag = "index.docker.io/library/alpine";
     String imageWithTag = "index.docker.io/library/alpine:3.12";
+    String apiVersion = "batch/v1beta1";
+
+    if (KubeTestUtils.compareVersion(KUBERNETES_VERSION, "v1.20") > 0) {
+      apiVersion = "batch/v1";
+    }
 
     List<Map<String, Object>> manifest =
         KubeTestUtils.loadYaml("classpath:manifests/cronJob.yml")
             .withValue("metadata.namespace", account1Ns)
             .withValue("metadata.name", DEPLOYMENT_1_NAME)
             .withValue("spec.jobTemplate.spec.template.spec.containers[0].image", imageNoTag)
+            .withValue("apiVersion", apiVersion)
             .asList();
     Map<String, Object> artifact =
         KubeTestUtils.loadJson("classpath:requests/artifact.json")
@@ -1407,11 +1459,14 @@ public class DeployManifestIT extends BaseTest {
 
   @DisplayName(
       ".\n===\n"
-          + "Given a v1beta1 CRD manifest\n"
+          + "Given k8s version < 1.22.0 and a v1beta1 CRD manifest\n"
           + "When sending deploy manifest request\n"
           + "Then a v1beta1 CRD is created\n===")
   @Test
-  public void shouldDeployCrdV1beta1() throws IOException, InterruptedException {
+  public void shouldDeployCrdV1beta1IfSupported() throws IOException, InterruptedException {
+    if (KubeTestUtils.compareVersion(KUBERNETES_VERSION, "v1.21") > 0) {
+      return;
+    }
     // ------------------------- given --------------------------
     final String crdName = "crontabs.stable.example.com";
     final List<Map<String, Object>> manifest =
@@ -1775,5 +1830,163 @@ public class DeployManifestIT extends BaseTest {
                 + "-v001"
                 + " -o=jsonpath='{.spec.template.spec.containers[0].env[0].value}'");
     assertEquals("test", envVarValue, "Expected update env var for " + appName + " replicaset.\n");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a deployment manifest with server-side-apply strategy set\n"
+          + "When sending deploy manifest request\n"
+          + "Then a deployment is created using server-side apply\n===")
+  @Test
+  public void shouldDeployUsingServerSideApply() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String appName = "server-side-apply";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", DEPLOYMENT_1_NAME)
+            .withValue(
+                "metadata.annotations",
+                ImmutableMap.of("strategy.spinnaker.io/server-side-apply", "force-conflicts"))
+            .asList();
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+
+    // ------------------------- then --------------------------
+    /* Expecting:
+      metadata:
+        managedFields:
+        - manager: kubectl
+          operation: Apply
+          fieldsType: FieldsV1
+    */
+    String managedFields =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get deployment "
+                + DEPLOYMENT_1_NAME
+                + " -o=jsonpath='{.metadata.managedFields}'");
+    assertTrue(
+        Strings.isNotEmpty(managedFields),
+        "Expected managedFields for "
+            + DEPLOYMENT_1_NAME
+            + " deployment to exist and be managed server-side. managedFields:\n"
+            + managedFields);
+
+    String applyManager =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get deployment "
+                + DEPLOYMENT_1_NAME
+                + " -o=jsonpath='{.metadata.managedFields[?(@.operation==\"Apply\")].manager}'");
+    // kubectl v1.26+ adds a "kubectl-last-applied" manager as well. Remove it. The jsonpath
+    // implementation in kubectl is really limited, so we have to do this in java.
+    applyManager = applyManager.replaceAll("\\s?kubectl-last-applied\\s?", "");
+    assertEquals(
+        "kubectl",
+        applyManager,
+        "Expected apply manager for "
+            + DEPLOYMENT_1_NAME
+            + " deployment to be managed server-side. managedFields:\n"
+            + managedFields);
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a deployment manifest with server-side-apply disabled set\n"
+          + "When sending deploy manifest request\n"
+          + "Then a deployment is created using client-side apply\n===")
+  @Test
+  public void shouldDeployUsingApplyWithServerSideApplyDisabled()
+      throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String appName = "server-side-apply-disabled";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", DEPLOYMENT_1_NAME)
+            .withValue(
+                "metadata.annotations",
+                ImmutableMap.of("strategy.spinnaker.io/server-side-apply", "false"))
+            .asList();
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+
+    // ------------------------- then --------------------------
+    String lastAppliedConfiguration =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get deployment "
+                + DEPLOYMENT_1_NAME
+                + " -o=jsonpath='{.metadata.annotations.kubectl\\.kubernetes\\.io/last-applied-configuration}'");
+    assertTrue(
+        Strings.isNotEmpty(lastAppliedConfiguration),
+        "Expected last-applied-configuration for "
+            + DEPLOYMENT_1_NAME
+            + " deployment to exist and be managed client-side. fields:\n"
+            + lastAppliedConfiguration);
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a deployment manifest without a strategy set\n"
+          + "When sending deploy manifest request\n"
+          + "Then a deployment is created using client-side apply\n===")
+  @Test
+  public void shouldDeployUsingClientApply() throws IOException, InterruptedException {
+    // ------------------------- given --------------------------
+    String appName = "client-side-apply";
+    System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.namespace", account1Ns)
+            .withValue("metadata.name", DEPLOYMENT_1_NAME)
+            .asList();
+
+    // ------------------------- when --------------------------
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", appName)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(
+        baseUrl(), body, account1Ns, "deployment " + DEPLOYMENT_1_NAME);
+
+    // ------------------------- then --------------------------
+    String lastAppliedConfiguration =
+        kubeCluster.execKubectl(
+            "-n "
+                + account1Ns
+                + " get deployment "
+                + DEPLOYMENT_1_NAME
+                + " -o=jsonpath='{.metadata.annotations.kubectl\\.kubernetes\\.io/last-applied-configuration}'");
+    assertTrue(
+        Strings.isNotEmpty(lastAppliedConfiguration),
+        "Expected last-applied-configuration for "
+            + DEPLOYMENT_1_NAME
+            + " deployment to exist and be managed client-side. fields:\n"
+            + lastAppliedConfiguration);
   }
 }
