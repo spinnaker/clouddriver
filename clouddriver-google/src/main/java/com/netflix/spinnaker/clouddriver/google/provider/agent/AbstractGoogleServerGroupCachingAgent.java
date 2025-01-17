@@ -1061,7 +1061,9 @@ public abstract class AbstractGoogleServerGroupCachingAgent
 
   private Collection<InstanceTemplate> retrieveInstanceTemplates() throws IOException {
     InstanceTemplates instanceTemplatesApi = computeApiFactory.createInstanceTemplates(credentials);
-    return instanceTemplatesApi.list("FULL").execute();
+    return instanceTemplatesApi
+        .list("FULL")
+        .execute(); // https://cloud.google.com/sdk/gcloud/reference/beta/compute/instance-templates/list
   }
 
   Collection<String> getZonesForRegion() {

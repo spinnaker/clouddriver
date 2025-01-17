@@ -62,11 +62,7 @@ public class InstanceTemplates {
   }
 
   public PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> list(
-      String viewInput) {
-    if (viewInput.isBlank()) {
-      viewInput = "BASIC";
-    }
-    String view = viewInput;
+      String view) {
     return new PaginatedComputeRequestImpl<>(
         pageToken ->
             requestFactory.wrapRequest(

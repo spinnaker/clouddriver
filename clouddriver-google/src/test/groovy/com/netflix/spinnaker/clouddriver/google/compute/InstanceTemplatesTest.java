@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.google.compute;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIOException;
+import static org.mockito.Mockito.*;
 
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
@@ -25,6 +26,7 @@ import com.google.api.client.testing.http.MockHttpTransport;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.InstanceTemplate;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.BasicTag;
 import com.netflix.spectator.api.DefaultRegistry;
 import com.netflix.spectator.api.NoopRegistry;
@@ -188,6 +190,96 @@ public class InstanceTemplatesTest {
             tag("status", "4xx"),
             tag("success", "false"));
     assertThat(timer.totalTime()).isEqualTo(CLOCK_STEP_TIME_NS);
+  }
+
+  @Test
+  public void list_success() throws IOException {
+
+    MockHttpTransport transport =
+        new MockHttpTransport.Builder()
+            .setLowLevelHttpResponse(
+                new MockLowLevelHttpResponse()
+                    .setStatusCode(200)
+                    .addHeader("Content-Type", "application/json")
+                    .setContent(
+                        "{\"items\": [{\"name\": \"template1\"}, {\"name\": \"template2\"}], \"nextPageToken\": \"\"}"))
+            .build();
+
+    InstanceTemplates instanceTemplates = createInstanceTemplates(transport);
+
+    PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> request =
+        instanceTemplates.list("BASIC");
+
+    ImmutableList<InstanceTemplate> response = request.execute();
+    assertThat(response).hasSize(2);
+    assertThat(response.get(0).getName()).isEqualTo("template1");
+    assertThat(response.get(1).getName()).isEqualTo("template2");
+  }
+
+  @Test
+  public void list_noResults() throws IOException {
+
+    MockHttpTransport transport =
+        new MockHttpTransport.Builder()
+            .setLowLevelHttpResponse(
+                new MockLowLevelHttpResponse()
+                    .setStatusCode(200)
+                    .setContent("{\"items\": [], \"nextPageToken\": \"\"}"))
+            .build();
+
+    InstanceTemplates instanceTemplates = createInstanceTemplates(transport);
+
+    PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> request =
+        instanceTemplates.list("BASIC");
+
+    ImmutableList<InstanceTemplate> response = request.execute();
+    assertThat(response).isEmpty();
+  }
+
+  @Test
+  public void list_errorResponse() {
+
+    MockHttpTransport transport =
+        new MockHttpTransport.Builder()
+            .setLowLevelHttpResponse(
+                new MockLowLevelHttpResponse()
+                    .setStatusCode(500)
+                    .setContent("{\"error\": \"Internal Server Error\"}"))
+            .build();
+
+    InstanceTemplates instanceTemplates = createInstanceTemplates(transport);
+
+    PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> request =
+        instanceTemplates.list("BASIC");
+
+    assertThatIOException().isThrownBy(() -> request.execute());
+  }
+
+  @Test
+  public void list_withFullView_success() throws IOException {
+
+    MockHttpTransport transport =
+        new MockHttpTransport.Builder()
+            .setLowLevelHttpResponse(
+                new MockLowLevelHttpResponse()
+                    .setStatusCode(200)
+                    .addHeader("Content-Type", "application/json")
+                    .setContent(
+                        "{\"items\": [{\"name\": \"template1\", \"description\": \"Detailed description for template1\"}, {\"name\": \"template2\", \"description\": \"Detailed description for template2\"}], \"nextPageToken\": \"\"}"))
+            .build();
+
+    InstanceTemplates instanceTemplates = createInstanceTemplates(transport);
+
+    PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> request =
+        instanceTemplates.list("FULL");
+
+    ImmutableList<InstanceTemplate> response = request.execute();
+
+    assertThat(response).hasSize(2);
+    assertThat(response.get(0).getName()).isEqualTo("template1");
+    assertThat(response.get(0).getDescription()).isEqualTo("Detailed description for template1");
+    assertThat(response.get(1).getName()).isEqualTo("template2");
+    assertThat(response.get(1).getDescription()).isEqualTo("Detailed description for template2");
   }
 
   private static InstanceTemplates createInstanceTemplates(HttpTransport transport) {
