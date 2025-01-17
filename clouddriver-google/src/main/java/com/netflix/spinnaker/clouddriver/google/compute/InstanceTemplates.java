@@ -61,11 +61,17 @@ public class InstanceTemplates {
     return requestFactory.wrapOperationRequest(request, "insert");
   }
 
-  public PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> list() {
+  public PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> list(
+      String viewInput) {
+    if (viewInput.isBlank()) {
+      viewInput = "BASIC";
+    }
+    String view = viewInput;
     return new PaginatedComputeRequestImpl<>(
         pageToken ->
             requestFactory.wrapRequest(
-                computeApi.list(credentials.getProject()).setPageToken(pageToken), "list"),
+                computeApi.list(credentials.getProject()).setPageToken(pageToken).setView(view),
+                "list"),
         InstanceTemplateList::getNextPageToken,
         InstanceTemplateList::getItems);
   }
