@@ -33,6 +33,7 @@ import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import com.netflix.spinnaker.moniker.Moniker
 import retrofit.RetrofitError
 import retrofit.client.Response
+import retrofit2.mock.Calls;
 import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
@@ -105,7 +106,7 @@ class TrafficGuardSpec extends Specification {
       makeServerGroup(targetName, 1),
       makeServerGroup(otherName, 0, 1, [disabled: true])
     ])
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
   }
 
   void "should throw exception when target server group is the only one enabled in cluster"() {
@@ -118,7 +119,7 @@ class TrafficGuardSpec extends Specification {
     then:
     def e = thrown(TrafficGuardException)
     e.message.startsWith("This cluster ('app-foo' in test/us-east-1) has traffic guards enabled.")
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getCluster("app", "test", "app-foo", false) >> makeCluster([
       makeServerGroup(targetName, 1),
       makeServerGroup(otherName, 0, 1, [disabled: true])
@@ -150,7 +151,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     thrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getCluster("app", "test", "app-foo", false) >> makeCluster([
         makeServerGroup(targetName, 2),
         makeServerGroup(otherName, 1)
@@ -169,7 +170,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     notThrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getCluster("app", "test", "app-foo", false) >> makeCluster([
         makeServerGroup(targetName, 2),
         makeServerGroup(otherName, 1)
@@ -197,7 +198,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     thrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * dynamicConfigService.getConfig(Double.class, TrafficGuard.MIN_CAPACITY_RATIO, 0d) >> 0.40d
   }
 
@@ -216,7 +217,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     notThrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
   }
 
   void "should still make sure that capacity does not drop to 0 for pinned server groups"() {
@@ -235,7 +236,7 @@ class TrafficGuardSpec extends Specification {
     then:
     def e = thrown(TrafficGuardException)
     e.message.contains("would leave the cluster with no instances up")
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
   }
 
   @Unroll
@@ -252,7 +253,7 @@ class TrafficGuardSpec extends Specification {
     then:
     def e = thrown(TrafficGuardException)
     e.message.contains("would leave the cluster with 1 instance up")
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * dynamicConfigService.getConfig(Double.class, TrafficGuard.MIN_CAPACITY_RATIO, 0d) >> 0.4d
 
     where:
@@ -288,7 +289,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     notThrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * dynamicConfigService.getConfig(Double.class, TrafficGuard.MIN_CAPACITY_RATIO, 0d) >> 0.40d
   }
 
@@ -307,7 +308,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     notThrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
   }
 
   void "should throw exception when target server group is the only one in cluster"() {
@@ -319,7 +320,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     thrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getCluster("app", "test", "app-foo", false) >> makeCluster([
       makeServerGroup(targetName, 1)
     ])
@@ -334,7 +335,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     thrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getCluster("app", "test", "app-foo", false) >> makeCluster([
       makeServerGroup(targetName, 1),
       makeServerGroup(otherName, 1, 0, [region: 'us-west-1'])
@@ -350,7 +351,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     noExceptionThrown()
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getCluster("app", "test", "app-foo", false) >> makeCluster([
       makeServerGroup(targetName, 0, 1)
     ])
@@ -378,7 +379,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     notThrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getCluster("app", "test", "app-foo", false) >> makeCluster([
       makeServerGroup(targetName, 1),
       makeServerGroup(otherName, 1)
@@ -394,7 +395,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     thrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getCluster("app", "test", "app-foo", false) >> makeCluster([
       makeServerGroup(targetName, 1),
       makeServerGroup(otherName, 0, 1)
@@ -411,7 +412,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     result == expected
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
 
     where:
     cluster | account | guardStack | guardDetail | guardAccount | guardLocation || expected
@@ -433,7 +434,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     result == false
-    1 * front50Service.getApplication("app") >> null
+    1 * front50Service.getApplication("app") >> Calls.response(null)
   }
 
   void "hasDisableLock returns false on applications with no guards configured"() {
@@ -467,7 +468,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     result == false
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
   }
 
   @Ignore("verifyInstanceTermination has not been ported yet")
@@ -482,7 +483,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     thrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getSearchResults("i-1", "instances", "aws") >>
       [[results: [[account: "test", region: location.value, serverGroup: targetName]]]]
     1 * clusterProvider.getTargetServerGroup("test", targetName, location.value, "aws") >> (targetServerGroup)
@@ -501,7 +502,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     thrown(TrafficGuardException)
-    1 * front50Service.get("app") >> application
+    1 * front50Service.get("app") >> Calls.response(application)
     1 * clusterProvider.getSearchResults("i-1", "instances", "aws") >>
       [[results: [[account: "test", region: location.value, serverGroup: targetName]]]]
     1 * clusterProvider.getTargetServerGroup("test", targetName, location.value, "aws") >> (targetServerGroup)
@@ -524,7 +525,7 @@ class TrafficGuardSpec extends Specification {
 
     then:
     notThrown(TrafficGuardException)
-    1 * front50Service.getApplication("app") >> application
+    1 * front50Service.getApplication("app") >> Calls.response(application)
     1 * clusterProvider.getSearchResults("i-1", "instances", "aws") >>
       [[results: [[account: "test", region: location.value, serverGroup: targetName]]]]
     1 * clusterProvider.getTargetServerGroup("test", targetName, location.value, "aws") >> (targetServerGroup)

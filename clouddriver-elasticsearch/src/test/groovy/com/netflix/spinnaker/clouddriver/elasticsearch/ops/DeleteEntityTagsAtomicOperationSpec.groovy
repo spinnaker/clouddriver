@@ -26,6 +26,7 @@ import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import org.springframework.http.HttpStatus
 import retrofit.RetrofitError
 import retrofit.client.Response
+import retrofit2.mock.Calls
 import spock.lang.Specification
 
 class DeleteEntityTagsAtomicOperationSpec extends Specification {
@@ -73,9 +74,9 @@ class DeleteEntityTagsAtomicOperationSpec extends Specification {
     operation.operate([])
 
     then:
-    1 * front50Service.getEntityTags('abc') >> current
+    1 * front50Service.getEntityTags('abc') >> Calls.response(current)
     1 * entityTagsProvider.delete('abc')
-    1 * front50Service.deleteEntityTags('abc')
+    1 * front50Service.deleteEntityTags('abc') >> Calls.response(null)
     0 * _
   }
 
@@ -89,9 +90,9 @@ class DeleteEntityTagsAtomicOperationSpec extends Specification {
     operation.operate([])
 
     then:
-    1 * front50Service.getEntityTags('abc') >> current
+    1 * front50Service.getEntityTags('abc') >> Calls.response(current)
     1 * entityTagsProvider.delete('abc')
-    1 * front50Service.deleteEntityTags('abc')
+    1 * front50Service.deleteEntityTags('abc') >> Calls.response(null)
     0 * _
   }
 
@@ -114,10 +115,10 @@ class DeleteEntityTagsAtomicOperationSpec extends Specification {
     current.tags*.name == ['b']
     current.tags*.value == ['something else']
     current.tagsMetadata*.name == ['b']
-    1 * front50Service.getEntityTags('abc') >> current
+    1 * front50Service.getEntityTags('abc') >> Calls.response(current)
     1 * entityTagsProvider.index(current)
     1 * entityTagsProvider.verifyIndex(current)
-    1 * front50Service.saveEntityTags(current) >> current
+    1 * front50Service.saveEntityTags(current) >> Calls.response(current)
     0 * _
   }
 
