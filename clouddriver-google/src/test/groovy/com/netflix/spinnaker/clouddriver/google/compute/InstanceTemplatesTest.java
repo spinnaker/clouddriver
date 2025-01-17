@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.google.compute;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIOException;
-import static org.mockito.Mockito.*;
 
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
