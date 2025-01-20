@@ -207,7 +207,7 @@ public class InstanceTemplatesTest {
     InstanceTemplates instanceTemplates = createInstanceTemplates(transport);
 
     PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> request =
-        instanceTemplates.list("BASIC");
+        instanceTemplates.list();
 
     ImmutableList<InstanceTemplate> response = request.execute();
     assertThat(response).hasSize(2);
@@ -229,7 +229,7 @@ public class InstanceTemplatesTest {
     InstanceTemplates instanceTemplates = createInstanceTemplates(transport);
 
     PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> request =
-        instanceTemplates.list("BASIC");
+        instanceTemplates.list();
 
     ImmutableList<InstanceTemplate> response = request.execute();
     assertThat(response).isEmpty();
@@ -249,36 +249,9 @@ public class InstanceTemplatesTest {
     InstanceTemplates instanceTemplates = createInstanceTemplates(transport);
 
     PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> request =
-        instanceTemplates.list("BASIC");
+        instanceTemplates.list();
 
     assertThatIOException().isThrownBy(() -> request.execute());
-  }
-
-  @Test
-  public void list_withFullView_success() throws IOException {
-
-    MockHttpTransport transport =
-        new MockHttpTransport.Builder()
-            .setLowLevelHttpResponse(
-                new MockLowLevelHttpResponse()
-                    .setStatusCode(200)
-                    .addHeader("Content-Type", "application/json")
-                    .setContent(
-                        "{\"items\": [{\"name\": \"template1\", \"description\": \"Detailed description for template1\"}, {\"name\": \"template2\", \"description\": \"Detailed description for template2\"}], \"nextPageToken\": \"\"}"))
-            .build();
-
-    InstanceTemplates instanceTemplates = createInstanceTemplates(transport);
-
-    PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> request =
-        instanceTemplates.list("FULL");
-
-    ImmutableList<InstanceTemplate> response = request.execute();
-
-    assertThat(response).hasSize(2);
-    assertThat(response.get(0).getName()).isEqualTo("template1");
-    assertThat(response.get(0).getDescription()).isEqualTo("Detailed description for template1");
-    assertThat(response.get(1).getName()).isEqualTo("template2");
-    assertThat(response.get(1).getDescription()).isEqualTo("Detailed description for template2");
   }
 
   private static InstanceTemplates createInstanceTemplates(HttpTransport transport) {
