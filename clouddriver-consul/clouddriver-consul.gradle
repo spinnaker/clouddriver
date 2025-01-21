@@ -9,6 +9,7 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation "io.spinnaker.kork:kork-retrofit"
   implementation "io.spinnaker.kork:kork-exceptions"
+  implementation "io.spinnaker.kork:kork-web"
 
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
