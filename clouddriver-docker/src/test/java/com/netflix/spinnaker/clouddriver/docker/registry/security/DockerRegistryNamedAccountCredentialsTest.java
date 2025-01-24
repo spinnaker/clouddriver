@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.jakewharton.retrofit.Ok3Client;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerOkClientProvider;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryTags;
+import com.netflix.spinnaker.kork.client.ServiceClientProvider;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -84,6 +85,7 @@ final class DockerRegistryNamedAccountCredentialsTest {
             .address("https://gcr.io")
             .sortTagsByDate(true)
             .dockerOkClientProvider(new MockDockerOkClientProvider(ok3Client))
+            .serviceClientProvider(mock(ServiceClientProvider.class))
             .build();
     assertThat(credentials.getTags(REPO_NAME))
         .containsExactly("latest", "older", "oldest", "nodate");

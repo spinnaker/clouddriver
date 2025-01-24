@@ -20,6 +20,7 @@ dependencies {
   implementation "io.spinnaker.kork:kork-credentials"
   implementation "io.spinnaker.kork:kork-retrofit"
   implementation "io.spinnaker.kork:kork-exceptions"
+  implementation "io.spinnaker.kork:kork-web"
 
   testImplementation "com.squareup.retrofit2:retrofit-mock"
   testImplementation "cglib:cglib-nodep"
@@ -35,5 +36,8 @@ dependencies {
   testImplementation "org.springframework:spring-test"
   testImplementation "org.springframework.boot:spring-boot-starter-test"
   testImplementation "org.springframework.security:spring-security-test"
+  testImplementation "com.github.tomakehurst:wiremock-jre8"
   testImplementation "io.spinnaker.kork:kork-core"
+  implementation "io.spinnaker.kork:kork-retrofit2"
+  implementation "io.spinnaker.kork:kork-web"
 }
