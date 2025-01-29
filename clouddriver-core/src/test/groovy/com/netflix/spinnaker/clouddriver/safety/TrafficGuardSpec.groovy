@@ -31,8 +31,11 @@ import com.netflix.spinnaker.clouddriver.model.SimpleServerGroup
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import com.netflix.spinnaker.moniker.Moniker
-import retrofit.RetrofitError
-import retrofit.client.Response
+import okhttp3.MediaType
+import okhttp3.ResponseBody
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.jackson.JacksonConverterFactory
 import retrofit2.mock.Calls;
 import spock.lang.Ignore
 import spock.lang.Shared
@@ -445,7 +448,7 @@ class TrafficGuardSpec extends Specification {
     !application.containsKey("trafficGuards")
     result == false
     1 * front50Service.getApplication("app") >> {
-      throw new SpinnakerHttpException(new RetrofitError(null, null, new Response("http://stash.com", 404, "test reason", [], null), null, null, null, null))
+      throw makeSpinnakerHttpException(404)
     }
   }
 
@@ -594,6 +597,23 @@ class TrafficGuardSpec extends Specification {
     1 * clusterProvider.getTargetServerGroup("test", targetName, location.value, "aws") >>
       (makeServerGroup(targetName, 0, 0, [instances: [[name: "i-1"]]]))
     0 * _
+  }
+
+  static SpinnakerHttpException makeSpinnakerHttpException(int status) {
+    String url = "https://some-url";
+    Response retrofit2Response =
+      Response.error(
+        status,
+        ResponseBody.create(
+          MediaType.parse("application/json"), "{ \"message\": \"arbitrary message\" }"))
+
+    Retrofit retrofit =
+      new Retrofit.Builder()
+        .baseUrl(url)
+        .addConverterFactory(JacksonConverterFactory.create())
+        .build()
+
+    return new SpinnakerHttpException(retrofit2Response, retrofit)
   }
 
   private void addGuard(Map guard) {

@@ -18,25 +18,20 @@ package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.gson.Gson
-import com.google.gson.GsonBuilder
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.DockerUserAgent
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerToken
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryAuthenticationException
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryOperationException
-import com.netflix.spinnaker.config.DefaultServiceEndpoint
 import com.netflix.spinnaker.kork.client.ServiceClientProvider
 import com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory
 import com.netflix.spinnaker.kork.retrofit.Retrofit2SyncCall
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
-import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException
-import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerRetrofitErrorHandler
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
 import groovy.util.logging.Slf4j
 import okhttp3.ResponseBody
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import retrofit.converter.GsonConverter
 import retrofit2.Response
 import retrofit2.converter.jackson.JacksonConverterFactory;
 import retrofit2.Call
@@ -162,7 +157,6 @@ class DockerRegistryClient {
   String address
   String email
   DockerRegistryService registryService
-  GsonConverter converter
   String catalogFile
   String repositoriesRegex
 
@@ -191,7 +185,6 @@ class DockerRegistryClient {
       .addConverterFactory(JacksonConverterFactory.create())
       .build()
       .create(DockerRegistryService);
-    this.converter = new GsonConverter(new GsonBuilder().create())
     this.address = address
     this.catalogFile = catalogFile
     this.repositoriesRegex = repositoriesRegex
@@ -221,7 +214,6 @@ class DockerRegistryClient {
                        DockerRegistryService dockerRegistryService,
                        DockerBearerTokenService dockerBearerTokenService) {
     this.paginateSize = paginateSize
-    this.converter = new GsonConverter(new GsonBuilder().create())
     this.address = address
     this.catalogFile = catalogFile
     this.repositoriesRegex = repositoriesRegex
