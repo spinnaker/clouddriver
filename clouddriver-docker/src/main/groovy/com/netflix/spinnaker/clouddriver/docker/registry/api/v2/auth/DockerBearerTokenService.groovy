@@ -21,11 +21,8 @@ import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.Docker
 import com.netflix.spinnaker.config.DefaultServiceEndpoint
 import com.netflix.spinnaker.kork.client.ServiceClientProvider
 import com.netflix.spinnaker.kork.retrofit.Retrofit2SyncCall
-import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerRetrofitErrorHandler
 import groovy.util.logging.Slf4j
 import org.apache.commons.io.IOUtils
-import retrofit.RestAdapter
-import retrofit.converter.JacksonConverter
 import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -33,7 +30,6 @@ import retrofit2.http.Headers
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
 @Slf4j

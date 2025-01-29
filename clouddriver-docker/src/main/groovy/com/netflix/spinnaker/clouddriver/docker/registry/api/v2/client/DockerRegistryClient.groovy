@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.DockerUserAgent
@@ -23,22 +24,28 @@ import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBeare
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryAuthenticationException
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryOperationException
+import com.netflix.spinnaker.config.DefaultServiceEndpoint
 import com.netflix.spinnaker.kork.client.ServiceClientProvider
+import com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory
+import com.netflix.spinnaker.kork.retrofit.Retrofit2SyncCall
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerRetrofitErrorHandler
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
 import groovy.util.logging.Slf4j
+import okhttp3.ResponseBody
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import retrofit.RestAdapter
-import retrofit.client.Response
 import retrofit.converter.GsonConverter
-import retrofit.converter.JacksonConverter
-import retrofit.http.GET
-import retrofit.http.Header
-import retrofit.http.Headers
-import retrofit.http.Path
-import retrofit.http.Query
+import retrofit2.Response
+import retrofit2.converter.jackson.JacksonConverterFactory;
+import retrofit2.Call
+import retrofit2.Retrofit
+import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.Headers
+import retrofit2.http.Path
+import retrofit2.http.Query
 
 import java.time.Instant
 
@@ -177,15 +184,13 @@ class DockerRegistryClient {
 
     this.paginateSize = paginateSize
     this.tokenService = new DockerBearerTokenService(serviceClientProvider)
-
-    this.registryService = new RestAdapter.Builder()
-      .setEndpoint(address)
-      .setClient(okClientProvider.provide(address, clientTimeoutMillis, insecureRegistry))
-      .setConverter(new JacksonConverter())
-      .setLogLevel(RestAdapter.LogLevel.NONE)
-      .setErrorHandler(SpinnakerRetrofitErrorHandler.getInstance())
+    this.registryService = new Retrofit.Builder()
+      .baseUrl(address)
+      .client(okClientProvider.provide(address, clientTimeoutMillis, insecureRegistry))
+      .addCallAdapterFactory(ErrorHandlingExecutorCallAdapterFactory.getInstance())
+      .addConverterFactory(JacksonConverterFactory.create())
       .build()
-      .create(DockerRegistryService)
+      .create(DockerRegistryService);
     this.converter = new GsonConverter(new GsonBuilder().create())
     this.address = address
     this.catalogFile = catalogFile
@@ -245,45 +250,45 @@ class DockerRegistryClient {
     @Headers([
       "Docker-Distribution-API-Version: registry/2.0"
     ])
-    Response getTags(@Path(value="repository", encode=false) String repository, @Header("Authorization") String token, @Header("User-Agent") String agent)
+    Call<ResponseBody> getTags(@Path(value="repository", encoded=true) String repository, @Header("Authorization") String token, @Header("User-Agent") String agent)
 
     @GET("/v2/{name}/manifests/{reference}")
     @Headers([
       "Docker-Distribution-API-Version: registry/2.0"
     ])
-    Response getManifest(@Path(value="name", encode=false) String name, @Path(value="reference", encode=false) String reference, @Header("Authorization") String token, @Header("User-Agent") String agent)
+    Call<ResponseBody> getManifest(@Path(value="name", encoded=true) String name, @Path(value="reference", encoded=true) String reference, @Header("Authorization") String token, @Header("User-Agent") String agent)
 
     @GET("/v2/{name}/manifests/{reference}")
     @Headers([
       "Docker-Distribution-API-Version: registry/2.0",
       "Accept: application/vnd.docker.distribution.manifest.v2+json"
     ])
-    Response getSchemaV2Manifest(@Path(value="name", encode=false) String name, @Path(value="reference", encode=false) String reference, @Header("Authorization") String token, @Header("User-Agent") String agent)
+    Call<ResponseBody> getSchemaV2Manifest(@Path(value="name", encoded=true) String name, @Path(value="reference", encoded=true) String reference, @Header("Authorization") String token, @Header("User-Agent") String agent)
 
     @GET("/v2/_catalog")
     @Headers([
         "Docker-Distribution-API-Version: registry/2.0"
     ])
-    Response getCatalog(@Query(value="n") int paginateSize, @Header("Authorization") String token, @Header("User-Agent") String agent)
+    Call<ResponseBody> getCatalog(@Query(value="n") int paginateSize, @Header("Authorization") String token, @Header("User-Agent") String agent)
 
     @GET("/{path}")
     @Headers([
         "Docker-Distribution-API-Version: registry/2.0"
     ])
-    Response get(@Path(value="path", encode=false) String path, @Header("Authorization") String token, @Header("User-Agent") String agent)
+    Call<ResponseBody> get(@Path(value="path", encoded=true) String path, @Header("Authorization") String token, @Header("User-Agent") String agent)
 
     @GET("/v2/")
     @Headers([
       "User-Agent: Spinnaker-Clouddriver",
       "Docker-Distribution-API-Version: registry/2.0"
     ])
-    Response checkVersion(@Header("Authorization") String token, @Header("User-Agent") String agent)
+    Call<ResponseBody> checkVersion(@Header("Authorization") String token, @Header("User-Agent") String agent)
 
     @GET("/v2/{repository}/blobs/{digest}")
     @Headers([
       "Docker-Distribution-API-Version: registry/2.0"
     ])
-    Response getDigestContent(@Path(value="repository", encode=false) String repository, @Path(value="digest", encode=false) String digest, @Header("Authorization") String token, @Header("User-Agent") String agent)
+    Call<ResponseBody> getDigestContent(@Path(value="repository", encoded=true) String repository, @Path(value="digest", encoded=true) String digest, @Header("Authorization") String token, @Header("User-Agent") String agent)
   }
 
   public String getDigest(String name, String tag) {
@@ -297,17 +302,31 @@ class DockerRegistryClient {
 
   public String getConfigDigest(String name, String tag) {
     def response = getSchemaV2Manifest(name, tag)
-    def manifestMap = converter.fromBody(response.body, Map) as Map
+    def manifestMap = convertResponseBody(response.body(), Map)
     return manifestMap?.config?.digest
   }
 
   public Map getDigestContent(String name, String digest) {
     def response =   request({
-      registryService.getDigestContent(name, digest, tokenService.basicAuthHeader, userAgent)
+        Retrofit2SyncCall.executeCall(registryService.getDigestContent(name, digest, tokenService.basicAuthHeader, userAgent))
     }, { token ->
-      registryService.getDigestContent(name, digest, token, userAgent)
+      Retrofit2SyncCall.executeCall(registryService.getDigestContent(name, digest, token, userAgent))
     }, name)
-    return converter.fromBody(response.body, Map)
+
+    return convertResponseBody(response.body(), Map)
+  }
+
+  static def convertResponseBody(ResponseBody responseBody, Class aClass) {
+    if (responseBody == null) {
+      throw new DockerRegistryOperationException("ResponseBody cannot be null")
+    }
+    try {
+      def objectMapper = new ObjectMapper()
+      def jsonString = responseBody.string()
+      return objectMapper.readValue(jsonString, aClass)
+    } catch (Exception e) {
+      throw new DockerRegistryOperationException("Failed to parse ResponseBody : ${e.message}", e)
+    }
   }
 
   private Map tagDateCache = [:]
@@ -317,7 +336,7 @@ class DockerRegistryClient {
     if(tagDateCache.containsKey(key) && tag !='latest'){
       return tagDateCache[key]
     }
-    Map manifest = converter.fromBody(getManifest(name, tag).body, Map)
+    Map manifest = convertResponseBody(getManifest(name, tag).body(), Map)
     Instant dateCreated = Instant.parse(new Gson().fromJson(manifest.history[0].v1Compatibility, Map).created)
     tagDateCache[key] = dateCreated
     dateCreated
@@ -325,26 +344,24 @@ class DockerRegistryClient {
 
   private getManifest(String name, String tag) {
     request({
-      registryService.getManifest(name, tag, tokenService.basicAuthHeader, userAgent)
+      Retrofit2SyncCall.executeCall(registryService.getManifest(name, tag, tokenService.basicAuthHeader, userAgent))
     }, { token ->
-      registryService.getManifest(name, tag, token, userAgent)
+      Retrofit2SyncCall.executeCall(registryService.getManifest(name, tag, token, userAgent))
     }, name)
   }
 
   private getSchemaV2Manifest(String name, String tag) {
     request({
-      registryService.getSchemaV2Manifest(name, tag, tokenService.basicAuthHeader, userAgent)
+      Retrofit2SyncCall.executeCall(registryService.getSchemaV2Manifest(name, tag, tokenService.basicAuthHeader, userAgent))
     }, { token ->
-      registryService.getSchemaV2Manifest(name, tag, token, userAgent)
+      Retrofit2SyncCall.executeCall(registryService.getSchemaV2Manifest(name, tag, token, userAgent))
     }, name)
   }
 
-  private static String parseLink(retrofit.client.Header header) {
-    if (!header.name.equalsIgnoreCase("link")) {
-      return null
-    }
 
-    def links = header.value.split(";").collect { it.trim() }
+  private static String parseLink(String headerValue) {
+
+    def links = headerValue.split(";").collect { it.trim() }
 
     if (!(links.findAll { String tok ->
       tok.replace(" ", "").equalsIgnoreCase("rel=\"next\"")
@@ -370,23 +387,27 @@ class DockerRegistryClient {
     return link.startsWith('/') ? link.replaceFirst('/', '') : link
   }
 
-  private static String findNextLink(List<retrofit.client.Header> headers) {
+  private static String findNextLink(okhttp3.Headers headers) {
     if (!headers) {
       return null
     }
 
-    def paths = headers.collect { header ->
-      parseLink(header)
-    }.findAll { it }
-
-    // We are at the end of the pagination.
-    if (!paths || paths.size() == 0) {
-      return null
-    } else if (paths.size() > 1) {
-      throw new DockerRegistryOperationException("Ambiguous number of Link headers provided, the following paths were identified: $paths")
+    def caseInsensitiveHeaders = [:].withDefault { [] }
+    headers.names().each { name ->
+      caseInsensitiveHeaders[name.toLowerCase()] += headers.values(name)
     }
 
-    return paths[0]
+    def headerValues = caseInsensitiveHeaders["link"]
+    headers.values("link")
+
+    // We are at the end of the pagination.
+    if (!headerValues || headerValues.size() == 0) {
+      return null
+    } else if (headerValues.size() > 1) {
+      throw new DockerRegistryOperationException("Ambiguous number of Link headers provided, the following paths were identified: $headerValues")
+    }
+
+    return parseLink(headerValues[0] as String)
   }
 
   /*
@@ -407,19 +428,19 @@ class DockerRegistryClient {
     def response
     try {
       response = request({
-        path ? registryService.get(path, tokenService.basicAuthHeader, userAgent) :
-          registryService.getCatalog(paginateSize, tokenService.basicAuthHeader, userAgent)
+        path ? Retrofit2SyncCall.executeCall(registryService.get(path, tokenService.basicAuthHeader, userAgent)) :
+          Retrofit2SyncCall.executeCall(registryService.getCatalog(paginateSize, tokenService.basicAuthHeader, userAgent))
       }, { token ->
-        path ? registryService.get(path, token, userAgent) :
-          registryService.getCatalog(paginateSize, token, userAgent)
+        path ? Retrofit2SyncCall.executeCall(registryService.get(path, token, userAgent)) :
+          Retrofit2SyncCall.executeCall(registryService.getCatalog(paginateSize, token, userAgent))
       }, "_catalog")
     } catch (Exception e) {
       log.warn("Error encountered during catalog of $path", e)
       return new DockerRegistryCatalog(repositories: [])
     }
 
-    def nextPath = findNextLink(response?.headers)
-    def catalog = (DockerRegistryCatalog) converter.fromBody(response.body, DockerRegistryCatalog)
+    def nextPath = findNextLink(response?.headers())
+    def catalog = convertResponseBody(response.body(), DockerRegistryCatalog)
 
     if(repositoriesRegex) {
       catalog.repositories = catalog.repositories.findAll { it ==~ repositoriesRegex }
@@ -434,15 +455,15 @@ class DockerRegistryClient {
 
   public DockerRegistryTags getTags(String repository, String path = null) {
     def response = request({
-      path ? registryService.get(path, tokenService.basicAuthHeader, userAgent) :
-        registryService.getTags(repository, tokenService.basicAuthHeader, userAgent)
+      path ? Retrofit2SyncCall.executeCall(registryService.get(path, tokenService.basicAuthHeader, userAgent)) :
+        Retrofit2SyncCall.executeCall(registryService.getTags(repository, tokenService.basicAuthHeader, userAgent))
     }, { token ->
-      path ? registryService.get(path, token, userAgent) :
-        registryService.getTags(repository, token, userAgent)
+      path ? Retrofit2SyncCall.executeCall(registryService.get(path, token, userAgent)) :
+        Retrofit2SyncCall.executeCall(registryService.getTags(repository, token, userAgent))
     }, repository)
 
-    def nextPath = findNextLink(response?.headers)
-    def tags = (DockerRegistryTags) converter.fromBody(response.body, DockerRegistryTags)
+    def nextPath = findNextLink(response?.headers())
+    def tags = convertResponseBody(response.body(), DockerRegistryTags)
 
     if (nextPath) {
       def nextTags = getTags(repository, nextPath)
@@ -465,8 +486,8 @@ class DockerRegistryClient {
       if (!tokenService.basicAuthHeader && error instanceof SpinnakerHttpException && ((SpinnakerHttpException)error).getResponseCode() == 401) {
         return
       }
-      Response response = doCheckV2Availability(tokenService.basicAuthHeader)
-      if (!response){
+      def response = doCheckV2Availability(tokenService.basicAuthHeader)
+      if (!response.body()){
         LOG.error "checkV2Availability", error
         throw error
       }
@@ -475,11 +496,11 @@ class DockerRegistryClient {
     null
   }
 
-  private Response doCheckV2Availability(String basicAuthHeader = null) {
+  private Response<ResponseBody> doCheckV2Availability(String basicAuthHeader = null) {
     request({
-      registryService.checkVersion(basicAuthHeader, userAgent)
+      Retrofit2SyncCall.executeCall(registryService.checkVersion(basicAuthHeader, userAgent))
     }, { token ->
-      registryService.checkVersion(token, userAgent)
+      Retrofit2SyncCall.executeCall(registryService.checkVersion(token, userAgent))
     }, "v2 version check")
   }
 
@@ -487,7 +508,7 @@ class DockerRegistryClient {
    * Implements token request flow described here https://docs.docker.com/registry/spec/auth/token/
    * The tokenService also caches tokens for us, so it will attempt to use an old token before retrying.
    */
-  public Response request(Closure<Response> withoutToken, Closure<Response> withToken, String target) {
+  public Response<ResponseBody> request(Closure<Response<ResponseBody>> withoutToken, Closure<Response<ResponseBody>> withToken, String target) {
     try {
       DockerBearerToken dockerToken = tokenService.getToken(target)
       String token
@@ -495,7 +516,7 @@ class DockerRegistryClient {
         token = "Bearer ${(dockerToken.bearer_token ?: dockerToken.token) ?: dockerToken.access_token}"
       }
 
-      Response response
+      Response<ResponseBody> response
       try {
         if (token) {
           response = withToken(token)
