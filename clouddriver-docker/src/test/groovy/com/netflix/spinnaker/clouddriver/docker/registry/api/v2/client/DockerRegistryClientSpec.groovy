@@ -31,7 +31,6 @@ import retrofit2.mock.Calls;
 import spock.lang.Shared
 import spock.lang.Specification
 
-import java.util.concurrent.TimeUnit
 
 /*
  * These tests all communicate with dockerhub (index.docker.io), and will either fail
@@ -47,21 +46,15 @@ class DockerRegistryClientSpec extends Specification {
 
   def stubbedRegistryService = Stub(DockerRegistryClient.DockerRegistryService){
     String tagsJson = "{\"name\":\"library/ubuntu\",\"tags\":[\"latest\",\"xenial\",\"rolling\"]}"
-//    TypedInput tagsTypedInput = new TypedByteArray("application/json", tagsJson.getBytes())
     Response tagsResponse =  Response.success(200, ResponseBody.create(MediaType.parse("application/json"), tagsJson))
-//    Response tagsResponse = new Response("/v2/{repository}/tags/list",200, "nothing", Collections.EMPTY_LIST, tagsTypedInput)
     getTags(_,_,_) >> Calls.response(tagsResponse)
 
     String checkJson = "{}"
-//    TypedInput checkTypedInput = new TypedByteArray("application/json", checkJson.getBytes())
     Response checkResponse = Response.success(200, ResponseBody.create(MediaType.parse("application/json"), checkJson))
-//    Response checkResponse = new Response("/v2/",200, "nothing", Collections.EMPTY_LIST, checkTypedInput)
     checkVersion(_,_) >> Calls.response(checkResponse)
 
     String json = "{\"repositories\":[\"armory-io/armorycommons\",\"armory/aquascan\",\"other/keel\"]}"
-//    TypedInput catalogTypedInput = new TypedByteArray("application/json", json.getBytes())
     Response catalogResponse = Response.success(200, ResponseBody.create(MediaType.parse("application/json"), json))
-//    Response catalogResponse = new Response("/v2/_catalog/",200, "nothing", Collections.EMPTY_LIST, catalogTypedInput)
     getCatalog(_,_,_) >> Calls.response(catalogResponse)
 
     String schemaJson = '''{
@@ -80,9 +73,7 @@ class DockerRegistryClientSpec extends Specification {
             }
          ]
       }'''
-//    TypedInput schemaV2Input = new TypedByteArray("application/json", schemaJson.getBytes())
     Response schemaV2Response = Response.success(200, ResponseBody.create(MediaType.parse("application/json"), schemaJson))
-//    Response schemaV2Response = new Response("/v2/{name}/manifests/{reference}",200, "nothing", Collections.EMPTY_LIST, schemaV2Input)
     getSchemaV2Manifest(_,_,_,_) >> Calls.response(schemaV2Response)
 
     String configDigestContentJson = '''{
@@ -113,9 +104,7 @@ class DockerRegistryClientSpec extends Specification {
         "os": "linux",
         "rootfs": {}
       }'''
-//    TypedInput configDigestContentInput = new TypedByteArray("application/json", configDigestContentJson.getBytes())
     Response contentDigestResponse = Response.success(200, ResponseBody.create(MediaType.parse("application/json"), configDigestContentJson))
-//    Response contentDigestResponse = new Response("/v2/{repository}/blobs/{digest}",200, "nothing", Collections.EMPTY_LIST, configDigestContentInput)
     getDigestContent(_,_,_,_) >> Calls.response(contentDigestResponse)
   }
 

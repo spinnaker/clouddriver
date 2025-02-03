@@ -52,21 +52,6 @@ class DockerBearerTokenServiceSpec extends Specification {
 
   def setup() {
     tokenService = new DockerBearerTokenService(serviceClientProvider)
- /*
-    wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort())
-    wireMockServer.start();
-    REALM1 = "http://localhost:" + wireMockServer.port()
-    def dockerBearerToken = new DockerBearerToken()
-    dockerBearerToken.setToken("token123")
-    wireMockServer.stubFor(WireMock.get(WireMock.urlEqualTo("/" + PATH1 + "?service=" + SERVICE1 + "&scope=" +
-      URLEncoder.encode(SCOPE1, StandardCharsets.UTF_8)))
-//      .withQueryParam("service", WireMock.equalTo("registry.docker.io"))
-//      .withQueryParam("scope", WireMock.matching("repository:library/ubuntu:push,pull"))
-      .willReturn(WireMock.aResponse()
-        .withHeader("Content-Type", "application/json")
-        .withBody(objectMapper.writeValueAsString(dockerBearerToken))))
-
-  */
   }
 
   void "should parse Www-Authenticate header with full privileges and path."() {
