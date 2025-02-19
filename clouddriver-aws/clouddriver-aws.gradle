@@ -43,6 +43,7 @@ dependencies {
   implementation "io.spinnaker.kork:kork-web"
   implementation "com.squareup.retrofit2:converter-jackson"
   implementation "io.reactivex:rxjava"
+  implementation "org.apache.commons:commons-lang3"
   implementation "org.apache.httpcomponents:httpclient"
   implementation "org.apache.httpcomponents:httpcore"
   implementation "org.apache.groovy:groovy"
