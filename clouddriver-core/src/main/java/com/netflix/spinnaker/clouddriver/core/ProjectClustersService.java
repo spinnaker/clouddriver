@@ -300,7 +300,7 @@ public class ProjectClustersService {
                 new OptionalConsumer<>(
                         (DeployedBuild b) -> {
                           b.deployed = Math.max(b.deployed, serverGroup.getCreatedTime());
-                          List images = getServerGroupBuildInfoImages(imageSummaries);
+                          List<String> images = getServerGroupBuildInfoImages(imageSummaries);
                           if (images != null) {
                             images.forEach(
                                 image -> {
@@ -377,9 +377,10 @@ public class ProjectClustersService {
     public String job;
     public String buildNumber;
     public Long deployed;
-    public List images;
+    public List<String> images;
 
-    public DeployedBuild(String host, String job, String buildNumber, Long deployed, List images) {
+    public DeployedBuild(
+        String host, String job, String buildNumber, Long deployed, List<String> images) {
       this.host = host;
       this.job = job;
       this.buildNumber = buildNumber;
@@ -427,7 +428,7 @@ public class ProjectClustersService {
     return new JenkinsBuildInfo(buildNumber, host, job);
   }
 
-  private static List getServerGroupBuildInfoImages(
+  private static List<String> getServerGroupBuildInfoImages(
       List<? extends ServerGroup.ImageSummary> imageSummaries) {
     if (imageSummaries.isEmpty()) {
       return null;
@@ -438,7 +439,17 @@ public class ProjectClustersService {
       return null;
     }
 
-    return (List) buildInfo.get("images");
+    try {
+      // Some ImageSummary implementations use immutable image collections, so this needs to be
+      // copied to a mutable one. Notably, KubernetesImageSummary images are immutable.
+      return new ArrayList<>((List<String>) buildInfo.get("images"));
+    } catch (ClassCastException e) {
+      log.warn(
+          "Expected List<String> for buildInfo images list, but was not. serverGroup={}",
+          imageSummary.getServerGroupName(),
+          e);
+      return new ArrayList<>();
+    }
   }
 
   private static class OptionalConsumer<T> implements Consumer<Optional<T>> {
