@@ -23,11 +23,14 @@ import com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFacto
 import com.netflix.spinnaker.kork.retrofit.Retrofit2SyncCall;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import okhttp3.OkHttpClient;
 import okhttp3.ResponseBody;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import retrofit2.Call;
+import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.jackson.JacksonConverterFactory;
 import retrofit2.http.GET;
@@ -46,6 +49,7 @@ public class DockerRegistryServiceTest {
   String tagsPath = "v2/library/nginx/tags/list";
   private Instant expiryTime = Instant.now();
   static String bearerToken;
+  static Map<String, String> queryMap = new HashMap<>();
 
   @BeforeAll
   public static void setup() {
@@ -66,7 +70,7 @@ public class DockerRegistryServiceTest {
   void getTagsWithToken() throws IOException {
     try (ResponseBody response =
         Retrofit2SyncCall.execute(
-            dockerRegistryService.getTags(repository, getBearerToken(), "Spinnaker"))) {
+            dockerRegistryService.getTags(repository, getBearerToken(), "Spinnaker", Map.of()))) {
       assertNotNull(response.string());
     }
   }
@@ -75,9 +79,20 @@ public class DockerRegistryServiceTest {
   void getTagsWithPathSupplied() throws IOException {
     try (ResponseBody response =
         Retrofit2SyncCall.execute(
-            dockerRegistryService.get(tagsPath, getBearerToken(), "Spinnaker"))) {
+            dockerRegistryService.get(tagsPath, getBearerToken(), "Spinnaker", Map.of()))) {
       assertNotNull(response.string());
     }
+  }
+
+  @Test
+  void getTagsWithQueryParams() {
+    queryMap.put("n", "5");
+    queryMap.put("last", "1");
+    Response<ResponseBody> response =
+        Retrofit2SyncCall.executeCall(
+            dockerRegistryService.get(tagsPath, getBearerToken(), "Spinnaker", queryMap));
+    String nextLink = response.headers().get("link");
+    assert nextLink != null;
   }
 
   private String getBearerToken() {

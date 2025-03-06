@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 
@@ -35,12 +36,10 @@ import com.netflix.spinnaker.kork.client.ServiceClientProvider;
 import com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory;
 import com.netflix.spinnaker.kork.retrofit.Retrofit2ServiceFactory;
 import com.netflix.spinnaker.kork.retrofit.Retrofit2ServiceFactoryAutoConfiguration;
-import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException;
 import com.netflix.spinnaker.okhttp.OkHttpClientConfigurationProperties;
 import java.util.Arrays;
 import java.util.Map;
 import okhttp3.OkHttpClient;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -78,7 +77,12 @@ public class DockerRegistryClientTest {
   ObjectMapper objectMapper = new ObjectMapper();
   Map<String, Object> tagsResponse;
   String tagsResponseString;
-  String nextLink = "</v2/library/nginx/tags/list?last=1-alpine-slim&n=5>; rel=\"next\"";
+  String tagsSecondResponseString;
+  String tagsThirdResponseString;
+  Map<String, Object> catalogResponse;
+  String catalogResponseString;
+  String catalogSecondResponseString;
+  String catalogThirdResponseString;
 
   @BeforeEach
   public void init() throws JsonProcessingException {
@@ -88,7 +92,23 @@ public class DockerRegistryClientTest {
             "library/nginx",
             "tags",
             new String[] {"1", "1-alpine", "1-alpine-otel", "1-alpine-perl", "1-alpine-slim"});
+    catalogResponse =
+        Map.of(
+            "repositories",
+            new String[] {
+              "library/repo-a-1",
+              "library/repo-b-1",
+              "library/repo-c-1",
+              "library/repo-d-1",
+              "library/repo-e-1"
+            });
     tagsResponseString = objectMapper.writeValueAsString(tagsResponse);
+    tagsSecondResponseString = tagsResponseString.replaceAll("1", "2");
+    tagsThirdResponseString = tagsResponseString.replaceAll("1", "3");
+
+    catalogResponseString = objectMapper.writeValueAsString(catalogResponse);
+    catalogSecondResponseString = catalogResponseString.replaceAll("1", "2");
+    catalogThirdResponseString = catalogResponseString.replaceAll("1", "3");
 
     DockerBearerToken bearerToken = new DockerBearerToken();
     bearerToken.setToken("someToken");
@@ -130,12 +150,56 @@ public class DockerRegistryClientTest {
             .willReturn(
                 aResponse()
                     .withStatus(HttpStatus.OK.value())
-                    .withHeader("link", nextLink)
+                    .withHeader(
+                        "link",
+                        "</v2/library/nginx/tags/list?last=1-alpine-slim&n=5>; rel=\"next\"")
                     .withBody(tagsResponseString)));
-    // TODO: Fix the below error occurring due to retrofit2 replacing `?` with `%3F`
-    Assertions.assertThrows(
-        SpinnakerHttpException.class,
-        () -> dockerRegistryClient.getTags("library/nginx"),
-        "Status: 404, Method: GET, URL: http://<baseUrl>/v2/library/nginx/tags/list%3Flast=1-alpine-slim&n=5, Message: Not Found");
+    wmDockerRegistry.stubFor(
+        WireMock.get(urlMatching("/v2/library/nginx/tags/list\\?last=1-alpine-slim&n=5"))
+            .willReturn(
+                aResponse()
+                    .withStatus(HttpStatus.OK.value())
+                    .withHeader(
+                        "link",
+                        // to test the logic when `?` is not present in the link header
+                        "</v2/library/nginx/tags/list1>; rel=\"next\"")
+                    .withBody(tagsSecondResponseString)));
+    wmDockerRegistry.stubFor(
+        WireMock.get(urlMatching("/v2/library/nginx/tags/list1"))
+            .willReturn(
+                aResponse().withStatus(HttpStatus.OK.value()).withBody(tagsThirdResponseString)));
+
+    DockerRegistryTags dockerRegistryTags = dockerRegistryClient.getTags("library/nginx");
+    assertEquals(15, dockerRegistryTags.getTags().size());
+  }
+
+  @Test
+  public void getCatalogWithNextLink() {
+    wmDockerRegistry.stubFor(
+        WireMock.get(urlMatching("/v2/_catalog\\?n=5"))
+            .willReturn(
+                aResponse()
+                    .withStatus(HttpStatus.OK.value())
+                    .withHeader("link", "</v2/_catalog?last=repo1&n=5>; rel=\"next\"")
+                    .withBody(catalogResponseString)));
+    wmDockerRegistry.stubFor(
+        WireMock.get(urlMatching("/v2/_catalog\\?last=repo1&n=5"))
+            .willReturn(
+                aResponse()
+                    .withStatus(HttpStatus.OK.value())
+                    .withHeader(
+                        "link",
+                        // to test the logic when `?` is not present in the link header
+                        "</v2/_catalog1>; rel=\"next\"")
+                    .withBody(catalogSecondResponseString)));
+    wmDockerRegistry.stubFor(
+        WireMock.get(urlMatching("/v2/_catalog1\\?n=5"))
+            .willReturn(
+                aResponse()
+                    .withStatus(HttpStatus.OK.value())
+                    .withBody(catalogThirdResponseString)));
+
+    DockerRegistryCatalog dockerRegistryCatalog = dockerRegistryClient.getCatalog();
+    assertEquals(15, dockerRegistryCatalog.getRepositories().size());
   }
 }
