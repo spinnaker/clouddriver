@@ -474,7 +474,12 @@ class DockerRegistryClient {
     return tags
   }
 
-  static def parseForQueryParams(String nextPath) {
+  /**
+   * This method takes a string that might contain a query string and splits it into the path and the query parameters.
+   * @param nextPath the string that might contain a query string
+   * @return a tuple containing the path (without query string) and a map of query parameters
+   */
+  static Tuple2<String, Map<String, String>> parseForQueryParams(String nextPath) {
     def nextPathNew
     def queryParamsString
     Map<String, String> queryParams = [:]
