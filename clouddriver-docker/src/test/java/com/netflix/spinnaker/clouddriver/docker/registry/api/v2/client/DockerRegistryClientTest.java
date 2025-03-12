@@ -20,9 +20,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -32,7 +32,6 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerToken;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService;
 import com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory;
-import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException;
 import java.util.Arrays;
 import java.util.Map;
 import okhttp3.OkHttpClient;
@@ -116,7 +115,7 @@ public class DockerRegistryClientTest {
   @Test
   public void getTagsWithoutNextLink() {
     wmDockerRegistry.stubFor(
-        WireMock.get(urlMatching("/v2/library/nginx/tags/list"))
+        WireMock.get(urlMatching("/v2/library/nginx/tags/list\\?n=5"))
             .willReturn(
                 aResponse().withStatus(HttpStatus.OK.value()).withBody(tagsResponseString)));
 
@@ -128,7 +127,7 @@ public class DockerRegistryClientTest {
   @Test
   public void getTagsWithNextLink() {
     wmDockerRegistry.stubFor(
-        WireMock.get(urlMatching("/v2/library/nginx/tags/list"))
+        WireMock.get(urlMatching("/v2/library/nginx/tags/list\\?n=5"))
             .willReturn(
                 aResponse()
                     .withStatus(HttpStatus.OK.value())
@@ -147,7 +146,7 @@ public class DockerRegistryClientTest {
                         "</v2/library/nginx/tags/list1>; rel=\"next\"")
                     .withBody(tagsSecondResponseString)));
     wmDockerRegistry.stubFor(
-        WireMock.get(urlMatching("/v2/library/nginx/tags/list1"))
+        WireMock.get(urlMatching("/v2/library/nginx/tags/list1\\?n=5"))
             .willReturn(
                 aResponse().withStatus(HttpStatus.OK.value()).withBody(tagsThirdResponseString)));
 
@@ -190,12 +189,8 @@ public class DockerRegistryClientTest {
     String tagsListEndPointMinusQueryParams = "/v2/library/nginx/tags/list";
     String expectedEncodedParam = "Md1Woj%2FNOhjepFq7kPAr%2FEw%2FYxfcJoH9N52%2Blo3qAQ%3D%3D";
 
-    // notice %252F, %253D which are double encoded characters of /(or %2F) and =(or %3D)
-    String doubleEncodedParam =
-        "Md1Woj%252FNOhjepFq7kPAr%252FEw%252FYxfcJoH9N52%252Blo3qAQ%253D%253D";
-
     wmDockerRegistry.stubFor(
-        WireMock.get(urlMatching(tagsListEndPointMinusQueryParams))
+        WireMock.get(urlMatching(tagsListEndPointMinusQueryParams + "\\?n=5"))
             .willReturn(
                 aResponse()
                     .withStatus(HttpStatus.OK.value())
@@ -211,26 +206,13 @@ public class DockerRegistryClientTest {
             .willReturn(
                 aResponse().withStatus(HttpStatus.OK.value()).withBody(tagsSecondResponseString)));
 
-    wmDockerRegistry.stubFor(
-        WireMock.get(
-                urlMatching(
-                    tagsListEndPointMinusQueryParams + "\\?last=" + doubleEncodedParam + "&n=5"))
-            .willReturn(aResponse().withStatus(405).withBody("Method Not Allowed")));
+    DockerRegistryTags dockerRegistryTags = dockerRegistryClient.getTags("library/nginx");
+    assertThat(dockerRegistryTags.getTags()).hasSize(10);
 
-    // TODO: Fix this issue of retrofit2 encoding the already encoded query parameter
-    assertThrows(
-        SpinnakerHttpException.class,
-        () -> dockerRegistryClient.getTags("library/nginx"),
-        "Status: 405, Method: GET, Message: Method Not Allowed");
-
-    wmDockerRegistry.verify(1, getRequestedFor(urlMatching(tagsListEndPointMinusQueryParams)));
+    wmDockerRegistry.verify(
+        1, getRequestedFor(urlMatching(tagsListEndPointMinusQueryParams + "\\?n=5")));
     wmDockerRegistry.verify(
         1,
-        getRequestedFor(
-            urlMatching(
-                tagsListEndPointMinusQueryParams + "\\?last=" + doubleEncodedParam + "&n=5")));
-    wmDockerRegistry.verify(
-        0,
         getRequestedFor(
             urlMatching(
                 tagsListEndPointMinusQueryParams + "\\?last=" + expectedEncodedParam + "&n=5")));
