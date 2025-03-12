@@ -17,10 +17,12 @@
 package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -29,14 +31,8 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerToken;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService;
-import com.netflix.spinnaker.config.DefaultServiceClientProvider;
-import com.netflix.spinnaker.config.okhttp3.DefaultOkHttpClientBuilderProvider;
-import com.netflix.spinnaker.config.okhttp3.OkHttpClientProvider;
-import com.netflix.spinnaker.kork.client.ServiceClientProvider;
 import com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory;
-import com.netflix.spinnaker.kork.retrofit.Retrofit2ServiceFactory;
-import com.netflix.spinnaker.kork.retrofit.Retrofit2ServiceFactoryAutoConfiguration;
-import com.netflix.spinnaker.okhttp.OkHttpClientConfigurationProperties;
+import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException;
 import java.util.Arrays;
 import java.util.Map;
 import okhttp3.OkHttpClient;
@@ -44,26 +40,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import retrofit2.Retrofit;
 import retrofit2.converter.jackson.JacksonConverterFactory;
 
-@SpringBootTest(
-    classes = {
-      OkHttpClientConfigurationProperties.class,
-      Retrofit2ServiceFactory.class,
-      ServiceClientProvider.class,
-      OkHttpClientProvider.class,
-      OkHttpClient.class,
-      DefaultServiceClientProvider.class,
-      DefaultOkHttpClientBuilderProvider.class,
-      Retrofit2ServiceFactoryAutoConfiguration.class,
-      ObjectMapper.class
-    },
-    webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(classes = {DockerBearerTokenService.class})
 public class DockerRegistryClientTest {
 
   @RegisterExtension
@@ -73,7 +56,6 @@ public class DockerRegistryClientTest {
   static DockerRegistryClient.DockerRegistryService dockerRegistryService;
   @MockBean DockerBearerTokenService dockerBearerTokenService;
   static DockerRegistryClient dockerRegistryClient;
-  @Autowired ServiceClientProvider serviceClientProvider;
   ObjectMapper objectMapper = new ObjectMapper();
   Map<String, Object> tagsResponse;
   String tagsResponseString;
@@ -201,5 +183,56 @@ public class DockerRegistryClientTest {
 
     DockerRegistryCatalog dockerRegistryCatalog = dockerRegistryClient.getCatalog();
     assertEquals(15, dockerRegistryCatalog.getRepositories().size());
+  }
+
+  @Test
+  public void getTagsWithNextLinkEncryptedAndEncoded() {
+    String tagsListEndPointMinusQueryParams = "/v2/library/nginx/tags/list";
+    String expectedEncodedParam = "Md1Woj%2FNOhjepFq7kPAr%2FEw%2FYxfcJoH9N52%2Blo3qAQ%3D%3D";
+
+    // notice %252F, %253D which are double encoded characters of /(or %2F) and =(or %3D)
+    String doubleEncodedParam =
+        "Md1Woj%252FNOhjepFq7kPAr%252FEw%252FYxfcJoH9N52%252Blo3qAQ%253D%253D";
+
+    wmDockerRegistry.stubFor(
+        WireMock.get(urlMatching(tagsListEndPointMinusQueryParams))
+            .willReturn(
+                aResponse()
+                    .withStatus(HttpStatus.OK.value())
+                    .withHeader(
+                        "link",
+                        "</v2/library/nginx/tags/list?last=Md1Woj%2FNOhjepFq7kPAr%2FEw%2FYxfcJoH9N52%2Blo3qAQ%3D%3D&n=5>; rel=\"next\"")
+                    .withBody(tagsResponseString)));
+
+    wmDockerRegistry.stubFor(
+        WireMock.get(
+                urlMatching(
+                    tagsListEndPointMinusQueryParams + "\\?last=" + expectedEncodedParam + "&n=5"))
+            .willReturn(
+                aResponse().withStatus(HttpStatus.OK.value()).withBody(tagsSecondResponseString)));
+
+    wmDockerRegistry.stubFor(
+        WireMock.get(
+                urlMatching(
+                    tagsListEndPointMinusQueryParams + "\\?last=" + doubleEncodedParam + "&n=5"))
+            .willReturn(aResponse().withStatus(405).withBody("Method Not Allowed")));
+
+    // TODO: Fix this issue of retrofit2 encoding the already encoded query parameter
+    assertThrows(
+        SpinnakerHttpException.class,
+        () -> dockerRegistryClient.getTags("library/nginx"),
+        "Status: 405, Method: GET, Message: Method Not Allowed");
+
+    wmDockerRegistry.verify(1, getRequestedFor(urlMatching(tagsListEndPointMinusQueryParams)));
+    wmDockerRegistry.verify(
+        1,
+        getRequestedFor(
+            urlMatching(
+                tagsListEndPointMinusQueryParams + "\\?last=" + doubleEncodedParam + "&n=5")));
+    wmDockerRegistry.verify(
+        0,
+        getRequestedFor(
+            urlMatching(
+                tagsListEndPointMinusQueryParams + "\\?last=" + expectedEncodedParam + "&n=5")));
   }
 }
