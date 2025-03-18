@@ -23,7 +23,6 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -32,7 +31,6 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerToken;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService;
-import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryOperationException;
 import com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory;
 import java.util.Arrays;
 import java.util.Map;
@@ -246,12 +244,8 @@ public class DockerRegistryClientTest {
                     .withStatus(HttpStatus.OK.value())
                     .withBody(objectMapper.writeValueAsString(tagsResponse))));
 
-    // TODO: Fix this issue by adding configuration to the ObjectMapper to ignore unknown fields
-    assertThrows(
-        DockerRegistryOperationException.class,
-        () -> dockerRegistryClient.getTags("library/nginx"),
-        "Failed to parse ResponseBody : Unrecognized field \"child\" "
-            + "(class com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryTags), "
-            + "not marked as ignorable (3 known properties: \"tags\", \"name\", \"metaClass\"])");
+    DockerRegistryTags dockerRegistryTags = dockerRegistryClient.getTags("library/nginx");
+    String[] tags = (String[]) tagsResponse.get("tags");
+    assertIterableEquals(Arrays.asList(tags), dockerRegistryTags.getTags());
   }
 }
