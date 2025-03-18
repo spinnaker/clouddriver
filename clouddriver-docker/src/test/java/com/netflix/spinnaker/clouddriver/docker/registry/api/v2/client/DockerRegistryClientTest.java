@@ -23,6 +23,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -31,6 +32,7 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerToken;
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService;
+import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryOperationException;
 import com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory;
 import java.util.Arrays;
 import java.util.Map;
@@ -216,5 +218,40 @@ public class DockerRegistryClientTest {
         getRequestedFor(
             urlMatching(
                 tagsListEndPointMinusQueryParams + "\\?last=" + expectedEncodedParam + "&n=5")));
+  }
+
+  @Test
+  public void testTagsResponse_With_AdditionalFields() throws JsonProcessingException {
+    Map<String, Object> tagsResponse =
+        Map.of(
+            "child",
+            new String[] {},
+            "manifest",
+            Map.of(
+                "sha256:ec1b05dxxxxxxxxxxxxxxxxxxxedb1d6a4",
+                Map.of(
+                    "mediaType",
+                    "application/vnd.docker.distribution.manifest.v2+json",
+                    "tag",
+                    new String[] {"1.0.0", "2.0.1"})),
+            "name",
+            "library/nginx",
+            "tags",
+            new String[] {"1", "1-alpine", "1-alpine-otel", "1-alpine-perl", "1-alpine-slim"});
+
+    wmDockerRegistry.stubFor(
+        WireMock.get(urlMatching("/v2/library/nginx/tags/list\\?n=5"))
+            .willReturn(
+                aResponse()
+                    .withStatus(HttpStatus.OK.value())
+                    .withBody(objectMapper.writeValueAsString(tagsResponse))));
+
+    // TODO: Fix this issue by adding configuration to the ObjectMapper to ignore unknown fields
+    assertThrows(
+        DockerRegistryOperationException.class,
+        () -> dockerRegistryClient.getTags("library/nginx"),
+        "Failed to parse ResponseBody : Unrecognized field \"child\" "
+            + "(class com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryTags), "
+            + "not marked as ignorable (3 known properties: \"tags\", \"name\", \"metaClass\"])");
   }
 }
