@@ -45,6 +45,7 @@ import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.BasicGoogleDeployDescription
+import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.google.deploy.ops.GoogleUserDataProvider
 import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
@@ -176,7 +177,20 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     if (description.instanceType.contains('custom-')) {
       machineTypeName = description.instanceType
     } else {
-      machineTypeName = GCEUtil.queryMachineType(description.instanceType, location, credentials, task, BASE_PHASE)
+      // This is to handle when resources aren't in all zones but only some and this causes failures on deploys.
+      def queryZone = description.regional ? (description.selectZones ? description.distributionPolicy.getZones() : [location]) : [location]
+      queryZone.each { zoneOrLocation ->
+        def msg = description.regional ?
+          (description.selectZones ?
+            "Machine type ${description.instanceType} not found in zone ${zoneOrLocation}. When using selectZones, the machine type must be available in all selected zones." :
+            "Machine type ${description.instanceType} not found in zone ${zoneOrLocation}. When using Regional distribution without explicit selection of Zones, the machine type must be available in all zones of the region."
+          ) : "Machine type ${description.instanceType} not found in region ${zoneOrLocation}."
+        try {
+          machineTypeName = GCEUtil.queryMachineType(description.instanceType, zoneOrLocation, credentials, task, BASE_PHASE)
+        } catch (GoogleResourceNotFoundException e) {
+          throw new GoogleResourceNotFoundException(msg)
+        }
+      }
     }
 
     def network = GCEUtil.queryNetwork(accountName, description.network ?: DEFAULT_NETWORK_NAME, task, BASE_PHASE, googleNetworkProvider)
