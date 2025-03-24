@@ -177,6 +177,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     if (description.instanceType.contains('custom-')) {
       machineTypeName = description.instanceType
     } else {
+      // This is to handle when resources aren't in all zones but only some and this causes failures on deploys.
       def queryZone = description.regional ? (description.selectZones ? description.distributionPolicy.getZones() : [location]) : [location]
       queryZone.each { zoneOrLocation ->
         def msg = description.regional ?
