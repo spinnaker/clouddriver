@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.Instant
 
 @RestController
 @RequestMapping(["/dockerRegistry/images", "/titus/images"])
@@ -54,7 +55,21 @@ class DockerRegistryImageLookupController {
       Keys.getTaggedImageKey(account, repository, "*")
     ).sort { a, b ->
       if (credentials.sortTagsByDate) {
-        b.attributes.date.epochSecond <=> a.attributes.date.epochSecond
+        Instant dateA
+        if (a.attributes.date instanceof String) {
+          dateA = Instant.parse(a.attributes.date)
+        } else {
+          dateA = a.attributes.date
+        }
+
+        Instant dateB
+        if (b.attributes.date instanceof String) {
+          dateB = Instant.parse(b.attributes.date)
+        } else {
+          dateB = b.attributes.date
+        }
+
+        dateB.epochSecond <=> dateA.epochSecond      
       } else {
         a.id <=> b.id
       }
