@@ -550,7 +550,9 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
           cacheTargetGroups(data, targetGroups)
           cacheLaunchTemplate(data, launchTemplates)
         } catch (Exception ex) {
-          log.warn("Failed to cache ${asg.autoScalingGroupName} in ${account.name}/${region}", ex)
+          StringWriter sw = new StringWriter()
+          ex.printStackTrace(sw)
+          log.warn("Failed to cache ${asg.autoScalingGroupName} in ${account.name}/${region}: ${sw.toString()}", ex)
         }
       }
     }
