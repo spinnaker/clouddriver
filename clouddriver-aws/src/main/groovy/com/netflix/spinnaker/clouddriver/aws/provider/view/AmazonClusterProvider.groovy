@@ -579,7 +579,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
     // get launch template for version specified
     def ltSpec = serverGroup.getLaunchTemplateSpecification()
     log.debug("Attempting to populate server group $serverGroup.name with launch template $ltSpec.")
-    Map ec2Lt = getLaunchTemplateForVersion(launchData, ltSpec["version"] as String)
+    Map ec2Lt = getLaunchTemplateForVersion(launchData,  (ltSpec["version"] ?: "\$Latest") as String)
 
     if (!ec2Lt) {
       return
