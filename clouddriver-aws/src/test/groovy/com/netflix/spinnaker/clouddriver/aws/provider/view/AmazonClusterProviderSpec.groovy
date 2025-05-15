@@ -403,4 +403,68 @@ class AmazonClusterProviderSpec extends Specification {
     [[instanceType: "some.type.large", weightedCapacity: 2],
      [instanceType: "some.type.xlarge", weightedCapacity: 4]] ||           null               | ["some.type.large", "some.type.xlarge"]
   }
+
+  @Unroll
+  def "should default to latest version when unable to resolve server group launch template version"() {
+    given:
+    serverGroup.asg = [
+      launchTemplate: [
+        launchTemplateId: "lt-" + launchTemplateName,
+        launchTemplateName: launchTemplateName
+      ]
+    ]
+
+    def defaultVersion = [
+      launchTemplateName: launchTemplateName,
+      versionNumber: 0,
+      defaultVersion: true,
+      launchTemplateData: [
+        imageId: "ami-345"
+      ]
+    ]
+
+    def latestVersion = [
+      launchTemplateName: launchTemplateName,
+      versionNumber: 1,
+      defaultVersion: false,
+      launchTemplateData: [
+        imageId: "ami-123"
+      ]
+    ]
+
+    def launchTemplate = new DefaultCacheData(
+      Keys.getLaunchTemplateKey(launchTemplateName, account, "us-east-1"),
+      [
+        launchTemplateName: launchTemplateName,
+        latestVersion: latestVersion,
+        versions: [
+          defaultVersion,
+          latestVersion
+        ]
+      ], [:])
+
+    and:
+    cacheView.getAll(LAUNCH_TEMPLATES.ns, _ as Set) >> [launchTemplate]
+    cacheView.get(CLUSTERS.ns, clusterId) >> new DefaultCacheData(clusterId, clusterAttributes, [serverGroups: [serverGroupId]])
+    cacheView.getAll(SERVER_GROUPS.ns, [ serverGroupId ], _ as CacheFilter) >> [
+      new DefaultCacheData(serverGroupId, serverGroup, [launchTemplates: [launchTemplate.id]])
+    ]
+
+    when:
+    def result = provider.getCluster(app, account, clusterName)
+
+    then:
+    result.serverGroups.size() == 1
+    result.serverGroups[0].launchConfig == null
+    result.serverGroups[0].mixedInstancesPolicy == null
+    result.serverGroups[0].launchTemplate.versionNumber == resolvedVersion
+
+    where:
+    asgLaunchTemplateVersion | resolvedVersion
+    '1'                      | 1
+    '$Default'               | 1
+    '$Latest'                | 1
+  }
+
+
 }
