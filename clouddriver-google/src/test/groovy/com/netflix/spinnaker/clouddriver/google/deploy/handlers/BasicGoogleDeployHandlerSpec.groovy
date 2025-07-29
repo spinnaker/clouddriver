@@ -18,6 +18,9 @@ package com.netflix.spinnaker.clouddriver.google.deploy.handlers
 
 import com.google.api.services.compute.Compute
 import com.google.api.services.compute.ComputeRequest
+import com.google.api.services.compute.model.Autoscaler
+import com.google.api.services.compute.model.Backend
+import com.google.api.services.compute.model.BackendService
 import com.google.api.services.compute.model.Image
 import com.google.api.services.compute.model.ImageList
 import com.google.api.services.compute.model.Instance
@@ -26,10 +29,21 @@ import com.google.api.services.compute.model.MachineType
 import com.google.api.services.compute.model.MachineTypeList
 import com.google.api.services.compute.model.Network
 import com.google.api.services.compute.model.NetworkList
+import com.google.api.services.compute.model.Operation
+import com.netflix.spectator.api.Clock
+import com.netflix.spectator.api.Id
+import com.netflix.spectator.api.Registry
+import com.netflix.spectator.api.Timer
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
+import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.BasicGoogleDeployDescription
+import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy
 import com.netflix.spinnaker.clouddriver.google.security.GoogleCredentials
+import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
+import com.netflix.spinnaker.moniker.Namer
 import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
@@ -86,5 +100,91 @@ class BasicGoogleDeployHandlerSpec extends Specification {
     list.execute() >> listModel
     mock.list(_, _) >> list
     mock
+  }
+
+  def "backend service update creates closure that returns operation"() {
+    given:
+    def mockCompute = Mock(Compute)
+    def mockBackendServices = Mock(Compute.BackendServices)
+    def mockGet = Mock(Compute.BackendServices.Get)
+    def mockUpdate = Mock(Compute.BackendServices.Update)
+    def mockOperation = new Operation(name: "operation-123", status: "DONE")
+    
+    // Setup registry mocks for timeExecute
+    def mockClock = Mock(Clock)
+    def mockTimer = Mock(Timer)
+    def mockId = Mock(Id)
+    def mockRegistry = Mock(Registry)
+    mockRegistry.clock() >> mockClock
+    mockRegistry.createId(_, _) >> mockId
+    mockId.withTags(_) >> mockId
+    mockRegistry.timer(_) >> mockTimer
+    mockClock.monotonicTime() >> 1000L
+    
+    def handler = new BasicGoogleDeployHandler()
+    handler.registry = mockRegistry
+    
+    // Mock backend service data
+    def existingBackendService = new BackendService(name: "test-backend-service", backends: [])
+    def newBackendService = new BackendService(
+        name: "test-backend-service",
+        backends: [new Backend(group: "projects/test/zones/us-central1-a/instanceGroups/new-group")]
+    )
+    
+    when:
+    def updateClosure = handler.updateBackendServices(mockCompute, "test-project", "test-backend-service", newBackendService)
+    def result = updateClosure.call()
+    
+    then:
+    // Verify GCP API calls
+    2 * mockCompute.backendServices() >> mockBackendServices
+    1 * mockBackendServices.get("test-project", "test-backend-service") >> mockGet
+    1 * mockGet.execute() >> existingBackendService
+    1 * mockBackendServices.update("test-project", "test-backend-service", _) >> mockUpdate
+    1 * mockUpdate.execute() >> mockOperation
+    
+    result == mockOperation
+  }
+    
+  def "autoscaler operations return operations for waiting"() {
+    setup:
+    def mockRegistry = Mock(Registry)
+    def mockClock = Mock(Clock)
+    def mockTimer = Mock(Timer)
+    def mockId = Mock(Id)
+    def mockCompute = Mock(Compute)
+    def mockAutoscalers = Mock(Compute.Autoscalers)
+    def mockAutoscalerInsert = Mock(Compute.Autoscalers.Insert)
+    def mockRegionAutoscalers = Mock(Compute.RegionAutoscalers)
+    def mockRegAutoscalerInsert = Mock(Compute.RegionAutoscalers.Insert)
+    
+    mockRegistry.clock() >> mockClock
+    mockRegistry.createId(_, _) >> mockId
+    mockId.withTags(_) >> mockId
+    mockRegistry.timer(_) >> mockTimer
+    mockClock.monotonicTime() >> 1000L
+    
+    def zonalOperation = new Operation(name: "zonal-op", status: "DONE")
+    def regionalOperation = new Operation(name: "regional-op", status: "DONE")
+    
+    mockCompute.autoscalers() >> mockAutoscalers
+    mockCompute.regionAutoscalers() >> mockRegionAutoscalers
+    mockAutoscalers.insert(_, _, _) >> mockAutoscalerInsert
+    mockAutoscalerInsert.execute() >> zonalOperation
+    mockRegionAutoscalers.insert(_, _, _) >> mockRegAutoscalerInsert
+    mockRegAutoscalerInsert.execute() >> regionalOperation
+    
+    def handler = new BasicGoogleDeployHandler(registry: mockRegistry)
+    
+    when:
+    def zonalResult = handler.timeExecute(mockAutoscalerInsert, "compute.autoscalers.insert", "TAG_SCOPE", "SCOPE_ZONAL")
+    def regionalResult = handler.timeExecute(mockRegAutoscalerInsert, "compute.regionAutoscalers.insert", "TAG_SCOPE", "SCOPE_REGIONAL")
+    
+    then:
+    1 * mockAutoscalerInsert.execute() >> zonalOperation
+    1 * mockRegAutoscalerInsert.execute() >> regionalOperation
+    
+    zonalResult.getName() == "zonal-op"
+    regionalResult.getName() == "regional-op"
   }
 }
