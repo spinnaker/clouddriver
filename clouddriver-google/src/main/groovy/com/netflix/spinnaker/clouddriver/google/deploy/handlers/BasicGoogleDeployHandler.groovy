@@ -611,8 +611,14 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           
           // Wait for regional autoscaler creation to complete before proceeding with deployment
           // Uses GoogleOperationPoller which implements proper retry logic and handles operation status polling
-          googleOperationPoller.waitForRegionalOperation(compute, project, region, autoscalerOperation.getName(),
-            null, task, "regional autoscaler $serverGroupName", BASE_PHASE)
+          if (googleDeployDefaults.enableAsyncOperationWait) {
+            log.warn(
+              "[enableAsyncOperationWait]: If you see unjustified long waits or other issues caused by this flag, " +
+              "please drop a note in Spinnaker Slack or open a GitHub Issue with the related details."
+            )
+            googleOperationPoller.waitForRegionalOperation(compute, project, region, autoscalerOperation.getName(),
+              null, task, "regional autoscaler $serverGroupName", BASE_PHASE)
+          }
         }
       }
     } else {
@@ -651,8 +657,14 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           
           // Wait for zonal autoscaler creation to complete before proceeding with deployment
           // Uses GoogleOperationPoller which implements proper retry logic and handles operation status polling
-          googleOperationPoller.waitForZonalOperation(compute, project, zone, autoscalerOperation.getName(),
-            null, task, "autoscaler $serverGroupName", BASE_PHASE)
+          if (googleDeployDefaults.enableAsyncOperationWait) {
+            log.warn(
+              "[enableAsyncOperationWait]: If you see unjustified long waits or other issues caused by this flag, " +
+              "please drop a note in Spinnaker Slack or open a GitHub Issue with the related details."
+            )
+            googleOperationPoller.waitForZonalOperation(compute, project, zone, autoscalerOperation.getName(),
+              null, task, "autoscaler $serverGroupName", BASE_PHASE)
+          }
         }
       }
     }
