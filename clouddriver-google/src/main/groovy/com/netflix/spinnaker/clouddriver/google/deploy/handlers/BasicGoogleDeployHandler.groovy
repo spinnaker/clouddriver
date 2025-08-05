@@ -65,6 +65,7 @@ import com.netflix.spinnaker.moniker.Namer
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+import javax.annotation.PostConstruct
 
 import static com.google.common.base.Preconditions.checkArgument
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
@@ -612,10 +613,6 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           // Wait for regional autoscaler creation to complete before proceeding with deployment
           // Uses GoogleOperationPoller which implements proper retry logic and handles operation status polling
           if (googleDeployDefaults.enableAsyncOperationWait) {
-            log.warn(
-              "[enableAsyncOperationWait]: If you see unjustified long waits or other issues caused by this flag, " +
-              "please drop a note in Spinnaker Slack or open a GitHub Issue with the related details."
-            )
             googleOperationPoller.waitForRegionalOperation(compute, project, region, autoscalerOperation.getName(),
               null, task, "regional autoscaler $serverGroupName", BASE_PHASE)
           }
@@ -658,10 +655,6 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           // Wait for zonal autoscaler creation to complete before proceeding with deployment
           // Uses GoogleOperationPoller which implements proper retry logic and handles operation status polling
           if (googleDeployDefaults.enableAsyncOperationWait) {
-            log.warn(
-              "[enableAsyncOperationWait]: If you see unjustified long waits or other issues caused by this flag, " +
-              "please drop a note in Spinnaker Slack or open a GitHub Issue with the related details."
-            )
             googleOperationPoller.waitForZonalOperation(compute, project, zone, autoscalerOperation.getName(),
               null, task, "autoscaler $serverGroupName", BASE_PHASE)
           }
@@ -850,6 +843,14 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       description, credentials, customUserData)
     task.updateStatus BASE_PHASE, "Resolved user data."
     return userData
+  }
+
+  @PostConstruct
+  void logEnableAsyncOperationWaitWarning() {
+    if (googleDeployDefaults?.enableAsyncOperationWait) {
+      log.warn("[enableAsyncOperationWait]: If you see unjustified long waits or other issues caused by this flag, " +
+               "please drop a note in Spinnaker Slack or open a GitHub Issue with the related details.")
+    }
   }
 
   static class GoogleInstanceTemplate implements GoogleLabeledResource {
