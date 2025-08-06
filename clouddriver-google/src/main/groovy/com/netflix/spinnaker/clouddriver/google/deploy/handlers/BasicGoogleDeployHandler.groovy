@@ -29,6 +29,7 @@ import com.google.api.services.compute.model.InstanceGroupManagerAutoHealingPoli
 import com.google.api.services.compute.model.InstanceProperties
 import com.google.api.services.compute.model.InstanceTemplate
 import com.google.api.services.compute.model.NamedPort
+import com.google.api.services.compute.model.Operation
 import com.netflix.frigga.Names
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.cache.Cache
@@ -64,6 +65,7 @@ import com.netflix.spinnaker.moniker.Namer
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+import javax.annotation.PostConstruct
 
 import static com.google.common.base.Preconditions.checkArgument
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
@@ -587,14 +589,33 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
         if (willCreateAutoscaler) {
           task.updateStatus BASE_PHASE, "Creating regional autoscaler for $serverGroupName..."
 
+          // Build autoscaler configuration from the deployment description
+          // The autoscaler will manage the instance group created above (migCreateOperation.targetLink)
           Autoscaler autoscaler = GCEUtil.buildAutoscaler(serverGroupName,
                                                           migCreateOperation.targetLink,
                                                           description.autoscalingPolicy)
 
-          timeExecute(
+          // Google Cloud autoscaler insert operations are asynchronous and return an Operation object.
+          // 
+          // Per Google Cloud documentation:
+          // "When you perform any requests that modify data, a zoneOperations or regionOperations resource 
+          // is returned, and you can query the operation to check the status of your change."
+          //
+          // Without waiting for autoscaler creation to complete, subsequent deployment steps (health checks, traffic routing)
+          // may execute before the autoscaler is active, leading to inconsistent behavior and potential deployment failures.
+          //
+          // This fix aligns Spinnaker GCP behavior with Spinnaker AWS behavior, where autoscaling group operations are synchronous.
+          Operation autoscalerOperation = timeExecute(
               compute.regionAutoscalers().insert(project, region, autoscaler),
               "compute.regionAutoscalers.insert",
               TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
+          
+          // Wait for regional autoscaler creation to complete before proceeding with deployment
+          // Uses GoogleOperationPoller which implements proper retry logic and handles operation status polling
+          if (googleDeployDefaults.enableAsyncOperationWait) {
+            googleOperationPoller.waitForRegionalOperation(compute, project, region, autoscalerOperation.getName(),
+              null, task, "regional autoscaler $serverGroupName", BASE_PHASE)
+          }
         }
       }
     } else {
@@ -611,46 +632,104 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
         if (willCreateAutoscaler) {
           task.updateStatus BASE_PHASE, "Creating zonal autoscaler for $serverGroupName..."
 
+          // Build autoscaler configuration from the deployment description
+          // The autoscaler will manage the instance group created above (migCreateOperation.targetLink)
           Autoscaler autoscaler = GCEUtil.buildAutoscaler(serverGroupName,
                                                           migCreateOperation.targetLink,
                                                           description.autoscalingPolicy)
 
-          timeExecute(compute.autoscalers().insert(project, zone, autoscaler),
+          // Google Cloud autoscaler insert operations are asynchronous and return an Operation object.
+          //
+          // Per Google Cloud documentation:
+          // "When you perform any requests that modify data, a zoneOperations or regionOperations resource
+          // is returned, and you can query the operation to check the status of your change."
+          //
+          // Without waiting for autoscaler creation to complete, subsequent deployment steps (health checks, traffic routing)
+          // may execute before the autoscaler is active, leading to inconsistent behavior and potential deployment failures.
+          //
+          // This fix aligns Spinnaker GCP behavior with Spinnaker AWS behavior, where autoscaling group operations are synchronous.
+          Operation autoscalerOperation = timeExecute(compute.autoscalers().insert(project, zone, autoscaler),
                       "compute.autoscalers.insert",
                       TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
+          
+          // Wait for zonal autoscaler creation to complete before proceeding with deployment
+          // Uses GoogleOperationPoller which implements proper retry logic and handles operation status polling
+          if (googleDeployDefaults.enableAsyncOperationWait) {
+            googleOperationPoller.waitForZonalOperation(compute, project, zone, autoscalerOperation.getName(),
+              null, task, "autoscaler $serverGroupName", BASE_PHASE)
+          }
         }
       }
     }
 
     task.updateStatus BASE_PHASE, "Done creating server group $serverGroupName in $location."
 
-    // Actually update the backend services.
+    // Update backend services and wait for operation completion
     if (willUpdateBackendServices) {
       backendServicesToUpdate.each { BackendService backendService ->
-        safeRetry.doRetry(
+        // Execute backend service update with retry logic for transient errors
+        def operation = safeRetry.doRetry(
           updateBackendServices(compute, project, backendService.name, backendService),
           "Load balancer backend service",
           task,
-          [400, 412],
+          [400, 412],  // Retry on Bad Request (400) and Precondition Failed (412)
           [],
           [action: "update", phase: BASE_PHASE, operation: "updateBackendServices", (TAG_SCOPE): SCOPE_GLOBAL],
           registry
         )
+        
+        if (operation) {
+          // Wait for the backend service update operation to complete
+          //
+          // Per Google Cloud documentation:
+          // "Backend service operations are asynchronous and return an Operation resource.
+          // You can use an operation resource to manage asynchronous API requests.
+          // For global operations, use the globalOperations resource."
+          //
+          // Without waiting for backend service updates to complete,
+          // subsequent health checks and traffic routing may execute before the backend service
+          // knows about the new instance group, causing deployment failures.
+          //
+          // This ensures that health checks and WaitForUpInstancesTask execute only after
+          // backend services have been fully updated with the new instance group.
+          task.updateStatus BASE_PHASE, "Waiting for backend service ${backendService.name} update to complete..."
+          googleOperationPoller.waitForGlobalOperation(compute, project, operation.getName(),
+            null, task, "backend service ${backendService.name}", BASE_PHASE)
+        }
+        
         task.updateStatus BASE_PHASE, "Done associating server group $serverGroupName with backend service ${backendService.name}."
       }
     }
 
+    // Update regional backend services and wait for operation completion
     if (willUpdateRegionalBackendServices) {
       regionBackendServicesToUpdate.each { BackendService backendService ->
-        safeRetry.doRetry(
+        // Execute regional backend service update with retry logic for transient errors
+        def operation = safeRetry.doRetry(
           updateRegionBackendServices(compute, project, region, backendService.name, backendService),
           "Internal load balancer backend service",
           task,
-          [400, 412],
+          [400, 412],  // Retry on Bad Request (400) and Precondition Failed (412)
           [],
           [action: "update", phase: BASE_PHASE, operation: "updateRegionBackendServices", (TAG_SCOPE): SCOPE_REGIONAL, (TAG_REGION): region],
           registry
         )
+        
+        if (operation) {
+          // Wait for the regional backend service update operation to complete
+          //
+          // Per Google Cloud documentation:
+          // "Regional backend service operations are asynchronous and return an Operation resource.
+          // You can use an operation resource to manage asynchronous API requests.
+          // For regional operations, use the regionOperations resource."
+          //
+          // Similar to global backend services, regional backend services require explicit waiting to ensure the new instance group 
+          // is properly registered before health checks and traffic routing decisions are made.
+          task.updateStatus BASE_PHASE, "Waiting for regional backend service ${backendService.name} update to complete..."
+          googleOperationPoller.waitForRegionalOperation(compute, project, region, operation.getName(),
+            null, task, "regional backend service ${backendService.name}", BASE_PHASE)
+        }
+        
         task.updateStatus BASE_PHASE, "Done associating server group $serverGroupName with backend service ${backendService.name}."
       }
     }
@@ -667,6 +746,24 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     }
   }
 
+  /**
+   * Creates a closure to update regional backend services with new instance groups.
+   * 
+   * Per Google Cloud documentation:
+   * "Backend service operations are asynchronous and return an Operation resource. 
+   * You can use an operation resource to manage asynchronous API requests.
+   * Operations can be global, regional or zonal. For regional operations, use the regionOperations resource."
+   * 
+   * The returned Operation object must be polled until completion to ensure the backend service
+   * update has been fully applied before proceeding with subsequent deployment steps.
+   * 
+   * @param compute GCP Compute API client
+   * @param project GCP project ID
+   * @param region GCP region for regional backend service
+   * @param backendServiceName Name of the backend service to update
+   * @param backendService Backend service configuration with new backends to add
+   * @return Closure that returns an Operation object for the update request
+   */
   private Closure updateRegionBackendServices(Compute compute, String project, String region, String backendServiceName, BackendService backendService) {
     return {
       BackendService serviceToUpdate = timeExecute(
@@ -678,14 +775,32 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       }
       backendService?.backends?.each { serviceToUpdate.backends << it }
       serviceToUpdate.getBackends().unique { backend -> backend.group }
-      timeExecute(
+      return timeExecute(
           compute.regionBackendServices().update(project, region, backendServiceName, serviceToUpdate),
           "compute.regionBackendServices.update",
           TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
-      null
     }
   }
 
+  /**
+   * Creates a closure to update global backend services with new instance groups.
+   * 
+   * Per Google Cloud documentation:
+   * "Backend service operations are asynchronous and return an Operation resource. 
+   * You can use an operation resource to manage asynchronous API requests.
+   * Operations can be global, regional or zonal. For global operations, use the globalOperations resource."
+   * 
+   * The returned Operation object must be polled until completion to ensure the backend service
+   * update has been fully applied before proceeding with subsequent deployment steps. This prevents
+   * race conditions where health checks or traffic routing occurs before the backend service knows
+   * about the new instance group.
+   * 
+   * @param compute GCP Compute API client
+   * @param project GCP project ID
+   * @param backendServiceName Name of the backend service to update
+   * @param backendService Backend service configuration with new backends to add
+   * @return Closure that returns an Operation object for the update request
+   */
   private Closure updateBackendServices(Compute compute, String project, String backendServiceName, BackendService backendService) {
     return {
       BackendService serviceToUpdate = timeExecute(
@@ -697,11 +812,10 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       }
       backendService?.backends?.each { serviceToUpdate.backends << it }
       serviceToUpdate.getBackends().unique { backend -> backend.group }
-      timeExecute(
+      return timeExecute(
           compute.backendServices().update(project, backendServiceName, serviceToUpdate),
           "compute.backendServices.update",
           TAG_SCOPE, SCOPE_GLOBAL)
-      null
     }
   }
 
@@ -729,6 +843,14 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       description, credentials, customUserData)
     task.updateStatus BASE_PHASE, "Resolved user data."
     return userData
+  }
+
+  @PostConstruct
+  void logEnableAsyncOperationWaitWarning() {
+    if (googleDeployDefaults?.enableAsyncOperationWait) {
+      log.warn("[enableAsyncOperationWait]: If you see unjustified long waits or other issues caused by this flag, " +
+               "please drop a note in Spinnaker Slack or open a GitHub Issue with the related details.")
+    }
   }
 
   static class GoogleInstanceTemplate implements GoogleLabeledResource {
