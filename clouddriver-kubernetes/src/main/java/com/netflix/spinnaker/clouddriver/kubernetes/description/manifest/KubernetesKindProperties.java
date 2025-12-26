@@ -39,7 +39,9 @@ public class KubernetesKindProperties {
         new KubernetesKindProperties(KubernetesKind.CRON_JOB, true),
         new KubernetesKindProperties(KubernetesKind.DAEMON_SET, true),
         new KubernetesKindProperties(KubernetesKind.DEPLOYMENT, true),
+        new KubernetesKindProperties(KubernetesKind.DESTINATION_RULE, true),
         new KubernetesKindProperties(KubernetesKind.EVENT, true),
+        new KubernetesKindProperties(KubernetesKind.GATEWAY, true),
         new KubernetesKindProperties(KubernetesKind.HORIZONTAL_POD_AUTOSCALER, true),
         new KubernetesKindProperties(KubernetesKind.INGRESS, true),
         new KubernetesKindProperties(KubernetesKind.JOB, true),
@@ -62,6 +64,7 @@ public class KubernetesKindProperties {
         new KubernetesKindProperties(KubernetesKind.STATEFUL_SET, true),
         new KubernetesKindProperties(KubernetesKind.STORAGE_CLASS, false),
         new KubernetesKindProperties(KubernetesKind.VALIDATING_WEBHOOK_CONFIGURATION, false),
+        new KubernetesKindProperties(KubernetesKind.VIRTUAL_SERVICE, true),
         new KubernetesKindProperties(KubernetesKind.NONE, true));
   }
 
